@@ -9,13 +9,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # Matches the version used locally. There is no engines field or .nvmrc
-      # yet, so this pin is the only thing keeping CI and local in step.
-      - uses: actions/setup-node@v4
+      # .nvmrc is the single source of truth for the Node version, so local and
+      # CI cannot drift - the same property the backend gets from go.mod.
+      - uses: actions/setup-node@v7
         with:
-          node-version: 26
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
