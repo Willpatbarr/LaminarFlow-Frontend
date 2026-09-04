@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "lint": "oxlint && npm run check:boundary",
+    "preview": "vite preview",
+    "check:boundary": "node scripts/check-no-db-driver.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",
