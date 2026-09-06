@@ -25,3 +25,22 @@ jobs:
       - run: npm test
 
       - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # --with-deps pulls the system libraries the browser needs on a bare
+      # runner; the config's webServer starts Vite itself.
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e

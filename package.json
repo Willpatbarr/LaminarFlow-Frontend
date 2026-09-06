@@ -9,14 +9,18 @@
     "lint": "oxlint && npm run check:boundary",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "preview": "vite preview",
     "check:boundary": "node scripts/check-no-db-driver.mjs"
   },
   "dependencies": {
+    "@tanstack/react-router": "^1.170.32",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tanstack/router-plugin": "^1.168.35",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
