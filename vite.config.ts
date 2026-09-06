@@ -1,5 +1,7 @@
+import { fileURLToPath } from 'node:url'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 // The deployed app is same-origin: the Go backend serves this bundle and the
 // API from one port (LAM-28). `npm run dev` is the one place that is not true -
@@ -13,7 +15,17 @@ import { defineConfig } from 'vite'
 const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8080'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    // Must precede react(): the plugin generates the route modules that
+    // @vitejs/plugin-react then transforms.
+    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
+    react(),
+  ],
+
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
+
   server: {
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },
@@ -21,5 +33,13 @@ export default defineConfig({
       // expect them, so they need their own entry to be reachable in dev.
       '/healthz': { target: apiTarget, changeOrigin: true },
     },
+  },
+
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.ts'],
+      // Vitest's default glob also matches e2e/*.spec.ts. Without this it tries
+      // to run the Playwright specs under jsdom, where `page` does not exist.
+      include: ['src/**/*.test.{ts,tsx}'],
   },
 })

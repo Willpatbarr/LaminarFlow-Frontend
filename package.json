@@ -7,20 +7,35 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint && npm run check:boundary",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "api:pull": "node scripts/api-pull.mjs && npm run api:types",
+    "api:types": "npx -y openapi-typescript@7.13.0 api/openapi.json -o src/api/schema.d.ts",
     "preview": "vite preview",
     "check:boundary": "node scripts/check-no-db-driver.mjs"
   },
   "dependencies": {
+    "@tanstack/react-router": "^1.170.32",
+    "openapi-fetch": "^0.17.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tanstack/router-plugin": "^1.168.35",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "jsdom": "^30.0.1",
     "oxlint": "^1.79.0",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   }
 }

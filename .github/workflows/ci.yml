@@ -21,5 +21,35 @@ jobs:
       - run: npm ci
 
       - run: npm run lint
+          
+          # Regenerated from the committed spec, so a spec pulled without a
+          # regeneration fails here rather than at the next call site.
+          - name: Check the generated types are current
+            run: |
+              npm run api:types
+              git diff --exit-code src/api/schema.d.ts
+
+          - run: npm test
+
+      - run: npm test
 
       - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # --with-deps pulls the system libraries the browser needs on a bare
+      # runner; the config's webServer starts Vite itself.
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
