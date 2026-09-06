@@ -38,5 +38,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
+      // Vitest's default glob also matches e2e/*.spec.ts. Without this it tries
+      // to run the Playwright specs under jsdom, where `page` does not exist.
+      include: ['src/**/*.test.{ts,tsx}'],
   },
 })

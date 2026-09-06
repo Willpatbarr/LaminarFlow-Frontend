@@ -9,6 +9,7 @@
     "lint": "oxlint && npm run check:boundary",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "preview": "vite preview",
     "check:boundary": "node scripts/check-no-db-driver.mjs"
   },
