@@ -34,6 +34,17 @@ type error fails the build rather than shipping.
     npm run test:e2e
     npm run build
 
+## Consuming the API
+
+    npm run api:pull
+
+Fetches `api/openapi.json` from the backend's `main` and regenerates
+`src/api/schema.d.ts`. Both are committed. Pass `API_REF=<branch>` to pull from
+a branch that has not merged yet.
+
+Calls go through `src/api/client.ts`, which is typed from the generated schema:
+a path or field the backend does not have is a build error, not a 404.
+
 ## Where components live
 
 | Path | What belongs there |
