@@ -27,7 +27,7 @@ jobs:
       - run: npm run build
 
   e2e:
-    runs-on: ubuntu_latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
