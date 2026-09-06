@@ -21,6 +21,15 @@ jobs:
       - run: npm ci
 
       - run: npm run lint
+          
+          # Regenerated from the committed spec, so a spec pulled without a
+          # regeneration fails here rather than at the next call site.
+          - name: Check the generated types are current
+            run: |
+              npm run api:types
+              git diff --exit-code src/api/schema.d.ts
+
+          - run: npm test
 
       - run: npm test
 
