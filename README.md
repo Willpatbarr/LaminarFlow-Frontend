@@ -31,9 +31,24 @@ type error fails the build rather than shipping.
 
     npm run lint
     npm test
+    npm run test:e2e
     npm run build
 
-    ## This repo never talks to Postgres
+## Where components live
+
+| Path | What belongs there |
+| --- | --- |
+| `src/routes/` | One file per URL. Thin — imports feature components, lays them out. |
+| `src/features/<name>/` | One domain feature: its components, API calls, and state. |
+| `src/components/ui/` | Domain-agnostic ui blocks used by more than one feature. |
+| `e2e/` | Playwright specs — one per user-visible flow, not per component. |
+
+Imports run one way — `routes/` → `features/` → `components/` — and **nothing
+enforces it**. React has no compile-time module boundary the way Gradle modules
+do in Kotlin, so a cross-feature import compiles happily. If that starts
+happening, an import lint rule is the fix; there is deliberately none today.
+
+## This repo never talks to Postgres
 
 [scripts/check-no-db-driver.mjs](scripts/check-no-db-driver.mjs) fails
 `npm run lint` if a database driver reaches the dependency tree. Every read and
