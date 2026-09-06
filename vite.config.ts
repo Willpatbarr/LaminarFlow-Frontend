@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 // The deployed app is same-origin: the Go backend serves this bundle and the
 // API from one port (LAM-28). `npm run dev` is the one place that is not true -
@@ -21,5 +21,10 @@ export default defineConfig({
       // expect them, so they need their own entry to be reachable in dev.
       '/healthz': { target: apiTarget, changeOrigin: true },
     },
+  },
+
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.ts'],
   },
 })

@@ -24,12 +24,13 @@ same file, so local and CI cannot drift.
     npm ci
     npm run dev
 
-    ## Checks
+## Checks
 
 `npm run build` type-checks with `tsc -b` before Vite emits the bundle, so a
 type error fails the build rather than shipping.
 
     npm run lint
+    npm test
     npm run build
 
     ## This repo never talks to Postgres
@@ -40,19 +41,3 @@ write goes through the backend's HTTP API.
 
 To see this repo's build served by the backend the way production does it, run
 `./scripts/build-frontend.sh` in the backend repo.
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
