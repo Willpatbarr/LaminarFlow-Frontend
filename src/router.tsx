@@ -5,6 +5,7 @@ import { HomePage } from '@/routes/index'
 import { LoginPage } from '@/routes/login'
 import { NotFoundPage } from '@/routes/not-found'
 import { SignUpPage } from '@/routes/signup'
+import { TicketPage } from '@/routes/ticket'
 
 // Config routes, not the file-system adapter - see "Routing" in the README.
 // `defineRoutes` keeps the path literals, and the literals are what type
@@ -21,6 +22,7 @@ const routes = defineRoutes([
         component: AppLayout,
         children: [
             { path: '/', component: HomePage },
+            { path: '/tickets/:id', component: TicketPage },
             // Last, so it only catches what nothing above matched.
             { path: '*', component: NotFoundPage },
         ],
