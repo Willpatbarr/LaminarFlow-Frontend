@@ -67,4 +67,51 @@ describe('Input', () => {
 
         expect(el).toBe(screen.getByLabelText('Email'))
     })
+
+    describe('with a count', () => {
+        const typed = (n: number) => 'x'.repeat(n)
+
+        it('stays quiet until within a tenth of the limit', () => {
+            render(() => <Input label="Title" value={typed(89)} onInput={vi.fn()} count={{ used: 89, max: 100 }} />)
+
+            expect(screen.queryByText(/ \/ /)).not.toBeInTheDocument()
+            expect(screen.getByLabelText('Title')).not.toHaveAttribute('aria-describedby')
+        })
+
+        it('shows used / max from 90% of the limit and describes the control with it', () => {
+            render(() => <Input label="Title" value={typed(90)} onInput={vi.fn()} count={{ used: 90, max: 100 }} />)
+
+            expect(screen.getByText('90 / 100')).toBeInTheDocument()
+            expect(screen.getByLabelText('Title')).toHaveAccessibleDescription('90 / 100')
+            expect(screen.getByLabelText('Title')).not.toHaveAttribute('aria-invalid')
+        })
+
+        it('is exactly at the limit and still fine, and over it is invalid even without a message', () => {
+            const { unmount } = render(() => (
+                <Input label="Title" value={typed(100)} onInput={vi.fn()} count={{ used: 100, max: 100 }} />
+            ))
+            expect(screen.getByLabelText('Title')).not.toHaveAttribute('aria-invalid')
+            unmount()
+
+            render(() => <Input label="Title" value={typed(101)} onInput={vi.fn()} count={{ used: 101, max: 100 }} />)
+            expect(screen.getByLabelText('Title')).toHaveAttribute('aria-invalid', 'true')
+            expect(screen.getByText('101 / 100')).toHaveClass('input__count--over')
+        })
+
+        it('lists the message before the count in the description, and does not cut the text off', () => {
+            render(() => (
+                <Input
+                    label="Title"
+                    value={typed(120)}
+                    onInput={vi.fn()}
+                    count={{ used: 120, max: 100 }}
+                    error="Too long."
+                />
+            ))
+
+            expect(screen.getByLabelText('Title')).toHaveAccessibleDescription('Too long. 120 / 100')
+            expect(screen.getByLabelText('Title')).not.toHaveAttribute('maxlength')
+            expect(screen.getByLabelText('Title')).toHaveValue(typed(120))
+        })
+    })
 })

@@ -1,5 +1,7 @@
-import { createUniqueId, Show } from 'solid-js'
+import { createUniqueId } from 'solid-js'
 
+import { FieldFoot } from './CharacterCount'
+import { describedBy, isOver, type Count } from './count'
 import './Input.css'
 
 // Controlled: the caller owns the value. `onInput` hands back the string, not
@@ -21,6 +23,10 @@ type InputProps = {
     readOnly?: boolean
     /** Marks the control invalid and renders the message under it. */
     error?: string
+    /** A limit on the text, counted by the caller. Nothing is cut off: the
+     *  count shows within a tenth of the limit, and over it the control is
+     *  marked invalid (say why with `error`). */
+    count?: Count
     /** Receives the <input>, so a form can move focus to the first invalid one. */
     ref?: (el: HTMLInputElement) => void
 }
@@ -30,6 +36,7 @@ export function Input(props: InputProps) {
     // component body, which is the one place Solid allows it.
     const id = createUniqueId()
     const errorId = `${id}-error`
+    const countId = `${id}-count`
 
     return (
         <div class="input">
@@ -48,16 +55,12 @@ export function Input(props: InputProps) {
                 disabled={props.disabled}
                 readonly={props.readOnly}
                 value={props.value}
-                aria-invalid={props.error ? 'true' : undefined}
-                aria-describedby={props.error ? errorId : undefined}
+                aria-invalid={props.error || isOver(props.count) ? 'true' : undefined}
+                aria-describedby={describedBy(props, errorId, countId)}
                 onInput={(event) => props.onInput(event.currentTarget.value)}
                 onBlur={() => props.onBlur?.()}
             />
-            <Show when={props.error}>
-                <span id={errorId} class="input__error t-meta">
-                    {props.error}
-                </span>
-            </Show>
+            <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>
     )
 }

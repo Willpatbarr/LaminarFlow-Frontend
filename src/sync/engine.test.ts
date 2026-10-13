@@ -1544,3 +1544,361 @@ describe('an archive that is parked', () => {
         expect(now.tickets).toMatchObject([{ id: 't-1', title: 'Mine' }])
     })
 })
+
+describe('an idempotent create (LAM-76)', () => {
+    // Every create carries a key made when it was queued. The server answers a
+    // second request with the same key from the same account with the ticket the
+    // first made - so a response that never arrived cannot make a second ticket.
+    function creating(answers: ((request: Request) => Response | Promise<Response>)[]) {
+        const keys: (string | null)[] = []
+        let call = 0
+        stubFetch({
+            ...listRoutes(),
+            'POST /api/v1/tickets': (request) => {
+                keys.push(request.headers.get('Idempotency-Key'))
+                const answer = answers[Math.min(call, answers.length - 1)]
+                call += 1
+                return answer(request)
+            },
+            'PUT /api/v1/tickets/t-9': async (request) =>
+                ok(ticket({ id: 't-9', ...(await bodyOf(request)), version: 6 })),
+        })
+        return keys
+    }
+
+    const lost = () => {
+        throw new TypeError('Failed to fetch')
+    }
+
+    it('sends the key it stored on the entry, a UUID, as the Idempotency-Key header', async () => {
+        const keys = creating([() => ok(ticket({ id: 't-9', version: 1 }))])
+        const { engine, db } = await startEngine({ newKey: () => 'key-1' })
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.idle()
+
+        expect(keys).toEqual(['key-1'])
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('makes a UUID by default, and a different one for every create', async () => {
+        const keys = creating([() => ok(ticket({ id: 't-9', version: 1 }))])
+        const { engine } = await startEngine()
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.idle()
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.idle()
+
+        expect(keys).toHaveLength(2)
+        for (const key of keys) expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+        expect(keys[0]).not.toBe(keys[1])
+    })
+
+    it('sends the same key on the attempt after one that got no response', async () => {
+        const keys = creating([lost, lost, () => ok(ticket({ id: 't-9', version: 1 }))])
+        const { engine, db, clock } = await startEngine()
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.idle()
+        expect((await local(db)).outbox).toMatchObject([{ attempts: 1, idempotency_key: keys[0] }])
+
+        clock.advance(1_000)
+        await engine.idle()
+        clock.advance(2_000)
+        await engine.idle()
+
+        expect(keys).toHaveLength(3)
+        expect(new Set(keys).size).toBe(1)
+        expect(keys[0]).toBeTruthy()
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('sends the same key after a 5xx too', async () => {
+        const keys = creating([() => problem(503, 'unavailable'), () => ok(ticket({ id: 't-9', version: 1 }))])
+        const { engine, clock } = await startEngine()
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.idle()
+        clock.advance(1_000)
+        await engine.idle()
+
+        expect(keys).toHaveLength(2)
+        expect(keys[0]).toBe(keys[1])
+    })
+
+    it('keeps the key when an edit is folded into a create that has not been sent', async () => {
+        const keys = creating([() => ok(ticket({ id: 't-9', version: 1 }))])
+        const { engine, db, net } = await startEngine({ newKey: () => 'key-1' })
+        net.goOffline()
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.updateTicket('tmp_1', { title: 'Edited before sending' })
+
+        expect((await local(db)).outbox).toMatchObject([
+            { kind: 'create', idempotency_key: 'key-1', payload: { title: 'Edited before sending' } },
+        ])
+        net.goOnline()
+        await engine.idle()
+
+        expect(keys).toEqual(['key-1'])
+    })
+
+    it('keeps the key when a refused create is corrected and sent again', async () => {
+        const keys = creating([
+            () => problem(422, 'unprocessable_entity', [{ location: 'body.title', message: 'expected length <= 200' }]),
+            () => ok(ticket({ id: 't-9', version: 1 })),
+        ])
+        const { engine } = await startEngine({ newKey: () => 'key-1' })
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.idle()
+        await engine.updateTicket('tmp_1', { title: 'Shorter' })
+        await engine.idle()
+
+        expect(keys).toEqual(['key-1', 'key-1'])
+    })
+
+    it('keeps the key across a restart of the engine on the same database', async () => {
+        const keys = creating([lost, () => ok(ticket({ id: 't-9', version: 1 }))])
+        const first = await startEngine()
+        await first.engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await first.engine.idle()
+        await first.engine.stop()
+
+        const second = await startEngine({ db: first.db })
+        await second.engine.idle()
+        second.clock.advance(1_000)
+        await second.engine.idle()
+
+        expect(keys).toHaveLength(2)
+        expect(keys[0]).toBe(keys[1])
+    })
+
+    describe('a replay', () => {
+        it('reconciles like a fresh create, from the response, even when it carries other people\'s edits', async () => {
+            // Attempt 1 landed (version 1) and its response was lost. Somebody
+            // then edited the ticket to version 4. The retry answers with that.
+            creating([lost, () => ok(ticket({ id: 't-9', title: 'Edited by Grace', version: 4, updated_by: 'acc-other' }))])
+            const { engine, db, clock } = await startEngine()
+            const changes: SyncChange[] = []
+            engine.subscribe((change) => changes.push(change))
+
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            clock.advance(1_000)
+            await engine.idle()
+
+            const now = await local(db)
+            expect(now.tickets).toMatchObject([{ id: 't-9', title: 'Edited by Grace', version: 4 }])
+            expect(now.outbox).toEqual([])
+            expect(changes).toContainEqual({ swap: { from: 'tmp_1', to: 't-9' } })
+        })
+
+        it('lets an edit queued behind the create go out on the version the replay returned', async () => {
+            const puts: { ifMatch: string | null; title: string }[] = []
+            stubFetch({
+                ...listRoutes(),
+                'POST /api/v1/tickets': (() => {
+                    let calls = 0
+                    return () => {
+                        calls += 1
+                        if (calls === 1) throw new TypeError('Failed to fetch')
+                        return ok(ticket({ id: 't-9', title: 'Theirs', version: 4, updated_by: 'acc-other' }))
+                    }
+                })(),
+                'PUT /api/v1/tickets/t-9': async (request) => {
+                    const body = await bodyOf(request)
+                    puts.push({ ifMatch: request.headers.get('If-Match'), title: body.title })
+                    return ok(ticket({ id: 't-9', ...body, version: 5 }))
+                },
+            })
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            // Not folded: the first attempt may have landed.
+            await engine.updateTicket('tmp_1', { title: 'Mine' })
+            expect((await local(db)).outbox).toHaveLength(2)
+
+            clock.advance(1_000)
+            await engine.idle()
+
+            expect(puts).toEqual([{ ifMatch: '"4"', title: 'Mine' }])
+            expect(await local(db)).toMatchObject({ tickets: [{ id: 't-9', title: 'Mine', version: 5 }], outbox: [] })
+        })
+    })
+
+    describe('a replay answered ticket_archived', () => {
+        // The create landed; then someone archived the ticket; then the retry came.
+        const archivedTicket = () => ticket({ id: 't-9', title: 'New', version: 3, updated_by: 'acc-other' })
+        const archived = () => conflictBody('ticket_archived', archivedTicket(), 'acc-other')
+
+        it('is "created, then archived": the entry and the row go, and nothing is parked', async () => {
+            creating([lost, archived])
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            clock.advance(1_000)
+            await engine.idle()
+
+            expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+            expect(await db.write((tx) => tx.serverTickets.all())).toEqual([])
+            // Nothing for anyone to puzzle over, and nothing retried.
+            expect(clock.nextDelay()).toBeNull()
+        })
+
+        it('does not let a late frame for the ticket bring it back', async () => {
+            creating([lost, archived])
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            clock.advance(1_000)
+            await engine.idle()
+
+            const late = await engine.applyRemote({
+                type: 'ticket.updated',
+                ticket_id: 't-9',
+                version: 2,
+                ticket: ticket({ id: 't-9', version: 2 }),
+            })
+
+            expect(late).toBe(false)
+            expect((await local(db)).tickets).toEqual([])
+        })
+
+        it('drops a row the feed had already shown under the real id', async () => {
+            creating([lost, archived])
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            // The first attempt's own broadcast, before the retry.
+            await engine.applyRemote({
+                type: 'ticket.created',
+                ticket_id: 't-9',
+                version: 1,
+                ticket: ticket({ id: 't-9', title: 'New', version: 1 }),
+            })
+            expect((await local(db)).tickets.map((t) => t.id).sort()).toEqual(['t-9', 'tmp_1'])
+
+            clock.advance(1_000)
+            await engine.idle()
+
+            expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+        })
+
+        it('is the same when the user had archived it too', async () => {
+            creating([lost, archived])
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            await engine.archiveTicket('tmp_1')
+            expect((await local(db)).outbox).toHaveLength(2)
+            clock.advance(1_000)
+            await engine.idle()
+
+            expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+        })
+
+        it('parks edits queued behind it as the ticket_archived conflict on the real ticket', async () => {
+            creating([lost, archived])
+            const { engine, db, clock } = await startEngine()
+            const changes: SyncChange[] = []
+            engine.subscribe((change) => changes.push(change))
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            await engine.updateTicket('tmp_1', { title: 'Mine' })
+            clock.advance(1_000)
+            await engine.idle()
+
+            const now = await local(db)
+            expect(now.outbox).toMatchObject([
+                {
+                    kind: 'update',
+                    ticket_id: 't-9',
+                    state: 'conflict',
+                    base_version: 3,
+                    conflict: { code: 'ticket_archived', current: { id: 't-9', version: 3 } },
+                },
+            ])
+            // Still on screen under its real id, with the user's words, so the
+            // panel can be shown on it.
+            expect(now.tickets).toMatchObject([{ id: 't-9', title: 'Mine' }])
+            expect(changes).toContainEqual({ swap: { from: 'tmp_1', to: 't-9' } })
+        })
+
+        it('offers "keep mine as a new ticket", and that ticket gets a new key', async () => {
+            const keys = creating([lost, archived, () => ok(ticket({ id: 't-new', title: 'Mine', version: 1 }))])
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            await engine.updateTicket('tmp_1', { title: 'Mine' })
+            clock.advance(1_000)
+            await engine.idle()
+            const [parked] = (await local(db)).outbox
+
+            const copy = await engine.keepAsNew(parked.id)
+            await engine.idle()
+
+            expect(copy).toBe('tmp_2')
+            expect(keys).toHaveLength(3)
+            expect(keys[2]).not.toBe(keys[0])
+            expect(await local(db)).toMatchObject({ tickets: [{ id: 't-new', title: 'Mine' }], outbox: [] })
+        })
+
+        it('discarding it leaves nothing behind', async () => {
+            creating([lost, archived])
+            const { engine, db, clock } = await startEngine()
+            await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+            await engine.idle()
+            await engine.updateTicket('tmp_1', { title: 'Mine' })
+            clock.advance(1_000)
+            await engine.idle()
+
+            await engine.discard((await local(db)).outbox[0].id)
+
+            expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+        })
+    })
+})
+
+describe('while the browser says it is offline (LAM-76)', () => {
+    it('sends nothing, and sends at once on online without waiting for a timer', async () => {
+        const puts: string[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': async (request) => {
+                puts.push((await bodyOf(request)).title)
+                return ok(ticket({ title: 'Edited', version: 4 }))
+            },
+        })
+        const { engine, db, net, clock } = await startEngine()
+        net.goOffline()
+
+        await engine.updateTicket('t-1', { title: 'Edited' })
+        await engine.idle()
+        expect(puts).toEqual([])
+        expect(clock.nextDelay()).toBeNull()
+
+        net.goOnline()
+        await engine.idle()
+        expect(puts).toEqual(['Edited'])
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('does not grow a backoff from a request that failed because the network went', async () => {
+        const answer = deferred()
+        const reached = deferred<void>()
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': () => {
+                reached.resolve()
+                return answer.promise
+            },
+        })
+        const { engine, db, net, clock } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'Edited' })
+        // On the wire when the browser reports the network gone.
+        await reached.promise
+        net.goOffline()
+        answer.reject(new TypeError('Failed to fetch'))
+        await engine.idle()
+
+        // The entry stays (it may have landed), and no timer is counting down.
+        expect((await local(db)).outbox).toMatchObject([{ state: 'pending', attempts: 1 }])
+        expect(clock.nextDelay()).toBeNull()
+    })
+})

@@ -18,7 +18,14 @@ import { baseUrl, type Account } from './stack'
 // (manual, so a test can take the network away), and a fetch that can be told
 // to fail or to hold a request.
 
-export type RequestLog = { method: string; path: string; ifMatch: string | null; body: unknown }
+export type RequestLog = {
+  method: string
+  path: string
+  ifMatch: string | null
+  /** The `Idempotency-Key` header, null when none was sent. */
+  idempotencyKey: string | null
+  body: unknown
+}
 
 type Hold = { match: (request: RequestLog) => boolean; gate: Promise<void>; seen: Promise<void>; markSeen: () => void }
 
@@ -38,6 +45,11 @@ export type Rig = {
   dropConnection(): void
   /** The network breaking underneath a browser that still believes it is online. */
   setNetworkDown(down: boolean): void
+  /** The next request that matches reaches the server and is carried out - and
+   *  its response is thrown away, so the engine sees a network failure. This is
+   *  a lost response: the write happened, and the client cannot know. `times`
+   *  loses that many matching responses in a row. */
+  loseNextResponse(match: (request: RequestLog) => boolean, times?: number): void
   /** Holds the next request that matches until `release()`; `reached` resolves once it is waiting. */
   hold(match: (request: RequestLog) => boolean): { reached: Promise<void>; release(): void }
   /** Stops everything and closes the database. */
@@ -63,6 +75,7 @@ export async function startClient(account: Account, options: RigOptions = {}): P
   const frames: Rig['frames'] = []
   let networkDown = false
   let held: Hold | null = null
+  let losing: { match: (request: RequestLog) => boolean; left: number } | null = null
 
   const api = createClient<paths>({
     baseUrl: baseUrl(),
@@ -73,6 +86,7 @@ export async function startClient(account: Account, options: RigOptions = {}): P
         method: request.method,
         path: new URL(request.url).pathname,
         ifMatch: request.headers.get('If-Match'),
+        idempotencyKey: request.headers.get('Idempotency-Key'),
         body,
       }
       requests.push(entry)
@@ -86,7 +100,14 @@ export async function startClient(account: Account, options: RigOptions = {}): P
       // picked up by the next one - what the browser's cookie jar does.
       const headers = new Headers(request.headers)
       headers.set('Cookie', account.cookie())
-      return fetch(new Request(request, { headers }))
+      const response = await fetch(new Request(request, { headers }))
+      if (losing?.match(entry)) {
+        if (--losing.left <= 0) losing = null
+        // The server has answered; the client never hears.
+        await response.arrayBuffer()
+        throw new TypeError('fetch failed (the response was lost in the test)')
+      }
+      return response
     },
   })
 
@@ -157,6 +178,9 @@ export async function startClient(account: Account, options: RigOptions = {}): P
     dropConnection: () => opened.at(-1)?.terminate(),
     setNetworkDown: (down) => {
       networkDown = down
+    },
+    loseNextResponse(match, times = 1) {
+      losing = { match, left: times }
     },
     hold(match) {
       let release!: () => void

@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { createTicket } from '@/sync'
 
+import { overMessage, titleCount } from '../limits'
+
 type NewTicketDialogProps = {
     projectId: string
     /** The status a new ticket starts in: the project's first, or none. */
@@ -20,6 +22,11 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
     const navigate = useNavigate()
     const [title, setTitle] = createSignal('')
     const [saving, setSaving] = createSignal(false)
+
+    const count = () => titleCount(title())
+    // Over the limit is shown as it is typed, and the button waits: nothing
+    // over the limit is queued. Nothing is cut off either.
+    const tooLong = () => overMessage('Title', count())
 
     async function create() {
         setSaving(true)
@@ -38,11 +45,18 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
         <Modal
             title="New ticket"
             confirm="Create ticket"
-            confirmDisabled={saving() || title().trim() === ''}
+            confirmDisabled={saving() || title().trim() === '' || tooLong() !== undefined}
             onConfirm={() => void create()}
             onCancel={props.onClose}
         >
-            <Input label="Title" value={title()} onInput={setTitle} required />
+            <Input
+                label="Title"
+                value={title()}
+                onInput={setTitle}
+                required
+                count={count()}
+                error={tooLong()}
+            />
         </Modal>
     )
 }

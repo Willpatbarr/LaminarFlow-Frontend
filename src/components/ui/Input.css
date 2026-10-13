@@ -63,3 +63,27 @@
   min-height: calc(22px * 3 + var(--s-16));
   resize: vertical;
 }
+
+/* Under the control: the message takes the room it needs and the count keeps its
+ * corner, so neither pushes the other off. */
+.input__foot {
+  display: flex;
+  gap: var(--s-12);
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.input__foot .input__error {
+  flex: 1;
+}
+
+.input__count {
+  margin-inline-start: auto;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.input__count--over {
+  color: var(--rust-fg);
+}

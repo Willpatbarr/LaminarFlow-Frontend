@@ -436,7 +436,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a ticket */
+        /**
+         * Create a ticket (safe to retry with Idempotency-Key)
+         * @description Send `Idempotency-Key` to make the create safe to retry after a lost response. The first request with a key creates the ticket and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original ticket as it is now - same status, 200, as a fresh create. A replay publishes nothing on the change feed. If the original has been archived the answer is a 409 `ticket_archived` carrying it. The body of a replay is ignored.
+         */
         post: operations["create-ticket"];
         delete?: never;
         options?: never;
@@ -595,8 +598,12 @@ export interface components {
              * @example https://example.com/api/v1/schemas/CreateProjectInputBody.json
              */
             readonly $schema?: string;
-            /** @description Skip the board. A project with no board is legal and renders empty. */
+            /**
+             * @description Skip the board. A project with no board is legal and renders empty. Optional; omitted means false, a project with its board.
+             * @default false
+             */
             bare: boolean;
+            /** @description 1 to 100 characters (not bytes), and not only whitespace. */
             name: string;
             /** Format: uuid */
             team_id: string;
@@ -608,8 +615,12 @@ export interface components {
              * @example https://example.com/api/v1/schemas/CreateTeamInputBody.json
              */
             readonly $schema?: string;
-            /** @description Skip seeding. For an importer restoring a team that already has its own statuses and aspect types. */
+            /**
+             * @description Skip seeding. For an importer restoring a team that already has its own statuses and aspect types. Optional; omitted means false, a fully seeded team.
+             * @default false
+             */
             bare: boolean;
+            /** @description 1 to 100 characters (not bytes), and not only whitespace. */
             name: string;
             /** Format: uuid */
             workspace_id: string;
@@ -621,13 +632,21 @@ export interface components {
              * @example https://example.com/api/v1/schemas/CreateTicketInputBody.json
              */
             readonly $schema?: string;
-            /** Format: uuid */
-            assignee_id: string | null;
-            description: string;
+            /**
+             * Format: uuid
+             * @description Must be a member of the project's workspace, or assignee_not_found. Omit, or null, for unassigned.
+             */
+            assignee_id?: string | null;
+            /** @description Up to 50,000 characters (not bytes). Omit for none. */
+            description?: string;
             /** Format: uuid */
             project_id: string;
-            /** Format: uuid */
-            status_id: string | null;
+            /**
+             * Format: uuid
+             * @description Must be a status of the project's team, or status_not_found. Omit, or null, for no status.
+             */
+            status_id?: string | null;
+            /** @description 1 to 200 characters (not bytes), and not only whitespace. */
             title: string;
         };
         DeleteAccountOutputBody: {
@@ -1078,11 +1097,19 @@ export interface components {
              * @example https://example.com/api/v1/schemas/UpdateTicketInputBody.json
              */
             readonly $schema?: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Must be a member of the ticket's workspace, or assignee_not_found. Null clears it.
+             */
             assignee_id: string | null;
+            /** @description Up to 50,000 characters (not bytes). */
             description: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Must be a status of the ticket's project's team, or status_not_found. Null clears it.
+             */
             status_id: string | null;
+            /** @description 1 to 200 characters (not bytes), and not only whitespace. */
             title: string;
         };
     };
@@ -1872,7 +1899,10 @@ export interface operations {
     "create-ticket": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account returns the ticket the first call created instead of creating another - the original's current state, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and never expire. A replay ignores the body it carries: send a new key for a different ticket. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1886,10 +1916,20 @@ export interface operations {
             200: {
                 headers: {
                     ETag?: string;
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["TicketBody"];
+                };
+            };
+            /** @description Conflict. Only when Idempotency-Key was sent and had already created a ticket that has since been archived: code is ticket_archived, current is that ticket and changed_by and changed_at say who archived it and when. Nothing was written, and no second ticket exists - restore the original or discard the local copy. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["TicketConflict"];
                 };
             };
             /** @description Error */

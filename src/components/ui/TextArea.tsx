@@ -1,5 +1,7 @@
-import { createUniqueId, Show } from 'solid-js'
+import { createUniqueId } from 'solid-js'
 
+import { FieldFoot } from './CharacterCount'
+import { describedBy, isOver, type Count } from './count'
 import './Input.css'
 
 // The Input's multi-line sibling: same box, same label rule, same contract.
@@ -16,11 +18,16 @@ type TextAreaProps = {
     readOnly?: boolean
     /** Marks the control invalid and renders the message under it. */
     error?: string
+    /** A limit on the text, counted by the caller. Nothing is cut off: the
+     *  count shows within a tenth of the limit, and over it the control is
+     *  marked invalid (say why with `error`). */
+    count?: Count
 }
 
 export function TextArea(props: TextAreaProps) {
     const id = createUniqueId()
     const errorId = `${id}-error`
+    const countId = `${id}-count`
     return (
         <div class="input">
             <label class="input__label t-body" for={id}>
@@ -34,16 +41,12 @@ export function TextArea(props: TextAreaProps) {
                 disabled={props.disabled}
                 readonly={props.readOnly}
                 value={props.value}
-                aria-invalid={props.error ? 'true' : undefined}
-                aria-describedby={props.error ? errorId : undefined}
+                aria-invalid={props.error || isOver(props.count) ? 'true' : undefined}
+                aria-describedby={describedBy(props, errorId, countId)}
                 onInput={(event) => props.onInput(event.currentTarget.value)}
                 onBlur={() => props.onBlur?.()}
             />
-            <Show when={props.error}>
-                <span id={errorId} class="input__error t-meta">
-                    {props.error}
-                </span>
-            </Show>
+            <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>
     )
 }

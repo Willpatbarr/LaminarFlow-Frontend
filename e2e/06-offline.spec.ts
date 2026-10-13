@@ -26,8 +26,8 @@ test('an edit made offline waits, says so, and reaches the server when the netwo
     await connectionIs(page, 'Live')
 
     // Chromium's offline mode stops requests and fires the page's `offline`
-    // event, but leaves an already-open WebSocket standing, so the connection
-    // indicator is not asserted here: it follows the socket, not the event.
+    // event, but leaves an already-open WebSocket standing. The indicator is
+    // asserted in the test below, where that matters.
     await context.setOffline(true)
 
     await page.getByLabel('Title').fill('Edited with no network')
@@ -79,4 +79,26 @@ test('a ticket created offline is opened under a temporary id and gets its real 
     const onServer = await serverTickets(account, world.projectId)
     expect(onServer.map((ticket) => ticket.title)).toEqual(['Born offline'])
     expect(page.url().endsWith(`/tickets/${onServer[0].id}`)).toBe(true)
+})
+
+test('going offline flips the indicator to Offline at once, with the socket still standing, and back to Live on return', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const account = await newAccount('offline-indicator')
+    const world = await projectOf(account)
+    const ticket = await serverCreate(account, world.projectId, fields('Watching the indicator'))
+    await signedInAs(context, account, baseURL!)
+    await openTicket(page, ticket.id, 'Watching the indicator')
+    await connectionIs(page, 'Live')
+
+    // Chromium leaves the open WebSocket standing when the context goes offline,
+    // so the socket alone would go on saying "Live". The browser's `offline`
+    // event is what the indicator follows.
+    await context.setOffline(true)
+    await connectionIs(page, 'Offline')
+
+    await context.setOffline(false)
+    await connectionIs(page, 'Live')
 })

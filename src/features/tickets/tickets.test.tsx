@@ -355,7 +355,7 @@ describe('the ticket page', () => {
         expect(title).toHaveValue('Write the inbox')
     })
 
-    it('puts the old title back instead of saving a blank one', async () => {
+    it('keeps a blank title in the field with a reason, and saves nothing', async () => {
         const { routes, puts } = editable()
         await open('/tickets/t-1', routes)
         const user = userEvent.setup()
@@ -364,8 +364,18 @@ describe('the ticket page', () => {
         await user.clear(title)
         await user.tab()
 
-        expect(title).toHaveValue('Write the outbox')
+        expect(title).toHaveValue('')
+        expect(title).toHaveAttribute('aria-invalid', 'true')
+        expect(title).toHaveAccessibleDescription('A ticket needs a title.')
         expect(puts).toEqual([])
+        expect(sync.outbox).toEqual([])
+
+        // Typing clears the reason, and a real title saves.
+        await user.type(title, 'Back again')
+        expect(title).not.toHaveAttribute('aria-invalid')
+        await user.tab()
+        await vi.waitFor(() => expect(puts).toHaveLength(1))
+        expect(puts[0].body.title).toBe('Back again')
     })
 
     it('saves status and assignee the moment they change', async () => {

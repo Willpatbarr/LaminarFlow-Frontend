@@ -134,7 +134,7 @@ sent is folded into it.
 | Answer | Entry becomes | Then |
 | --- | --- | --- |
 | 2xx | removed | The row takes the server's copy and version. |
-| no response, 5xx | stays `pending` | Retried with capped exponential backoff (1s doubling to 60s), and at once when the browser comes back online. |
+| no response, 5xx | stays `pending` | Retried with capped exponential backoff (1s doubling to 60s), and at once when the browser comes back online. While the browser says it is offline nothing is sent and no backoff grows. |
 | 401 | `unauthorized` | Nothing at all is sent until `resume()` (or a new engine starts: a reload). |
 | 409 | `conflict`, with the server's copy on it | That ticket's queue waits for `retry()` (mine wins), `discard()` or `keepAsNew()`. Other tickets carry on. |
 | 422, other 4xx | `failed`, with the `errors[]` | Waits for the user to change the edit, or `discard()`. |
@@ -150,9 +150,32 @@ transaction (row, and every queued entry for it), and the store renames the row
 not rebuilt, a field being typed in keeps focus, and `ticketById` answers to
 either id. The ticket page replaces its URL with the real one.
 
-**Known limits.** Creating a ticket is not idempotent on the server, so a create
-whose *response* is lost is sent again and makes a second ticket. Two tabs each
-run their own engine over the same database and do not coordinate. Hydration
+**Creates are idempotent (LAM-76).** A `create` entry gets an `Idempotency-Key`
+(`crypto.randomUUID()`) once, when it is queued, stored on the entry and sent on
+every attempt. If a response is lost, the retry therefore reaches the server as
+the same request and gets the ticket the first attempt made instead of a second
+one. Coalescing an edit into a create that has not been sent keeps the key; a
+create made from "Keep mine as a new ticket" is a new request and gets a new
+one. The key survives a reload: IndexedDB is at version 2, and the upgrade gives
+every `create` already waiting a key (one that had *already been sent* without
+one cannot be matched to that attempt, so that single case can still duplicate).
+
+A replay is reconciled exactly like a fresh answer: the temporary id is swapped
+for the real one and the version comes from the response. The replay returns the
+ticket as it is *now*, so it may already carry other people's edits; the row
+takes those, and edits queued behind the create go out on the version it
+returned. (An edit is not folded into a create that was sent and went
+unanswered, because the server ignores the body of a replay.) If someone has
+archived the ticket since, the replay is `409 ticket_archived`: that means the
+create did land, so with nothing queued behind it the entry and the local row are
+simply dropped, and with edits queued behind it they become the ordinary
+"archived underneath you" conflict on the real ticket, whose panel offers "Keep
+mine as a new ticket".
+
+**Known limits.** **Two tabs each run their own engine over the same database
+and are not coordinated** - there is no lock or leader election, so both may send
+the same entry (the key makes that harmless for a create; an edit sent twice
+meets the server's version check). Hydration
 re-reads every list in full.
 
 ### Live changes (the WebSocket)
@@ -179,6 +202,12 @@ them.
   stale base must still reach the server and come back as the 409.
 - **Live only after `hello`.** An open socket is not a working one. A socket
   that has not said hello in 10 seconds is dropped and retried.
+- **Offline is the browser's word.** The `offline` event closes the socket on
+  purpose and shows Offline at once; an open socket proves nothing about the
+  network (a half-open connection looks open for minutes, and Chromium's offline
+  mode leaves an established one standing). `online` reconnects. The connectivity
+  dependency the engine and the socket share has `onOnline`/`onOffline`; the
+  socket still has no `window` in it.
 - **Reconnecting.** Capped exponential backoff (1s doubling to 30s) with
   jitter, and at once on `online` and when the tab is shown again. Every
   successful (re)connect lists again, because there is no replay, except the
@@ -212,6 +241,22 @@ API answer as `network`.
   arrives with no session is `anonymous` and is redirected as before; their
   unsynced work stays on disk and is sent after signing in as the same account
   (a new engine un-parks `unauthorized` entries).
+- **A banner that is wrong.** While `session.expired` is set, the tab coming
+  back to the front and the network coming back each ask `/auth/me` once
+  (`watchExpiredSession`, started in `main.tsx`; no timer). 200 clears the flag as
+  a sign-in does - the same account resumes what was parked, another account takes
+  the different-account path above - and 401 or no answer leaves the banner.
+- **Length limits.** The server's limits (ticket title 200, description 50,000,
+  team and project names 100, counted in code points) are written once in
+  `features/tickets/limits.ts`, and `limits.test.ts` fails if they drift from
+  `maxLength` in `api/openapi.json`. The field shows "212 / 200" once it is
+  within 10% of the limit; over it the field is marked invalid with the reason.
+  Nothing is cut off (no `maxlength`, which silently drops pasted text) and
+  nothing over the limit or blank is queued: the text stays in the field. The
+  server's 422 is still the authority and still lands on the field, and
+  `status_not_found` / `assignee_not_found` land on the status and assignee
+  controls. An over-limit draft lives in the field only; it is not kept if the
+  page is left.
 - **Server or network down.** `syncTrouble()` (derived, not per attempt) drives
   one dismissible toast with "Retry now" (`retryNow()` skips every backoff).
 - **Refused changes** park as `failed`. The ticket page shows each
@@ -288,7 +333,12 @@ uses your sibling checkout as it stands and warns if it is on a different branch
 The file names the integration branch only because the backend's endpoint pull
 requests are not merged yet. **Once they are, it goes back to `main`.**
 
-**What it covers.** Create and update reconciling to the server's id and
+**What it covers.** A create whose response is lost and is retried yielding one
+ticket, the same key on every attempt and across an engine restart, a replay
+after another account edited the ticket (reconciled to the edited state) or
+archived it ("created, then archived", and the parked variant with "Keep mine as
+new" under a new key), the length limits in code points and the two named-id
+refusals at their fields. Create and update reconciling to the server's id and
 version (and `If-Match` being sent); two edits queued behind each other; a
 create followed by an edit before the create is answered; archive; offline then
 drain, both as the browser's `offline` event and as a dead network; a stale
@@ -364,9 +414,10 @@ alters a flow changes its spec in the same commit.
   edits this ticket" is a `serverUpdate` as another account, not a second browser.
 - One worker, no retries: a spec that needs a second try is flaky, and a retry
   would hide it.
-- `context.setOffline()` stops requests but leaves an open WebSocket standing, so
-  a ticket's copy is made stale with `cuttableSocket(page)` (closes the socket
-  and refuses reconnects) instead.
+- `context.setOffline()` stops requests and fires the page's `offline` event but
+  leaves an open WebSocket standing (the app closes it itself on the event), so a
+  ticket's copy is made stale with `cuttableSocket(page)` (closes the socket and
+  refuses reconnects) instead.
 
 **Specs**
 
@@ -377,10 +428,10 @@ alters a flow changes its spec in the same commit.
 | `03-deep-link` | an anonymous link to a ticket goes to login and returns to that ticket |
 | `04-create-ticket` | create a ticket, see it under its status with a real id, reload |
 | `05-live-changes` | a second browser, another account: edits, creates and archives arrive over the WebSocket |
-| `06-offline` | edit and create offline, the pending indicator, sync on return |
+| `06-offline` | edit and create offline, the pending indicator, sync on return; going offline flips the connection indicator at once |
 | `07-conflict` | a stale edit: the panel names the other person; keep mine as new, keep theirs, use mine |
 | `08-session-expired` | the session ends mid-edit: banner in place, sign in from it, the edit syncs |
-| `09-validation` | a title the server refuses (over the 1 MiB body limit) is explained at the title |
+| `09-validation` | a title over 200 characters is explained at the field and not queued; the server's own 422 still lands there when the client check is bypassed (the 1 MiB `413` is a unit test now) |
 | `10-accessibility` | axe-core scan of login, sign-up, list, ticket page and conflict panel, light and dark |
 
 The scan fails on serious and critical violations and attaches the rest to the

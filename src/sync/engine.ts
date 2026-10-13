@@ -12,6 +12,7 @@ import {
 } from './remote'
 import {
     fieldsOf,
+    newIdempotencyKey,
     newTempId,
     type EntryError,
     type NewTicket,
@@ -68,6 +69,9 @@ export type Connectivity = {
     isOnline(): boolean
     /** Calls `fn` each time the network comes back. Returns the unsubscribe. */
     onOnline(fn: () => void): () => void
+    /** Calls `fn` each time the browser reports the network gone. Returns the
+     *  unsubscribe. The browser's word is taken over any socket's. */
+    onOffline(fn: () => void): () => void
 }
 
 export const systemTimer: Timer = {
@@ -76,7 +80,11 @@ export const systemTimer: Timer = {
     clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 }
 
-export const alwaysOnline: Connectivity = { isOnline: () => true, onOnline: () => () => {} }
+export const alwaysOnline: Connectivity = {
+    isOnline: () => true,
+    onOnline: () => () => {},
+    onOffline: () => () => {},
+}
 
 export type Backoff = { baseMs: number; maxMs: number }
 
@@ -92,6 +100,8 @@ export type EngineDeps = {
     backoff?: Backoff
     /** Makes the temporary id for a ticket created locally. */
     newId?: () => string
+    /** Makes the `Idempotency-Key` for a create. */
+    newKey?: () => string
 }
 
 export type EngineStatus = {
@@ -178,6 +188,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     const connectivity = deps.connectivity ?? alwaysOnline
     const backoff = deps.backoff ?? DEFAULT_BACKOFF
     const newId = deps.newId ?? newTempId
+    const newKey = deps.newKey ?? newIdempotencyKey
 
     let phase: 'new' | 'running' | 'stopped' = 'new'
     let paused = false
@@ -323,6 +334,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 kind: 'create',
                 ticket_id: id,
                 payload: { ...fieldsOf(ticket), project_id: ticket.project_id },
+                idempotency_key: newKey(),
                 base_version: null,
                 ...blank(),
             })
@@ -454,10 +466,59 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         )
     }
 
+    // The create this client sent landed, and someone archived the ticket
+    // before the retry came: the server answers a replay of its key with
+    // `ticket_archived` and the ticket. The create is therefore done, with a
+    // real id and a history, and what is left is the user's own edits made
+    // since (if any). Nothing here is an error for the user to puzzle over.
+    async function createdThenArchived(
+        tx: SyncTx,
+        entry: OutboxEntry,
+        conflict: TicketConflict,
+    ): Promise<SyncChange> {
+        const from = entry.ticket_id
+        const to = conflict.current.id
+        waits.delete(entry.id)
+        // A late frame for the ticket's life before the archive must not bring
+        // it back.
+        buried.set(to, Math.max(conflict.current.version, buried.get(to) ?? 0))
+
+        const behind = (await tx.outbox.forTicket(from)).filter((queued) => queued.id !== entry.id)
+        // Edits are worth keeping. An archive queued behind is the user saying
+        // what the other person did, so there is nothing left to decide.
+        if (behind.length === 0 || behind.some((queued) => queued.kind === 'archive')) {
+            await forget(tx, from)
+            // The feed may have shown the ticket under its real id already.
+            await forget(tx, to)
+            return {}
+        }
+
+        // The edits become the same conflict an edit to an archived ticket is:
+        // the head of the queue, parked, on the real id. The panel it gets
+        // offers "Keep mine as a new ticket", which makes a create of its own,
+        // under a key of its own.
+        await tx.outbox.delete(entry.id)
+        for (const [index, queued] of behind.entries()) {
+            const moved = { ...queued, ticket_id: to, base_version: index === 0 ? conflict.current.version : null }
+            await tx.outbox.put(
+                index === 0 ? { ...moved, state: 'conflict', conflict, error: null } : moved,
+            )
+        }
+        await tx.tickets.delete(from)
+        await tx.serverTickets.put(conflict.current)
+        await rebuild(tx, to)
+        return { swap: { from, to } }
+    }
+
     async function settle(sent: OutboxEntry, outcome: Outcome): Promise<SyncChange> {
         if (outcome.type === 'network') {
-            networkFailures += 1
-            networkRetryAt = timer.now() + delay(networkFailures)
+            // With the browser saying it is offline, a failed request says
+            // nothing about the server and `online` retries at once: a backoff
+            // here would only make that wait longer.
+            if (connectivity.isOnline()) {
+                networkFailures += 1
+                networkRetryAt = timer.now() + delay(networkFailures)
+            }
         } else {
             networkFailures = 0
             networkRetryAt = 0
@@ -495,6 +556,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     return unanswered({ status: 0, code: 'network', errors: [] })
 
                 case 'conflict':
+                    if (entry.kind === 'create' && outcome.conflict.code === 'ticket_archived') {
+                        return createdThenArchived(tx, entry, outcome.conflict)
+                    }
                     if (alreadyApplied(entry, outcome.conflict)) {
                         if (entry.kind === 'archive') {
                             await forget(tx, entry.ticket_id)
@@ -862,6 +926,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 ticket_id: id,
                 // The title as the user left it: a copy is not marked as one.
                 payload: { ...fieldsOf(mine), project_id: mine.project_id },
+                // A new ticket is a new request: it must not replay the one
+                // this was a conflict with.
+                idempotency_key: newKey(),
                 base_version: null,
                 ...blank(),
             })

@@ -100,6 +100,28 @@ export async function connectionIs(page: Page, state: 'Live' | 'Offline' | 'Reco
     ).toBeAttached()
 }
 
+/** How many changes are waiting in the page's own outbox (IndexedDB), whatever
+ *  the screen says. For "nothing was queued": the pending indicator only
+ *  appears once something has been, so its absence proves nothing yet. */
+export async function queuedChanges(page: Page): Promise<number> {
+    return page.evaluate(
+        () =>
+            new Promise<number>((resolve, reject) => {
+                const open = indexedDB.open('laminarflow')
+                open.onerror = () => reject(open.error)
+                open.onsuccess = () => {
+                    const db = open.result
+                    const count = db.transaction('outbox').objectStore('outbox').count()
+                    count.onerror = () => reject(count.error)
+                    count.onsuccess = () => {
+                        db.close()
+                        resolve(count.result)
+                    }
+                }
+            }),
+    )
+}
+
 /** Ends the browser's session on the server without the page knowing, the way
  *  an expiry, a password change or a sign-out in another tab would. */
 export async function expireSession(context: BrowserContext, baseURL: string) {

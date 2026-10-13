@@ -1,12 +1,27 @@
-import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction, type StoreNames } from 'idb'
+import {
+    openDB,
+    type DBSchema,
+    type IDBPDatabase,
+    type IDBPObjectStore,
+    type IDBPTransaction,
+    type StoreNames,
+} from 'idb'
 
-import type { NewOutboxEntry, OutboxEntry, Project, Status, Team, Ticket } from './types'
+import {
+    newIdempotencyKey,
+    type NewOutboxEntry,
+    type OutboxEntry,
+    type Project,
+    type Status,
+    type Team,
+    type Ticket,
+} from './types'
 
 /*
 ╔═ db.ts ═══════════════════════════════════════════════════════════════════════════════
 ║  sync · the IndexedDB database, and nothing that decides what goes in it
 ╠═ declares ════════════════════════════════════════════════════════════════════════════
-║      openSyncDb     open (and create) the database
+║      openSyncDb     open (and create, or upgrade) the database
 ║      SyncDb         read a snapshot, run a write transaction, key-value meta, clear
 ║      SyncTx         the tables as one write transaction sees them
 ╠═ reached from ════════════════════════════════════════════════════════════════════════
@@ -96,6 +111,15 @@ export type SyncDb = {
 
 export const DB_NAME = 'laminarflow'
 
+// 1  the first schema.
+// 2  a `create` entry carries the `idempotency_key` every attempt sends (LAM-76).
+export const DB_VERSION = 2
+
+export type OpenOptions = {
+    /** Makes the key for a create entry found without one. */
+    newKey?: () => string
+}
+
 function table<Name extends RowStore>(tx: WriteTx, name: Name): Table<Schema[Name]['value']> {
     const store = tx.objectStore(name)
     return {
@@ -106,6 +130,18 @@ function table<Name extends RowStore>(tx: WriteTx, name: Name): Table<Schema[Nam
         },
         delete: (id) => store.delete(id),
         clear: () => store.clear(),
+    }
+}
+
+async function migrateKeys(
+    store: IDBPObjectStore<Schema, StoreNames<Schema>[], 'outbox', 'versionchange'>,
+    newKey: () => string,
+) {
+    for (let cursor = await store.openCursor(); cursor; cursor = await cursor.continue()) {
+        const entry = cursor.value as OutboxEntry
+        if (entry.kind === 'create' && !entry.idempotency_key) {
+            await cursor.update({ ...entry, idempotency_key: newKey() })
+        }
     }
 }
 
@@ -130,18 +166,32 @@ function outboxTable(tx: WriteTx): OutboxTable {
     }
 }
 
-export async function openSyncDb(name: string = DB_NAME): Promise<SyncDb> {
-    const db: IDBPDatabase<Schema> = await openDB<Schema>(name, 1, {
-        upgrade(upgrading) {
-            upgrading.createObjectStore('meta')
-            upgrading.createObjectStore('teams', { keyPath: 'id' })
-            upgrading.createObjectStore('projects', { keyPath: 'id' })
-            upgrading.createObjectStore('statuses', { keyPath: 'id' })
-            upgrading.createObjectStore('tickets', { keyPath: 'id' })
-            upgrading.createObjectStore('server_tickets', { keyPath: 'id' })
-            upgrading
-                .createObjectStore('outbox', { keyPath: 'id', autoIncrement: true })
-                .createIndex('ticket_id', 'ticket_id')
+export async function openSyncDb(
+    name: string = DB_NAME,
+    options: OpenOptions = {},
+): Promise<SyncDb> {
+    const newKey = options.newKey ?? newIdempotencyKey
+    const db: IDBPDatabase<Schema> = await openDB<Schema>(name, DB_VERSION, {
+        upgrade(upgrading, oldVersion, _newVersion, transaction) {
+            if (oldVersion < 1) {
+                upgrading.createObjectStore('meta')
+                upgrading.createObjectStore('teams', { keyPath: 'id' })
+                upgrading.createObjectStore('projects', { keyPath: 'id' })
+                upgrading.createObjectStore('statuses', { keyPath: 'id' })
+                upgrading.createObjectStore('tickets', { keyPath: 'id' })
+                upgrading.createObjectStore('server_tickets', { keyPath: 'id' })
+                upgrading
+                    .createObjectStore('outbox', { keyPath: 'id', autoIncrement: true })
+                    .createIndex('ticket_id', 'ticket_id')
+            }
+            if (oldVersion >= 1 && oldVersion < 2) {
+                // Creates queued before keys existed get one here, in the
+                // upgrade transaction, so no entry is ever read without one.
+                // One that had already been sent and lost its answer cannot be
+                // deduplicated against that earlier attempt (it carried no
+                // key); that is the one duplicate this cannot prevent.
+                migrateKeys(transaction.objectStore('outbox'), newKey).catch(() => transaction.abort())
+            }
         },
     })
 

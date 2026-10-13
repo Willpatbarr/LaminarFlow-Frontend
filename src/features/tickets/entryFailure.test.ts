@@ -29,6 +29,25 @@ describe('describeFailure', () => {
         })
     })
 
+    it('says a status or assignee that has gone is gone, at its own control', () => {
+        const gone = (code: string, location: string) => ({
+            status: 422,
+            code,
+            errors: [{ location, message: 'status not found' }],
+        })
+
+        expect(describeFailure(gone('status_not_found', 'body.status_id'))).toEqual({
+            fields: { status: 'That status no longer exists. Pick another.' },
+            form: null,
+            fieldShaped: true,
+        })
+        expect(describeFailure(gone('assignee_not_found', 'body.assignee_id'))).toEqual({
+            fields: { assignee: 'That assignee is no longer available. Pick another.' },
+            form: null,
+            fieldShaped: true,
+        })
+    })
+
     it('keeps the first message for a field named twice', () => {
         const result = describeFailure(
             error(422, [

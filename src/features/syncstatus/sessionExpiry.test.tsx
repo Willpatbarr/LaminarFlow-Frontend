@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { refresh, session } from '@/features/auth'
+import { refresh, session, watchExpiredSession } from '@/features/auth'
 import { connectSyncToSession, sync, wipeLocalData } from '@/sync'
 import { listRoutes, ME, page, TEAM, ticket } from '@/sync/testing/harness'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
@@ -190,6 +190,157 @@ describe('the session ending mid-action', () => {
         expect(await screen.findByText(/You've been signed out. Sign in from the banner above/)).toBeInTheDocument()
         expect(await screen.findByText(/Your changes are saved on this device/)).toBeInTheDocument()
         })
+})
+
+describe('a banner that is wrong (LAM-76)', () => {
+    let stopWatching = () => {}
+    beforeEach(() => {
+        stopWatching = watchExpiredSession()
+    })
+    afterEach(() => {
+        stopWatching()
+    })
+
+    const tabShown = () => document.dispatchEvent(new Event('visibilitychange'))
+    const networkBack = () => window.dispatchEvent(new Event('online'))
+
+    // A 401 that was the server's passing trouble: the next /auth/me is fine.
+    async function bannerShowing() {
+        const { state, routes } = server()
+        const meCalls = { count: 0 }
+        const history = await openApp('/tickets/t-1', {
+            ...routes,
+            'GET /api/v1/auth/me': () => {
+                meCalls.count += 1
+                return state.signedIn ? ok(state.account) : problem(401, 'unauthorized')
+            },
+        })
+        state.signedIn = false
+        await expire()
+        await screen.findByText(/You've been signed out/)
+        state.signedIn = true
+        meCalls.count = 0
+        return { state, history, meCalls }
+    }
+
+    it('clears the banner when the tab comes back and the session is the same account, and sends what waited', async () => {
+        const { state, history, meCalls } = await bannerShowing()
+        expect(state.puts).toHaveLength(1)
+
+        tabShown()
+
+        await waitFor(() => expect(screen.queryByText(/You've been signed out/)).not.toBeInTheDocument())
+        expect(meCalls.count).toBe(1)
+        await waitFor(() => expect(sync.outbox).toEqual([]))
+        expect(state.puts).toHaveLength(2)
+        expect(state.puts[1].title).toBe('Edited while signed out')
+        expect(session.expired).toBe(false)
+        expect(history.get()).toBe('/tickets/t-1')
+    })
+
+    it('does the same when the network comes back', async () => {
+        const { state } = await bannerShowing()
+
+        networkBack()
+
+        await waitFor(() => expect(screen.queryByText(/You've been signed out/)).not.toBeInTheDocument())
+        await waitFor(() => expect(sync.outbox).toEqual([]))
+        expect(state.puts).toHaveLength(2)
+    })
+
+    it('leaves the banner when the answer is still 401, and asks again next time', async () => {
+        const { state, meCalls } = await bannerShowing()
+        state.signedIn = false
+
+        tabShown()
+        await waitFor(() => expect(meCalls.count).toBe(1))
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        expect(screen.getByText(/You've been signed out/)).toBeInTheDocument()
+        expect(session.expired).toBe(true)
+        expect(sync.outbox).toMatchObject([{ state: 'unauthorized' }])
+
+        state.signedIn = true
+        networkBack()
+        await waitFor(() => expect(screen.queryByText(/You've been signed out/)).not.toBeInTheDocument())
+        expect(meCalls.count).toBe(2)
+    })
+
+    it('leaves the banner when the server cannot be reached', async () => {
+        const { state, routes } = server()
+        let reachable = true
+        await openApp('/tickets/t-1', {
+            ...routes,
+            'GET /api/v1/auth/me': () => {
+                if (!reachable) throw new TypeError('Failed to fetch')
+                return state.signedIn ? ok(state.account) : problem(401, 'unauthorized')
+            },
+        })
+        state.signedIn = false
+        await expire()
+        await screen.findByText(/You've been signed out/)
+        reachable = false
+
+        networkBack()
+        await new Promise((resolve) => setTimeout(resolve, 20))
+
+        expect(screen.getByText(/You've been signed out/)).toBeInTheDocument()
+    })
+
+    it("treats another account's session as the different-account path: their data replaces the old, and the old edit is never sent", async () => {
+        const { state, routes } = server()
+        await openApp('/tickets/t-1', {
+            ...routes,
+            'POST /api/v1/tickets/list': () =>
+                state.account === ME_BODY
+                    ? page([ticket({ version: 3 })])
+                    : page([ticket({ id: 't-9', title: "Grace's ticket", updated_by: 'acc-2' })]),
+        })
+        state.signedIn = false
+        await expire()
+        await screen.findByText(/You've been signed out/)
+
+        // Signed in as somebody else in another tab: the cookie is now hers.
+        state.account = OTHER_BODY
+        state.signedIn = true
+        tabShown()
+
+        await waitFor(() => expect(session.me?.account_id).toBe('acc-2'))
+        await waitFor(() => expect(sync.tickets.map((t) => t.title)).toEqual(["Grace's ticket"]))
+        expect(sync.outbox).toEqual([])
+        expect(screen.queryByText(/You've been signed out/)).not.toBeInTheDocument()
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(state.puts).toHaveLength(1)
+    })
+
+    it('asks nothing when no banner is showing', async () => {
+        const { state, routes } = server()
+        const calls = { count: 0 }
+        await openApp('/tickets/t-1', {
+            ...routes,
+            'GET /api/v1/auth/me': () => {
+                calls.count += 1
+                return ok(state.account)
+            },
+        })
+        calls.count = 0
+
+        tabShown()
+        networkBack()
+        await new Promise((resolve) => setTimeout(resolve, 20))
+
+        expect(calls.count).toBe(0)
+    })
+
+    it('stops listening when stopped', async () => {
+        const { meCalls } = await bannerShowing()
+        stopWatching()
+
+        tabShown()
+        networkBack()
+        await new Promise((resolve) => setTimeout(resolve, 20))
+
+        expect(meCalls.count).toBe(0)
+    })
 })
 
 describe('arriving without a session', () => {
