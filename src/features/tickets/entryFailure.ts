@@ -5,7 +5,7 @@ import type { EntryError } from '@/sync'
 ┌─ tickets ───────────────────────────────────────
 │  turns the error on a parked outbox entry into words, at the field it is about
 ├─ out ───────────────────────────────────────────
-│      describeFailure   EntryError → { fields, form, fieldShaped }
+│      describeFailure   EntryError (+ the text sent) → { fields, form, fieldShaped }
 │      EditableField     title · description · status · assignee
 ├─ example ───────────────────────────────────────
 │      422 [{location:'body.title', message:'expected length >= 1'}]
@@ -59,8 +59,35 @@ function fieldMessage(field: EditableField, serverMessage: string | undefined): 
         : `The server didn't accept this ${NAME[field]}.`
 }
 
-export function describeFailure(error: EntryError): FailureDescription {
+/** The text of the change that was refused, for the one refusal that does not
+ *  say where it came from. */
+export type SentText = { title: string; description: string }
+
+// A body over the server's limit names no field - the limit is on the request
+// as a whole - but the megabyte is almost certainly in one of the two text
+// fields, and putting the message on the longer one tells the user where to
+// cut. With nothing to compare it is a form-level message.
+function tooLarge(sent: SentText | undefined): FailureDescription {
+    if (!sent) {
+        return {
+            fields: {},
+            form: 'This change is too large for the server to accept. Shorten the title or description and it will send again.',
+            fieldShaped: true,
+        }
+    }
+    const field: EditableField =
+        sent.description.length > sent.title.length ? 'description' : 'title'
+    return {
+        fields: { [field]: fieldMessage(field, 'it is too long to send') },
+        form: null,
+        fieldShaped: true,
+    }
+}
+
+export function describeFailure(error: EntryError, sent?: SentText): FailureDescription {
     const kind = classify(error)
+
+    if (kind === 'too_large') return tooLarge(sent)
 
     if (kind === 'validation') {
         const fields: FailureDescription['fields'] = {}

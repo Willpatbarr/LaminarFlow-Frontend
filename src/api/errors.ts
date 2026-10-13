@@ -4,7 +4,7 @@
 ├─ out ───────────────────────────────────────────
 │      classify      status / ApiProblem / thrown error  →  FailureKind
 │      FailureKind   validation · unauthorized · conflict · server · network
-│                    and forbidden · not_found · rejected for the rest
+│                    and forbidden · not_found · too_large · rejected for the rest
 │      isTransient   will the same request work later without anyone changing it
 ├─ example ───────────────────────────────────────
 │      { status: 422, code: 'validation_failed' }  →  'validation'
@@ -27,7 +27,12 @@
 //                 name the fields
 //   server        5xx, and 408 / 425 / 429 - the server's trouble or its
 //                 backpressure, so the same request may work later
-//   rejected      any other 4xx (405, 413, 415 ...) - wrong for good, and not
+//   too_large     413 - the request body is over the server's limit (1 MiB).
+//                 It names no field, but it IS what the user typed: the only
+//                 way to make that much text is to type or paste it, and the
+//                 way out is to shorten it. Kept apart from `rejected` so a
+//                 screen can say so.
+//   rejected      any other 4xx (405, 415 ...) - wrong for good, and not
 //                 something the user typed
 //
 // `code` is carried for callers that need to tell two answers of one kind
@@ -39,6 +44,7 @@ export type FailureKind =
     | 'unauthorized'
     | 'forbidden'
     | 'not_found'
+    | 'too_large'
     | 'conflict'
     | 'server'
     | 'network'
@@ -54,6 +60,7 @@ export function classifyStatus(status: number): FailureKind {
     if (status === 404 || status === 410) return 'not_found'
     if (status === 409 || status === 412) return 'conflict'
     if (status === 400 || status === 422) return 'validation'
+    if (status === 413) return 'too_large'
     if (status >= 500 || status === 408 || status === 425 || status === 429) return 'server'
     // 0 is what an entry records for "no response"; below 100 is not HTTP at
     // all. Success statuses are not failures, and landing here with one means

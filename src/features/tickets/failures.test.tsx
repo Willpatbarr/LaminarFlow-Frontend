@@ -92,6 +92,59 @@ describe('a validation failure on an outbox entry', () => {
     })
 })
 
+describe('a body over the server\'s size limit (413)', () => {
+    it('is put on the longer of the two text fields, keeps the text, and sends again when shortened', async () => {
+        const puts: string[] = []
+        await openApp('/tickets/t-1', {
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': async (request) => {
+                const body = await bodyOf(request)
+                puts.push(body.title)
+                // What the real backend sends for a body over 1 MiB: no field named.
+                if (body.title.length > 10) return problem(413, 'request_entity_too_large')
+                return ok(ticket({ ...body, version: 4, updated_by: ME }))
+            },
+        })
+        const user = userEvent.setup()
+        const title = await screen.findByLabelText('Title')
+
+        await user.clear(title)
+        await user.type(title, 'A title the server will not take')
+        await user.tab()
+
+        const message = "The server didn't accept this title: it is too long to send."
+        expect(await screen.findByText(message)).toBeInTheDocument()
+        expect(title).toHaveAttribute('aria-invalid', 'true')
+        expect(title).toHaveAccessibleDescription(message)
+        expect(title).toHaveValue('A title the server will not take')
+        expect(screen.getByLabelText('Description')).not.toHaveAttribute('aria-invalid')
+        expect(screen.getByRole('alert')).toHaveTextContent('Fix the marked field and it will send again.')
+        expect(sync.outbox).toMatchObject([{ state: 'failed' }])
+
+        await user.clear(title)
+        await user.type(title, 'Short')
+        await user.tab()
+
+        await waitFor(() => expect(sync.outbox).toEqual([]))
+        expect(puts).toEqual(['A title the server will not take', 'Short'])
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+        expect(title).not.toHaveAttribute('aria-invalid')
+    })
+
+    it('marks the description when that is the longer text', async () => {
+        await openApp('/tickets/t-1', {
+            ...listRoutes([ticket()]),
+            'PUT /api/v1/tickets/t-1': () => problem(413, 'request_entity_too_large'),
+        })
+        await screen.findByLabelText('Title')
+        await updateTicket('t-1', { description: 'x'.repeat(50) })
+
+        expect(await screen.findByText("The server didn't accept this description: it is too long to send.")).toBeInTheDocument()
+        expect(screen.getByLabelText('Description')).toHaveAttribute('aria-invalid', 'true')
+        expect(screen.getByLabelText('Title')).not.toHaveAttribute('aria-invalid')
+    })
+})
+
 describe('a failure that is not about a field', () => {
     it('explains a 403 in plain words and offers to discard the change', async () => {
         await openApp('/tickets/t-1', {
