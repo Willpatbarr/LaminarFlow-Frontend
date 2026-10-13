@@ -1,5 +1,6 @@
 import type { Client } from 'openapi-fetch'
 
+import { classify, classifyStatus, type FailureKind } from '@/api/errors'
 import type { components, paths } from '@/api/schema'
 
 import type { EntryError, OutboxEntry, Project, Status, Team, Ticket, TicketConflict } from './types'
@@ -33,13 +34,16 @@ export type ServerState = {
     tickets: Ticket[]
 }
 
-/** A list call that did not return a page. `status` 0 means no response. */
+/** A list call that did not return a page. `status` 0 means no response, and
+ *  `kind` is what the engine switches on. */
 export class ListFailure extends Error {
     status: number
+    kind: FailureKind
     constructor(status: number, code: string) {
         super(`could not list: ${status} ${code}`)
         this.name = 'ListFailure'
         this.status = status
+        this.kind = classifyStatus(status)
     }
 }
 
@@ -231,7 +235,7 @@ export function createRemote(api: SyncApi) {
                 return { type: 'ok', ticket: result.data ? toTicket(result.data as TicketBody) : null }
             }
             const body = result.error as Partial<components['schemas']['TicketConflict']> | undefined
-            if (response.status === 409 && body?.current && body.code) {
+            if (classify(response) === 'conflict' && body?.current && body.code) {
                 return {
                     type: 'conflict',
                     conflict: {

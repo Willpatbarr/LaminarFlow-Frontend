@@ -1,0 +1,15 @@
+/* The banner's tint is behind this, so the form's own colours are the page's:
+ * fields keep their raised fill and stay readable in both themes. */
+.reauth {
+  display: grid;
+  gap: var(--s-8);
+  max-width: 340px;
+}
+
+.reauth__status {
+  color: var(--rust-fg);
+}
+
+.reauth__hint {
+  color: var(--text-2);
+}

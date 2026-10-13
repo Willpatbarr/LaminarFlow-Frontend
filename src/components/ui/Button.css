@@ -57,3 +57,10 @@
   color: color-mix(in srgb, var(--text-on-accent) 80%, transparent);
   cursor: not-allowed;
 }
+
+/* Inside a toast, where the full-size padding would make the button the loudest
+ * thing on it. */
+.button--sm {
+  padding: var(--s-6) var(--s-12);
+  font-size: 12px;
+}

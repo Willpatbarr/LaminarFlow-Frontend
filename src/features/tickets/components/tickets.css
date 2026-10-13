@@ -129,3 +129,15 @@
   padding-top: var(--s-16);
   border-top: 1px solid var(--border);
 }
+
+/* A change the server refused. Rust says it needs the reader, but the tint is
+ * the quiet one - the work is still here. */
+.ticket__failure {
+  display: grid;
+  gap: var(--s-8);
+  padding: var(--s-12);
+  border: 1px solid color-mix(in srgb, var(--rust) 35%, transparent);
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--rust) var(--chip-alpha), transparent);
+  color: var(--rust-fg);
+}

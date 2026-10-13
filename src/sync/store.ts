@@ -1,6 +1,7 @@
 import { createMemo, createRoot, createStore, flush, reconcile } from 'solid-js'
 
 import { api as appApi } from '@/api/client'
+import { classify } from '@/api/errors'
 import { toProblem } from '@/api/problem'
 
 import { DB_NAME, openSyncDb, type SyncDb } from './db'
@@ -44,6 +45,8 @@ import type {
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket   the only way a screen changes a ticket
 ║      retry, discard, resume, rehydrate           for the error and conflict screens
+║      resumeFor, retryNow                         after a re-login (same account only); skip the backoff
+║      ticketHead, unsyncedCount                   a ticket's queue head; how many changes are unsent
 ║      createTeam, createProject                   first-run setup; online only
 ║      startSync, stopSync, wipeLocalData          lifecycle (called from session.ts)
 ║      sync.connection                              the change feed's state, for the indicator
@@ -65,6 +68,8 @@ export type SyncState = {
     hydrated: boolean
     /** The server answered 401; nothing is being sent until `resume()`. */
     paused: boolean
+    /** The last list failed for a reason a retry may fix. */
+    hydrationFailure: EngineStatus['hydrationFailure']
     /** The change feed (WebSocket). `offline` also means "not running". */
     connection: ConnectionState
     teams: Team[]
@@ -87,6 +92,7 @@ function empty(): SyncState {
         hydration: 'idle',
         hydrated: false,
         paused: false,
+        hydrationFailure: null,
         connection: 'offline',
         teams: [],
         projects: [],
@@ -127,6 +133,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
         draft.hydration = status.hydration
         draft.hydrated = status.hydrated
         draft.paused = status.paused
+        draft.hydrationFailure = status.hydrationFailure
         // The id swap is applied to the row in place, before the read below:
         // the row keeps its identity, so its DOM (and a field being typed in)
         // survives, and `reconcile` then matches it by its new id.
@@ -378,19 +385,31 @@ export function statusesForProject(projectId: string): Status[] {
 // One pass over the outbox instead of one per row. The first entry seen for a
 // ticket is the head of its queue, and the head is the one that decides: it is
 // the only one that can be parked.
-const syncStates = createRoot(() =>
+const queueHeads = createRoot(() =>
     createMemo(() => {
-        const states = new Map<string, TicketSyncState>()
+        const heads = new Map<string, OutboxEntry>()
         for (const entry of state.outbox) {
-            if (!states.has(entry.ticket_id)) states.set(entry.ticket_id, entry.state)
+            if (!heads.has(entry.ticket_id)) heads.set(entry.ticket_id, entry)
         }
-        return states
+        return heads
     }),
 )
 
 /** `synced` when nothing is waiting for this ticket, otherwise why it waits. */
 export function ticketSyncState(id: string): TicketSyncState {
-    return syncStates().get(resolveTicketId(id)) ?? 'synced'
+    return queueHeads().get(resolveTicketId(id))?.state ?? 'synced'
+}
+
+/** The entry at the head of this ticket's queue - the one that is waiting,
+ *  failing or parked - or undefined when the ticket is in sync. Its `error`
+ *  says what the last attempt got; its `payload` is what the user asked for. */
+export function ticketHead(id: string): OutboxEntry | undefined {
+    return queueHeads().get(resolveTicketId(id))
+}
+
+/** How many changes have not reached the server: one per outbox entry. */
+export function unsyncedCount(): number {
+    return state.outbox.length
 }
 
 /** Entries that will not go anywhere on their own: failed, conflict,
@@ -437,6 +456,23 @@ export async function resume(): Promise<void> {
     await caughtUp()
 }
 
+/** After a 401 the user signed in as the SAME account: un-parks what waited for
+ *  it. Does nothing if the engine now running belongs to someone else - the old
+ *  account's entries must never be sent under a new session - so it is safe to
+ *  call without knowing whether the account changed. */
+export function resumeFor(accountId: string): Promise<void> {
+    return inOrder(async () => {
+        if (current?.accountId !== accountId) return
+        await current.engine.resume()
+        await caughtUp()
+    })
+}
+
+/** Skips every backoff and tries the network now. */
+export function retryNow(): void {
+    current?.engine.retryNow()
+}
+
 /** Asks the server for everything again. Resolves true if it was applied. */
 export async function rehydrate(): Promise<boolean> {
     const applied = await running().engine.hydrate()
@@ -450,12 +486,33 @@ export async function rehydrate(): Promise<boolean> {
 // `ApiProblem` when it says no. The lists are then read back from the server,
 // which is also how the new team's seeded statuses arrive.
 
+// The direct calls cannot park anything the way the engine does, but a 401 on
+// one of them means the same thing as on a send, and the session banner is
+// how the user hears it. Whoever ties sync to the session registers here.
+const unauthorizedListeners = new Set<() => void>()
+
+/** Calls `fn` whenever a direct (non-outbox) call is answered 401. Returns the
+ *  function that unregisters it. */
+export function onUnauthorized(fn: () => void): () => void {
+    unauthorizedListeners.add(fn)
+    return () => {
+        unauthorizedListeners.delete(fn)
+    }
+}
+
+function directFailure(response: Response, error: unknown): never {
+    if (classify(response) === 'unauthorized') {
+        for (const listener of unauthorizedListeners) listener()
+    }
+    throw toProblem(response, error)
+}
+
 export async function createTeam(workspaceId: string, name: string): Promise<Team> {
     const active = running()
     const { data, error, response } = await active.api.POST('/api/v1/teams', {
         body: { workspace_id: workspaceId, name, bare: false },
     })
-    if (!data) throw toProblem(response, error)
+    if (!data) directFailure(response, error)
     await rehydrate()
     return { id: data.id, workspace_id: data.workspace_id, name: data.name }
 }
@@ -465,7 +522,7 @@ export async function createProject(teamId: string, name: string): Promise<Proje
     const { data, error, response } = await active.api.POST('/api/v1/projects', {
         body: { team_id: teamId, name, bare: false },
     })
-    if (!data) throw toProblem(response, error)
+    if (!data) directFailure(response, error)
     await rehydrate()
     await selectProject(data.id)
     return { id: data.id, team_id: data.team_id, name: data.name }

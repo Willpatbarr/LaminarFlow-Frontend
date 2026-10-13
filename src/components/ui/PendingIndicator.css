@@ -1,0 +1,76 @@
+.pending {
+  display: grid;
+  gap: var(--s-4);
+}
+
+/* The same 32px row as the nav links and the log-out button. */
+.pending__button {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  width: 100%;
+  height: var(--s-32);
+  padding: 0 var(--s-8);
+  border: none;
+  border-radius: var(--r-card);
+  background: transparent;
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pending__button:hover {
+  background: color-mix(in srgb, var(--text-1) 10%, transparent);
+}
+
+/* A ring while it is only waiting, solid rust once it needs someone: the same
+ * two looks as the marker on a ticket row. */
+.pending__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--amber-fg);
+  border-radius: 50%;
+}
+
+.pending[data-tone='attention'] .pending__dot {
+  border-color: var(--rust-fg);
+  background: var(--rust-fg);
+}
+
+.pending__list {
+  display: grid;
+  gap: var(--s-6);
+  margin: 0;
+  padding: var(--s-8);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-overlay);
+  list-style: none;
+}
+
+.pending__item {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.pending__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending__detail {
+  color: var(--text-2);
+}
+
+.pending__action {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -1,10 +1,29 @@
 import { createSignal, Show } from 'solid-js'
 
+import { classify } from '@/api/errors'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createProject, createTeam, sync } from '@/sync'
 
 import type { Viewer } from '../viewer'
+
+// Said where the button was pressed: these two calls are not queued, so there
+// is no marker or toast to carry the news and the form is the only place it can
+// go. Each kind says what to do next.
+function describeSetupFailure(error: unknown): string {
+    switch (classify(error)) {
+        case 'network':
+            return "Can't reach the server. Check your connection and try again."
+        case 'unauthorized':
+            return "You've been signed out. Sign in from the banner above, then try again."
+        case 'validation':
+            return "The server didn't accept those names. Check them and try again."
+        case 'forbidden':
+            return "You don't have permission to create a team or project here."
+        default:
+            return 'That did not work. The server had a problem; try again in a moment.'
+    }
+}
 
 type FirstRunSetupProps = {
     viewer: Viewer
@@ -20,21 +39,21 @@ export function FirstRunSetup(props: FirstRunSetupProps) {
     const [teamName, setTeamName] = createSignal('My team')
     const [projectName, setProjectName] = createSignal('First project')
     const [saving, setSaving] = createSignal(false)
-    const [failed, setFailed] = createSignal(false)
+    const [failure, setFailure] = createSignal<string | null>(null)
 
     const existingTeam = () => sync.teams[0]
 
     async function submit(event: SubmitEvent) {
         event.preventDefault()
         setSaving(true)
-        setFailed(false)
+        setFailure(null)
         try {
             const team =
                 existingTeam() ?? (await createTeam(props.viewer.workspaceId, teamName().trim()))
             await createProject(team.id, projectName().trim())
         } catch (error) {
             console.error('first-run setup failed', error)
-            setFailed(true)
+            setFailure(describeSetupFailure(error))
         } finally {
             setSaving(false)
         }
@@ -57,9 +76,9 @@ export function FirstRunSetup(props: FirstRunSetupProps) {
                 {(team) => <p class="t-body">Team: {team().name}</p>}
             </Show>
             <Input label="Project name" value={projectName()} onInput={setProjectName} required />
-            <Show when={failed()}>
+            <Show when={failure()}>
                 <p class="tickets__setup-error t-meta" role="alert">
-                    That did not work. Check your connection and try again.
+                    {failure()}
                 </p>
             </Show>
             <div>
