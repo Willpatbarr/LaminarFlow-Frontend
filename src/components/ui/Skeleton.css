@@ -1,0 +1,63 @@
+/* One look for every primitive; they differ only in size and radius.
+ *
+ * The specimen paints --bg-overlay, which is the elevation scale's own step in
+ * the dark theme but plain white in the light one - the same as the cards and
+ * the rail it would sit on, so a skeleton would vanish. A wash of the text
+ * colour reads as a darker (light) or lighter (dark) patch on any surface
+ * without inventing a grey, and it inverts with the theme on its own. */
+.skeleton {
+  --skeleton-base: color-mix(in srgb, var(--text-1) 9%, transparent);
+  --skeleton-glint: color-mix(in srgb, var(--text-1) 16%, transparent);
+
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  background: var(--skeleton-base);
+}
+
+.skeleton--line,
+.skeleton--chip {
+  border-radius: var(--r-chip);
+}
+
+.skeleton--control {
+  border-radius: var(--r-control);
+}
+
+.skeleton--card {
+  border-radius: var(--r-card);
+}
+
+.skeleton--pill {
+  border-radius: 999px;
+}
+
+.skeleton--circle {
+  border-radius: 50%;
+}
+
+/* The shimmer is motion, so it is opt-in: anyone who has asked for less (or
+ * whose browser says nothing) gets the static tint above. */
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    /* The shorthand, so the flat colour above is replaced rather than
+     * stacked under the gradient (both are translucent). */
+    background: linear-gradient(
+        90deg,
+        var(--skeleton-base) 0%,
+        var(--skeleton-glint) 50%,
+        var(--skeleton-base) 100%
+      )
+      0 0 / 200% 100%;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}

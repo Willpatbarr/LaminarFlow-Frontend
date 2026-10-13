@@ -61,3 +61,8 @@
   height: var(--row-h);
   color: var(--text-3);
 }
+
+/* A placeholder row has no hover to answer. */
+.table__row--loading {
+  cursor: default;
+}

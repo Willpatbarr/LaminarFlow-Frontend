@@ -59,15 +59,23 @@ afterEach(async () => {
 })
 
 describe('the ticket list', () => {
-    it('shows the loading placeholder until the first load lands', async () => {
+    it('shows the list placeholder until the first load lands, then the rows', async () => {
         const tickets = deferred()
         await open('/', { ...listRoutes(), 'POST /api/v1/tickets/list': () => tickets.promise })
 
-        expect(await inMain().findByRole('status')).toHaveTextContent('Loading')
+        expect(await inMain().findByRole('status')).toHaveTextContent('Loading tickets')
+        expect(screen.getByRole('main').querySelector('section.tickets')).toHaveAttribute(
+            'aria-busy',
+            'true',
+        )
+        expect(inMain().queryByRole('link')).not.toBeInTheDocument()
 
         tickets.resolve(page([ticket()]))
         expect(await screen.findByRole('link', { name: /Write the outbox/ })).toBeInTheDocument()
         expect(inMain().queryByRole('status')).not.toBeInTheDocument()
+        expect(screen.getByRole('main').querySelector('section.tickets')).not.toHaveAttribute(
+            'aria-busy',
+        )
     })
 
     it('groups tickets by status in position order, with "No status" last and only if needed', async () => {
@@ -183,7 +191,11 @@ describe('the ticket list', () => {
             },
         })
         const user = userEvent.setup()
-        await user.click(await screen.findByRole('button', { name: 'New ticket' }))
+        // The loading list shows the button too, disabled: wait for the real one.
+        await vi.waitFor(() =>
+            expect(screen.getByRole('button', { name: 'New ticket' })).toBeEnabled(),
+        )
+        await user.click(screen.getByRole('button', { name: 'New ticket' }))
 
         const dialog = screen.getByRole('dialog', { name: 'New ticket' })
         // Nothing to create yet.
@@ -412,6 +424,22 @@ describe('the ticket page', () => {
         expect(await screen.findByText('No tickets in Launch yet')).toBeInTheDocument()
         expect(history.get()).toBe('/')
         await vi.waitFor(() => expect(deletes).toEqual(['"3"']))
+    })
+
+    it('shows the ticket placeholder, not "not found", while the first load is on its way', async () => {
+        const tickets = deferred()
+        await open('/tickets/t-1', {
+            ...listRoutes(),
+            'POST /api/v1/tickets/list': () => tickets.promise,
+        })
+
+        expect(await inMain().findByRole('status')).toHaveTextContent('Loading ticket')
+        expect(screen.queryByRole('heading', { name: 'Ticket not found' })).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+
+        tickets.resolve(page([ticket()]))
+        expect(await screen.findByLabelText('Title')).toHaveValue('Write the outbox')
+        expect(screen.queryByRole('heading', { name: 'Ticket not found' })).not.toBeInTheDocument()
     })
 
     it('says so when there is no such ticket', async () => {

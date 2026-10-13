@@ -38,21 +38,44 @@ export function Table(props: TableProps) {
     )
 }
 
-type TableRowProps = {
-    /** Where the row goes when activated. */
-    href: string
-    /** One element per column. */
-    children: JSX.Element
-}
+type TableRowProps =
+    | {
+          /** Where the row goes when activated. */
+          href: string
+          loading?: false
+          /** One element per column. */
+          children: JSX.Element
+      }
+    | {
+          /** The row's placeholder: the same box, but nothing to activate. */
+          loading: true
+          /** The placeholder cells, one per column. */
+          children: JSX.Element
+      }
 
 // Hover is the 2.8% wash and deliberately does not touch the border - a border
 // that changes on hover makes the row look like it moved.
+//
+// `loading` swaps the link for a plain element wearing the same classes, so a
+// placeholder row and a real one are the same height, the same grid and the
+// same paddings by construction rather than by two stylesheets agreeing. The
+// row is a link only when it has somewhere to go. What goes in the cells is the
+// caller's: only it knows which column holds a title and which a badge.
 export function TableRow(props: TableRowProps) {
     return (
         <li class="table__item">
-            <a class="table__row row" href={props.href}>
-                {props.children}
-            </a>
+            <Show
+                when={props.loading}
+                fallback={
+                    <a class="table__row row" href={props.loading ? undefined : props.href}>
+                        {props.children}
+                    </a>
+                }
+            >
+                <div class="table__row row table__row--loading" aria-hidden="true">
+                    {props.children}
+                </div>
+            </Show>
         </li>
     )
 }

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
+import { SkeletonBox, SkeletonLine } from '@/components/ui/Skeleton'
 import { TextArea } from '@/components/ui/TextArea'
 import {
     archiveOnHold,
@@ -35,14 +36,13 @@ import { describeFailure } from '../entryFailure'
 import type { Viewer } from '../viewer'
 import { ConflictPanel } from './ConflictPanel'
 import { SyncMarker } from './SyncMarker'
-import { TicketsPending } from './TicketsPending'
 import './tickets.css'
 
 type TicketDetailProps = {
     /** From the URL. May be a temporary id, or one that has since been replaced. */
     id: string
     viewer: Viewer
-    /** Force the placeholder. See TicketList. */
+    /** Force the placeholder, whatever the store says. See TicketList. */
     loading?: boolean
 }
 
@@ -53,9 +53,14 @@ type TicketDetailProps = {
 // `ticketById` keeps returning the SAME row for either id: nothing here
 // re-mounts, a field being typed in keeps its focus and its text, and the only
 // visible change is the address bar, which is replaced (not pushed) below.
+//
+// While the first load is on its way (or `loading` says so) it draws the form's
+// own shape - a label over a field, in the same places - instead of "not
+// found": a ticket that has not arrived yet is not a ticket that is missing.
 export function TicketDetail(props: TicketDetailProps) {
     const navigate = useNavigate()
     const ticket = createMemo(() => ticketById(props.id))
+    const busy = () => props.loading || isLoading()
 
     // What the last resolved conflict did, said in a polite status region that
     // lives here rather than in the editor: the editor is gone by the time a
@@ -78,7 +83,7 @@ export function TicketDetail(props: TicketDetailProps) {
     )
 
     return (
-        <section class="tickets ticket">
+        <section class="tickets ticket" aria-busy={busy() ? 'true' : undefined}>
             <p class="t-meta">
                 <a href="/">← Tickets</a>
             </p>
@@ -103,8 +108,8 @@ export function TicketDetail(props: TicketDetailProps) {
                     </>
                 }
             >
-                <Match when={props.loading || isLoading()}>
-                    <TicketsPending />
+                <Match when={busy()}>
+                    <LoadingTicket />
                 </Match>
                 <Match when={ticket()}>
                     {(found) => (
@@ -113,6 +118,52 @@ export function TicketDetail(props: TicketDetailProps) {
                 </Match>
             </Switch>
         </section>
+    )
+}
+
+// The editor's shape, field for field: the same `.ticket__form` and `.input`
+// boxes, with a bar where each label is and a box where each control is. The
+// heights are the real controls' (a one-line field, the six-row description,
+// the button), so nothing moves when the ticket lands.
+function LoadingTicket() {
+    return (
+        <>
+            {/* The one announcement, outside the hidden placeholder. */}
+            <p class="visually-hidden" role="status">
+                Loading ticket…
+            </p>
+            <div class="ticket__form" aria-hidden="true">
+                <div class="ticket__status-line" />
+                <PlaceholderField control="40px" />
+                <PlaceholderField control="150px" />
+                <div class="ticket__row">
+                    <PlaceholderField control="40px" />
+                    <PlaceholderField control="40px" />
+                </div>
+                <div class="t-meta ticket__hint ticket__skeleton-line">
+                    <SkeletonLine width="28ch" height="11px" />
+                </div>
+                <div class="ticket__danger">
+                    <SkeletonBox shape="control" width="119px" height="31.5px" />
+                </div>
+            </div>
+        </>
+    )
+}
+
+type PlaceholderFieldProps = {
+    /** The height of the control it stands in for. */
+    control: `${number}px`
+}
+
+function PlaceholderField(props: PlaceholderFieldProps) {
+    return (
+        <div class="input">
+            <span class="input__label t-body ticket__skeleton-line">
+                <SkeletonLine width="9ch" height="12px" />
+            </span>
+            <SkeletonBox shape="control" height={props.control} />
+        </div>
     )
 }
 
