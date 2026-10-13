@@ -244,6 +244,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List the workspace's projects (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `created_at` (time)
+         *     - `name` (text)
+         *     - `team` (uuid)
+         *     - `updated_at` (time)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-projects"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}": {
         parameters: {
             query?: never;
@@ -349,6 +380,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List the workspace's teams, each with its statuses (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `created_at` (time)
+         *     - `name` (text)
+         *     - `updated_at` (time)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-teams"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams/{id}": {
         parameters: {
             query?: never;
@@ -410,6 +471,7 @@ export interface paths {
          *     - `status` (uuid)
          *     - `title` (text)
          *     - `updated_at` (time)
+         *     - `version` (number)
          *
          *     Page size defaults to 50 and may not exceed 200.
          */
@@ -429,10 +491,16 @@ export interface paths {
         };
         /** Fetch one ticket */
         get: operations["get-ticket"];
-        /** Replace a ticket's writable fields */
+        /**
+         * Replace a ticket's writable fields
+         * @description Last write wins unless `If-Match` is sent. With `If-Match: "<version>"` the write happens only if the ticket is still at that version; otherwise it is refused with a 409 (`ticket_conflict` or `ticket_archived`) that carries the current ticket, who changed it and when. Without it, a write to an archived ticket is `ticket_not_found`, as it always was.
+         */
         put: operations["update-ticket"];
         post?: never;
-        /** Archive a ticket (soft delete - the row and its comments survive) */
+        /**
+         * Archive a ticket (soft delete - the row and its comments survive)
+         * @description Takes `If-Match` like the update does. A ticket that is already archived answers `ticket_archived` when `If-Match` is sent - including when the archive was your own and the response was lost, in which case `changed_by` is you - and `ticket_not_found` when it is not. The ticket's new version is in the `ETag` header.
+         */
         delete: operations["archive-ticket"];
         options?: never;
         head?: never;
@@ -448,7 +516,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Restore an archived ticket */
+        /**
+         * Restore an archived ticket
+         * @description Takes `If-Match`: the version of the archived ticket you last saw. If it was restored, edited or archived again since, the answer is a 409 `ticket_conflict` with the current ticket. Restoring a ticket that is not archived is `ticket_not_found` either way. The ticket's new version is in the `ETag` header.
+         */
         post: operations["unarchive-ticket"];
         delete?: never;
         options?: never;
@@ -650,6 +721,30 @@ export interface components {
             groups?: components["schemas"]["Group"][] | null;
             /** @description and or or. Joins every condition and subgroup in this group. */
             op: string;
+        };
+        ListEnvelopeProjectBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeProjectBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["ProjectBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
+        ListEnvelopeTeamBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeTeamBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["TeamBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
         };
         ListEnvelopeTicketBody: {
             /**
@@ -882,7 +977,7 @@ export interface components {
              * @example https://example.com/api/v1/schemas/TeamBody.json
              */
             readonly $schema?: string;
-            /** @description Seeded on creation. Starter types, not system types. */
+            /** @description Seeded on creation. Starter types, not system types. Empty on get and list, which do not load them. */
             aspect_types: string[] | null;
             id: string;
             name: string;
@@ -905,6 +1000,76 @@ export interface components {
             /** @description Null is normal - no status is sacred, so a ticket may have none. */
             status_id: string | null;
             title: string;
+            /**
+             * Format: date-time
+             * @description When the ticket last changed - an edit, an archive or a restore. For display; to compare versions use version.
+             */
+            updated_at: string;
+            /** @description The account that made the last change. Null when it was not recorded (tickets from before this field existed) or that account has since been deleted - show it as someone. */
+            updated_by: string | null;
+            /**
+             * Format: int64
+             * @description Starts at 1 and rises by exactly 1 on every update, archive and restore. Send it back as If-Match to make a write conditional; also in the ETag header. See the If-Match parameter.
+             */
+            version: number;
+        };
+        TicketConflict: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/TicketConflict.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: date-time
+             * @description When that change was made.
+             */
+            changed_at: string;
+            /** @description Who made the change that caused this refusal: for ticket_archived, who archived it. Null when not recorded or that account has been deleted. */
+            changed_by: {
+                /** Format: uuid */
+                account_id: string;
+                display_name: string;
+            } | null;
+            /**
+             * @description ticket_conflict: the ticket was edited since the version you sent. ticket_archived: it was archived.
+             * @example ticket_conflict
+             * @enum {string}
+             */
+            code: "ticket_conflict" | "ticket_archived";
+            /** @description The server's copy of the ticket right now, in the shape of GET /tickets/{id} - including when the ticket is archived, which GET never returns. */
+            current: components["schemas"]["TicketBody"];
+            /**
+             * @description A human-readable explanation specific to this occurrence of the problem.
+             * @example Property foo is required but is missing.
+             */
+            detail?: string;
+            /** @description Optional list of individual error details */
+            errors?: components["schemas"]["ErrorDetail"][] | null;
+            /**
+             * Format: uri
+             * @description A URI reference that identifies the specific occurrence of the problem.
+             * @example https://example.com/error-log/abc123
+             */
+            instance?: string;
+            /**
+             * Format: int64
+             * @description HTTP status code
+             * @example 400
+             */
+            status?: number;
+            /**
+             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+             * @example Bad Request
+             */
+            title?: string;
+            /**
+             * Format: uri
+             * @description A URI reference to human-readable documentation for the error.
+             * @default about:blank
+             * @example https://example.com/errors/example
+             */
+            type: string;
         };
         UpdateTicketInputBody: {
             /**
@@ -1414,6 +1579,39 @@ export interface operations {
             };
         };
     };
+    "list-projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeProjectBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "get-project": {
         parameters: {
             query?: never;
@@ -1607,6 +1805,39 @@ export interface operations {
             };
         };
     };
+    "list-teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeTeamBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "get-team": {
         parameters: {
             query?: never;
@@ -1654,6 +1885,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1718,6 +1950,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1738,7 +1971,10 @@ export interface operations {
     "update-ticket": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example "4". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write. */
+                "If-Match"?: string;
+            };
             path: {
                 id: string;
             };
@@ -1753,10 +1989,20 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["TicketBody"];
+                };
+            };
+            /** @description Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["TicketConflict"];
                 };
             };
             /** @description Error */
@@ -1773,7 +2019,10 @@ export interface operations {
     "archive-ticket": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example "4". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write. */
+                "If-Match"?: string;
+            };
             path: {
                 id: string;
             };
@@ -1784,9 +2033,19 @@ export interface operations {
             /** @description No Content */
             204: {
                 headers: {
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["TicketConflict"];
+                };
             };
             /** @description Error */
             default: {
@@ -1802,7 +2061,10 @@ export interface operations {
     "unarchive-ticket": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example "4". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write. */
+                "If-Match"?: string;
+            };
             path: {
                 id: string;
             };
@@ -1813,9 +2075,19 @@ export interface operations {
             /** @description No Content */
             204: {
                 headers: {
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["TicketConflict"];
+                };
             };
             /** @description Error */
             default: {

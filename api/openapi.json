@@ -456,6 +456,84 @@
         ],
         "type": "object"
       },
+      "ListEnvelopeProjectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeProjectBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeTeamBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeTeamBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TeamBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
       "ListEnvelopeTicketBody": {
         "additionalProperties": false,
         "properties": {
@@ -999,7 +1077,7 @@
             "type": "string"
           },
           "aspect_types": {
-            "description": "Seeded on creation. Starter types, not system types.",
+            "description": "Seeded on creation. Starter types, not system types. Empty on get and list, which do not load them.",
             "items": {
               "type": "string"
             },
@@ -1074,6 +1152,24 @@
           },
           "title": {
             "type": "string"
+          },
+          "updated_at": {
+            "description": "When the ticket last changed - an edit, an archive or a restore. For display; to compare versions use version.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_by": {
+            "description": "The account that made the last change. Null when it was not recorded (tickets from before this field existed) or that account has since been deleted - show it as someone.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "Starts at 1 and rises by exactly 1 on every update, archive and restore. Send it back as If-Match to make a write conditional; also in the ETag header. See the If-Match parameter.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
           }
         },
         "required": [
@@ -1082,7 +1178,121 @@
           "title",
           "description",
           "status_id",
-          "assignee_id"
+          "assignee_id",
+          "updated_at",
+          "updated_by",
+          "version"
+        ],
+        "type": "object"
+      },
+      "TicketConflict": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/TicketConflict.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "changed_at": {
+            "description": "When that change was made.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "changed_by": {
+            "additionalProperties": false,
+            "description": "Who made the change that caused this refusal: for ticket_archived, who archived it. Null when not recorded or that account has been deleted.",
+            "properties": {
+              "account_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "account_id",
+              "display_name"
+            ],
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "code": {
+            "description": "ticket_conflict: the ticket was edited since the version you sent. ticket_archived: it was archived.",
+            "enum": [
+              "ticket_conflict",
+              "ticket_archived"
+            ],
+            "examples": [
+              "ticket_conflict"
+            ],
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/TicketBody",
+            "description": "The server's copy of the ticket right now, in the shape of GET /tickets/{id} - including when the ticket is archived, which GET never returns."
+          },
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence of the problem.",
+            "examples": [
+              "Property foo is required but is missing."
+            ],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Optional list of individual error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "instance": {
+            "description": "A URI reference that identifies the specific occurrence of the problem.",
+            "examples": [
+              "https://example.com/error-log/abc123"
+            ],
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP status code",
+            "examples": [
+              400
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem type. This value should not change between occurrences of the error.",
+            "examples": [
+              "Bad Request"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "description": "A URI reference to human-readable documentation for the error.",
+            "examples": [
+              "https://example.com/errors/example"
+            ],
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "current",
+          "changed_by",
+          "changed_at"
         ],
         "type": "object"
       },
@@ -1757,6 +1967,45 @@
         "summary": "Create a project, with the board it renders with"
       }
     },
+    "/api/v1/projects/list": {
+      "post": {
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `created_at` (time)\n- `name` (text)\n- `team` (uuid)\n- `updated_at` (time)\n\nPage size defaults to 50 and may not exceed 200.",
+        "operationId": "list-projects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeProjectBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the workspace's projects (a read - see the description for why it is a POST)"
+      }
+    },
     "/api/v1/projects/{id}": {
       "get": {
         "operationId": "get-project",
@@ -2003,6 +2252,45 @@
         "summary": "Create a team, with the rows it needs to be usable"
       }
     },
+    "/api/v1/teams/list": {
+      "post": {
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `created_at` (time)\n- `name` (text)\n- `updated_at` (time)\n\nPage size defaults to 50 and may not exceed 200.",
+        "operationId": "list-teams",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeTeamBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the workspace's teams, each with its statuses (a read - see the description for why it is a POST)"
+      }
+    },
     "/api/v1/teams/{id}": {
       "get": {
         "operationId": "get-team",
@@ -2064,7 +2352,15 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The ticket's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
           },
           "default": {
             "content": {
@@ -2082,7 +2378,7 @@
     },
     "/api/v1/tickets/list": {
       "post": {
-        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `assignee` (uuid)\n- `created_at` (time)\n- `description` (text)\n- `epic` (uuid)\n- `label` (uuid_set)\n- `project` (uuid)\n- `sprint` (uuid_set)\n- `status` (uuid)\n- `title` (text)\n- `updated_at` (time)\n\nPage size defaults to 50 and may not exceed 200.",
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `assignee` (uuid)\n- `created_at` (time)\n- `description` (text)\n- `epic` (uuid)\n- `label` (uuid_set)\n- `project` (uuid)\n- `sprint` (uuid_set)\n- `status` (uuid)\n- `title` (text)\n- `updated_at` (time)\n- `version` (number)\n\nPage size defaults to 50 and may not exceed 200.",
         "operationId": "list-tickets",
         "requestBody": {
           "content": {
@@ -2121,6 +2417,7 @@
     },
     "/api/v1/tickets/{id}": {
       "delete": {
+        "description": "Takes `If-Match` like the update does. A ticket that is already archived answers `ticket_archived` when `If-Match` is sent - including when the archive was your own and the response was lost, in which case `changed_by` is you - and `ticket_not_found` when it is not. The ticket's new version is in the `ETag` header.",
         "operationId": "archive-ticket",
         "parameters": [
           {
@@ -2131,11 +2428,42 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "No Content",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The ticket's new version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written."
           },
           "default": {
             "content": {
@@ -2172,7 +2500,15 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The ticket's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
           },
           "default": {
             "content": {
@@ -2188,6 +2524,7 @@
         "summary": "Fetch one ticket"
       },
       "put": {
+        "description": "Last write wins unless `If-Match` is sent. With `If-Match: \"\u003cversion\u003e\"` the write happens only if the ticket is still at that version; otherwise it is refused with a 409 (`ticket_conflict` or `ticket_archived`) that carries the current ticket, who changed it and when. Without it, a write to an archived ticket is `ticket_not_found`, as it always was.",
         "operationId": "update-ticket",
         "parameters": [
           {
@@ -2196,6 +2533,19 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
               "type": "string"
             }
           }
@@ -2219,7 +2569,25 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The ticket's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written."
           },
           "default": {
             "content": {
@@ -2237,6 +2605,7 @@
     },
     "/api/v1/tickets/{id}/unarchive": {
       "post": {
+        "description": "Takes `If-Match`: the version of the archived ticket you last saw. If it was restored, edited or archived again since, the answer is a 409 `ticket_conflict` with the current ticket. Restoring a ticket that is not archived is `ticket_not_found` either way. The ticket's new version is in the `ETag` header.",
         "operationId": "unarchive-ticket",
         "parameters": [
           {
@@ -2247,11 +2616,42 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "No Content",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The ticket's new version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written."
           },
           "default": {
             "content": {
