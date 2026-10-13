@@ -1,3 +1,14 @@
 .session-pending {
   color: var(--text-3);
 }
+
+.session-unreachable {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-8);
+  max-width: 460px;
+}
+
+.session-unreachable .t-meta {
+  color: var(--text-2);
+}

@@ -1,0 +1,81 @@
+/* The hue is chosen by an attribute, so the sheet needs no class per colour and
+ * no dynamic `class` (see src/components/README.md). */
+.banner {
+  --hue: var(--amber);
+  --hue-fg: var(--amber-fg);
+  display: grid;
+  gap: var(--s-8);
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid color-mix(in srgb, var(--hue) 35%, transparent);
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--hue) var(--chip-alpha), transparent);
+}
+
+.banner[data-hue='slate'] {
+  --hue: var(--slate);
+  --hue-fg: var(--slate-fg);
+}
+.banner[data-hue='rust'] {
+  --hue: var(--rust);
+  --hue-fg: var(--rust-fg);
+}
+.banner[data-hue='green'] {
+  --hue: var(--green);
+  --hue-fg: var(--green-fg);
+}
+.banner[data-hue='blue'] {
+  --hue: var(--blue);
+  --hue-fg: var(--blue-fg);
+}
+
+.banner__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.banner__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hue-fg);
+}
+
+.banner__text {
+  flex: 1;
+  min-width: 0;
+  color: var(--hue-fg);
+}
+
+.banner__action {
+  flex: none;
+  padding: 3px var(--s-8);
+  border: none;
+  border-radius: var(--r-chip);
+  background: var(--hue-fg);
+  color: var(--bg-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.banner__action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.banner__dismiss {
+  flex: none;
+  padding: 0 var(--s-6);
+  border: none;
+  border-radius: var(--r-chip);
+  background: transparent;
+  color: var(--hue-fg);
+  font-size: 16px;
+  line-height: 17px;
+  cursor: pointer;
+}
+
+.banner__details {
+  padding-left: calc(6px + var(--s-8));
+}

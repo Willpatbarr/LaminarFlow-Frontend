@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint && npm run check:boundary",
+    "lint": "oxlint && npm run check:boundary && npm run check:status",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "api:pull": "node scripts/api-pull.mjs && npm run api:types",
     "api:types": "npx -y openapi-typescript@7.13.0 api/openapi.json -o src/api/schema.d.ts",
     "preview": "vite preview",
-    "check:boundary": "node scripts/check-no-db-driver.mjs"
+    "check:boundary": "node scripts/check-no-db-driver.mjs",
+    "check:status": "node scripts/check-status-branching.mjs"
   },
   "dependencies": {
     "@solidjs/router": "2.0.0-next.23",

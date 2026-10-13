@@ -14,6 +14,8 @@ type ButtonProps = {
     disabled?: boolean
     /** Defaults to `primary`. */
     variant?: ButtonVariant
+    /** `sm` is for a button sitting inside another surface (a toast). */
+    size?: 'md' | 'sm'
     /** Receives the <button>, so a dialog can put focus on it. */
     ref?: (el: HTMLButtonElement) => void
 }
@@ -29,7 +31,7 @@ export function Button(props: ButtonProps) {
         <button
             ref={props.ref}
             type={props.type ?? 'button'}
-            class={`button button--${props.variant ?? 'primary'}`}
+            class={`button button--${props.variant ?? 'primary'}${props.size === 'sm' ? ' button--sm' : ''}`}
             disabled={props.disabled}
             onClick={props.onClick}
         >

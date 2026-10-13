@@ -826,14 +826,24 @@ describe('hydration', () => {
     it('pauses on a 401 and hydrates again on resume()', async () => {
         stubFetch({ 'POST /api/v1/teams/list': () => problem(401, 'unauthorized') })
         const { engine, clock } = await startEngine()
-        expect(engine.status()).toEqual({ hydration: 'failed', hydrated: false, paused: true })
+        expect(engine.status()).toEqual({
+            hydration: 'failed',
+            hydrated: false,
+            paused: true,
+            hydrationFailure: null,
+        })
         expect(clock.nextDelay()).toBeNull()
 
         stubFetch(listRoutes([ticket()]))
         await engine.resume()
         await engine.idle()
 
-        expect(engine.status()).toEqual({ hydration: 'done', hydrated: true, paused: false })
+        expect(engine.status()).toEqual({
+            hydration: 'done',
+            hydrated: true,
+            paused: false,
+            hydrationFailure: null,
+        })
     })
 })
 
@@ -1141,5 +1151,137 @@ describe('applyRemote', () => {
 
         await engine.stop()
         expect(await engine.applyRemote(frame('ticket.updated', ticket({ version: 2 })))).toBe(false)
+    })
+})
+
+// LAM-70: what each kind of answer does to an entry, now that the classifier
+// decides it.
+describe('failures, by kind', () => {
+    it.each([
+        [403, 'forbidden'],
+        [404, 'ticket_not_found'],
+        [422, 'validation_failed'],
+        [405, 'method_not_allowed'],
+    ])('parks a %i as failed and does not retry it', async (status, code) => {
+        let sends = 0
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'PUT /api/v1/tickets/t-1': () => {
+                sends += 1
+                return problem(status, code)
+            },
+        })
+        const { engine, db, clock } = await startEngine()
+
+        await engine.updateTicket('t-1', { title: 'A' })
+        await engine.idle()
+
+        expect((await local(db)).outbox).toMatchObject([
+            { state: 'failed', attempts: 0, error: { status, code } },
+        ])
+        expect(clock.nextDelay()).toBeNull()
+        expect(sends).toBe(1)
+    })
+
+    it('treats 429 like a 5xx: the entry stays pending and is retried', async () => {
+        let attempts = 0
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'PUT /api/v1/tickets/t-1': () => {
+                attempts += 1
+                return attempts === 1 ? problem(429, 'too_many_requests') : ok(ticket({ title: 'A', version: 2 }))
+            },
+        })
+        const { engine, db, clock } = await startEngine()
+
+        await engine.updateTicket('t-1', { title: 'A' })
+        await engine.idle()
+        expect((await local(db)).outbox).toMatchObject([{ state: 'pending', attempts: 1 }])
+
+        clock.advance(1_000)
+        await engine.idle()
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('retryNow() tries a waiting entry at once instead of when the backoff ends', async () => {
+        let attempts = 0
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'PUT /api/v1/tickets/t-1': () => {
+                attempts += 1
+                return attempts === 1 ? problem(503, 'unavailable') : ok(ticket({ title: 'A', version: 2 }))
+            },
+        })
+        const { engine, db, clock } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'A' })
+        await engine.idle()
+        expect(attempts).toBe(1)
+        expect(clock.nextDelay()).toBe(1_000)
+
+        engine.retryNow()
+        await engine.idle()
+
+        expect(attempts).toBe(2)
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('retryNow() does nothing while paused for a 401', async () => {
+        let sends = 0
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'PUT /api/v1/tickets/t-1': () => {
+                sends += 1
+                return problem(401, 'unauthorized')
+            },
+        })
+        const { engine } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'A' })
+        await engine.idle()
+
+        engine.retryNow()
+        await engine.idle()
+
+        expect(sends).toBe(1)
+    })
+
+    it('reports why a list failed, and forgets it once a list lands', async () => {
+        let down = true
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'POST /api/v1/teams/list': () => (down ? problem(502, 'bad_gateway') : listRoutes()['POST /api/v1/teams/list']()),
+        })
+        const { engine, clock } = await startEngine()
+        expect(engine.status()).toMatchObject({ hydration: 'failed', hydrationFailure: 'server', paused: false })
+
+        down = false
+        clock.advance(1_000)
+        await engine.idle()
+        expect(engine.status()).toMatchObject({ hydration: 'done', hydrationFailure: null })
+    })
+
+    it('sends what an earlier run parked for a 401, once a new engine starts', async () => {
+        let signedIn = false
+        const sent: string[] = []
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'PUT /api/v1/tickets/t-1': async (request) => {
+                sent.push((await bodyOf(request)).title)
+                return signedIn ? ok(ticket({ title: 'A', version: 2 })) : problem(401, 'unauthorized')
+            },
+        })
+        const first = await startEngine()
+        await first.engine.updateTicket('t-1', { title: 'A' })
+        await first.engine.idle()
+        expect((await local(first.db)).outbox).toMatchObject([{ state: 'unauthorized' }])
+        await first.engine.stop()
+
+        // The page was reloaded and the user signed in again: a new engine,
+        // the same database.
+        signedIn = true
+        const second = await startEngine({ db: first.db })
+        await second.engine.idle()
+
+        expect(sent).toEqual(['A', 'A'])
+        expect((await local(second.db)).outbox).toEqual([])
     })
 })

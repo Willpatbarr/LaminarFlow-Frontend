@@ -1,3 +1,5 @@
+import { classify } from '@/api/errors'
+
 import type { SyncDb, SyncTx } from './db'
 import {
     createRemote,
@@ -99,6 +101,8 @@ export type EngineStatus = {
     hydrated: boolean
     /** True after a 401: nothing is sent until `resume()`. */
     paused: boolean
+    /** Set while the last hydration failed for a reason a retry may fix. */
+    hydrationFailure: 'network' | 'server' | null
 }
 
 export type SyncChange = {
@@ -137,6 +141,10 @@ export type SyncEngine = {
     /** After a 401 has been dealt with (the user signed in again): un-parks
      *  every `unauthorized` entry and carries on. */
     resume(): Promise<void>
+    /** Tries everything that was waiting out a backoff right now: the entries,
+     *  and the hydration if it failed. For a "Retry now" button. Does nothing
+     *  while paused (a 401 needs `resume()`, not a retry). */
+    retryNow(): void
     /** Applies one frame of the change feed (`unknown`: it comes off the wire).
      *  Resolves true if it changed the local data; false for an echo of our own
      *  write, a stale or out-of-order frame, a type or shape it does not
@@ -166,6 +174,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     let paused = false
     let hydration: EngineStatus['hydration'] = 'idle'
     let hydrated = false
+    // Why the last hydration failed, for the screen: no answer at all, or the
+    // server's trouble. A 401 is not recorded here - it pauses the engine.
+    let hydrationFailure: EngineStatus['hydrationFailure'] = null
 
     let hydrateWanted = false
     let hydrateWaiters: ((applied: boolean) => void)[] = []
@@ -474,17 +485,21 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     return park({ state: 'conflict', conflict: outcome.conflict, error: null })
 
                 case 'http':
-                    if (outcome.error.status === 401) {
-                        paused = true
-                        return park({ state: 'unauthorized', error: outcome.error })
+                    switch (classify(outcome.error)) {
+                        case 'unauthorized':
+                            paused = true
+                            return park({ state: 'unauthorized', error: outcome.error })
+                        case 'server':
+                        case 'network':
+                            waits.set(entry.id, timer.now() + delay(entry.attempts + 1))
+                            return unanswered(outcome.error)
+                        default:
+                            // Validation, forbidden, not found, a 409 that is not
+                            // a ticket conflict: the server understood and said
+                            // no. Sending the same thing again would get the
+                            // same no.
+                            return park({ state: 'failed', error: outcome.error })
                     }
-                    if (outcome.error.status >= 500) {
-                        waits.set(entry.id, timer.now() + delay(entry.attempts + 1))
-                        return unanswered(outcome.error)
-                    }
-                    // 422, and every other 4xx: the server understood and said
-                    // no. Sending the same thing again would get the same no.
-                    return park({ state: 'failed', error: outcome.error })
             }
         })
     }
@@ -532,10 +547,12 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             applied = true
         } catch (error) {
             if (!(error instanceof ListFailure)) throw error
-            if (error.status === 401) paused = true
+            if (error.kind === 'unauthorized') paused = true
+            else hydrationFailure = error.kind === 'network' ? 'network' : 'server'
         } finally {
             if (applied) {
                 hydrated = true
+                hydrationFailure = null
                 hydrateFailures = 0
             } else {
                 hydrateFailures += 1
@@ -660,7 +677,16 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         connectivity.isOnline() &&
         timer.now() >= networkRetryAt
 
+    // A new engine means a session that works: whatever an earlier run parked
+    // for a 401 (the tab was closed, or reloaded, before the user signed in)
+    // is theirs to send now.
+    let unparkWanted = true
+
     async function pass() {
+        if (unparkWanted) {
+            unparkWanted = false
+            await unparkUnauthorized()
+        }
         // Attempted even when the browser says it is offline: the failure is
         // what tells the screen "could not load" instead of "still loading".
         if (hydrateWanted) await runHydration()
@@ -784,17 +810,31 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         return found
     }
 
-    async function resume() {
-        if (!isRunning()) return
-        paused = false
-        await db.write(async (tx) => {
+    function unparkUnauthorized() {
+        return db.write(async (tx) => {
             for (const entry of await tx.outbox.all()) {
                 if (entry.state !== 'unauthorized') continue
                 await tx.outbox.put({ ...entry, state: 'pending', error: null })
             }
         })
+    }
+
+    async function resume() {
+        if (!isRunning()) return
+        paused = false
+        await unparkUnauthorized()
         if (hydration === 'failed') hydrateWanted = true
         notify()
+        kick()
+    }
+
+    // Forgets every backoff. The same thing coming back online does, for the
+    // person who knows better than the browser that the network is back.
+    function retryNow() {
+        if (!isRunning()) return
+        networkRetryAt = 0
+        waits.clear()
+        if (hydration === 'failed') hydrateWanted = true
         kick()
     }
 
@@ -803,14 +843,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     function start() {
         if (phase !== 'new') throw new Error('a sync engine starts once; make a new one')
         phase = 'running'
-        offOnline = connectivity.onOnline(() => {
-            // Back online is the best moment to try everything again, whatever
-            // each entry was waiting for.
-            networkRetryAt = 0
-            waits.clear()
-            if (hydration === 'failed') hydrateWanted = true
-            kick()
-        })
+        // Back online is the best moment to try everything again, whatever
+        // each entry was waiting for.
+        offOnline = connectivity.onOnline(retryNow)
         hydrateWanted = true
         kick()
     }
@@ -835,13 +870,14 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         stop,
         idle,
         hydrate,
-        status: () => ({ hydration, hydrated, paused }),
+        status: () => ({ hydration, hydrated, paused, hydrationFailure }),
         createTicket,
         updateTicket,
         archiveTicket,
         retry,
         discard,
         resume,
+        retryNow,
         applyRemote,
         subscribe(listener) {
             listeners.add(listener)

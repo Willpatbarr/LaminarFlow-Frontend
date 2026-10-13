@@ -1,3 +1,4 @@
+import { classify } from '@/api/errors'
 import { ApiProblem } from '@/api/problem'
 
 /*
@@ -37,16 +38,17 @@ const MESSAGE_OF_CODE: Record<string, [AuthField, string]> = {
 }
 
 export const GENERIC_FAILURE = 'Something went wrong. Try again.'
+export const UNREACHABLE = 'Could not reach the server. Check your connection and try again.'
 
 export function describeProblem(error: unknown): FormErrors {
     // Not an ApiProblem: fetch itself threw, so the server was never reached.
     if (!(error instanceof ApiProblem)) {
-        return { form: 'Could not reach the server. Check your connection and try again.' }
+        return { form: UNREACHABLE }
     }
 
     // One 401 answer for both a wrong email and a wrong password, by design, so
     // it is a claim about the pair and belongs to the form, not to a field.
-    if (error.status === 401) {
+    if (classify(error) === 'unauthorized') {
         return { form: 'That email and password do not match.' }
     }
 

@@ -1,4 +1,4 @@
-import { createUniqueId, For } from 'solid-js'
+import { createUniqueId, For, Show } from 'solid-js'
 
 import './Input.css'
 import './Select.css'
@@ -16,6 +16,8 @@ type SelectProps = {
     options: SelectOption[]
     onChange: (value: string) => void
     disabled?: boolean
+    /** Marks the control invalid and renders the message under it. */
+    error?: string
 }
 
 // A native <select> in the Input's box, from the "Input, Select, Checkbox"
@@ -24,6 +26,7 @@ type SelectProps = {
 // phone's picker all already work.
 export function Select(props: SelectProps) {
     const id = createUniqueId()
+    const errorId = `${id}-error`
     return (
         <div class="input">
             <label class="input__label t-body" for={id}>
@@ -33,6 +36,8 @@ export function Select(props: SelectProps) {
                 id={id}
                 class="input__control select__control"
                 disabled={props.disabled}
+                aria-invalid={props.error ? 'true' : undefined}
+                aria-describedby={props.error ? errorId : undefined}
                 onChange={(event) => props.onChange(event.currentTarget.value)}
             >
                 <For each={props.options}>
@@ -43,6 +48,11 @@ export function Select(props: SelectProps) {
                     )}
                 </For>
             </select>
+            <Show when={props.error}>
+                <span id={errorId} class="input__error t-meta">
+                    {props.error}
+                </span>
+            </Show>
         </div>
     )
 }

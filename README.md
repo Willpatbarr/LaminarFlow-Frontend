@@ -125,7 +125,7 @@ sent is folded into it.
 | --- | --- | --- |
 | 2xx | removed | The row takes the server's copy and version. |
 | no response, 5xx | stays `pending` | Retried with capped exponential backoff (1s doubling to 60s), and at once when the browser comes back online. |
-| 401 | `unauthorized` | Nothing at all is sent until `resume()`. |
+| 401 | `unauthorized` | Nothing at all is sent until `resume()` (or a new engine starts: a reload). |
 | 409 | `conflict`, with the server's copy on it | That ticket's queue waits for `retry()` (mine wins) or `discard()`. Other tickets carry on. |
 | 422, other 4xx | `failed`, with the `errors[]` | Waits for the user to change the edit, or `discard()`. |
 
@@ -183,6 +183,34 @@ them.
 - In dev, `vite.config.ts` proxies `/api/v1/ws` with `ws: true` and without
   `changeOrigin`, because the server refuses an upgrade whose `Origin` host is
   not its `Host`.
+
+### Failures (LAM-70)
+
+`src/api/errors.ts` is the one place a status code is read: `classify()` maps an
+answer (or a thrown error) to `validation | unauthorized | forbidden | not_found |
+conflict | server | network | rejected`, and `npm run lint` fails if another
+module compares a status to a number. 408/425/429 count as `server` (retry later),
+400/422 as `validation`, any other 4xx as `rejected`, and anything that is not an
+API answer as `network`.
+
+- **Session ends mid-action.** A 401 from a send or a list pauses the engine;
+  `sync/session.ts` turns that into `session.expired` (status stays
+  `authenticated`, so the route guard does nothing). `SessionExpiredBanner`
+  (auth feature) asks for a sign-in in place. Same account: `resumeFor()` sends
+  what waited. Different account: `startSync` empties the old database, and the
+  old engine stayed paused throughout so none of it is sent. A visitor who
+  arrives with no session is `anonymous` and is redirected as before; their
+  unsynced work stays on disk and is sent after signing in as the same account
+  (a new engine un-parks `unauthorized` entries).
+- **Server or network down.** `syncTrouble()` (derived, not per attempt) drives
+  one dismissible toast with "Retry now" (`retryNow()` skips every backoff).
+- **Refused changes** park as `failed`. The ticket page shows each
+  `errors[].location` at its field (`tickets/entryFailure.ts`); editing a field
+  folds into the failed entry and sends again, "Discard my change" drops it.
+- **Pending indicator** in the side nav foot (`pendingSummary()`); logout asks
+  first when `unsyncedCount() > 0`. LAM-71: `conflict` entries are counted as
+  "needs attention" in `sync/status.ts` and worded in
+  `features/syncstatus/components/PendingChanges.tsx`.
 
 ### `idb` rather than a hand-written wrapper
 

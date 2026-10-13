@@ -1,6 +1,7 @@
-import { createStore, flush } from 'solid-js'
+import { createStore, flush, untrack } from 'solid-js'
 
 import { api } from '@/api/client'
+import { classify } from '@/api/errors'
 import { toProblem } from '@/api/problem'
 import type { components } from '@/api/schema'
 
@@ -10,6 +11,7 @@ import type { components } from '@/api/schema'
 ╠═ declares ════════════════════════════════════════════════════════════════════════════
 ║      session      reactive { status, me }, read-only from outside
 ║      refresh      GET /auth/me, then set the state from the answer
+║      markExpired  the session ended while the user was in the app (the sync layer calls it)
 ║      login        POST /auth/login, then refresh
 ║      register     POST /auth/register, then refresh
 ║      logout       POST /auth/logout, then clear - clears even if the request fails
@@ -30,12 +32,26 @@ export type SessionStatus = 'unknown' | 'anonymous' | 'authenticated'
 export type SessionState = {
     status: SessionStatus
     me: Me | null
+    /** The session ended while the user was in the app. `status` stays
+     *  `authenticated` and `me` stays, on purpose: that is what keeps the route
+     *  guard from sending them to /login mid-action, and what lets the banner
+     *  prefill their email. Signing in again clears it. Never true for a visitor
+     *  who arrived with no session - that is `anonymous`, and redirects. */
+    expired: boolean
+    /** Why the first /auth/me did not answer, while `status` is still
+     *  `unknown`. The shell shows "can't reach the server" with a retry. */
+    loadFailure: 'network' | 'server' | null
 }
 
 // The browser holds the session cookie (HttpOnly, so this code could not read
 // it if it wanted to); this store holds only the "who am I" answer. Passwords
 // never reach it.
-const [state, setState] = createStore<SessionState>({ status: 'unknown', me: null })
+const [state, setState] = createStore<SessionState>({
+    status: 'unknown',
+    me: null,
+    expired: false,
+    loadFailure: null,
+})
 
 // The store itself, typed read-only: writes go through the functions below so
 // `status` and `me` cannot drift apart. It is plain module state rather than
@@ -49,24 +65,56 @@ function set(status: SessionStatus, me: Me | null) {
     setState((draft) => {
         draft.status = status
         draft.me = me
+        // Any answer about who is signed in ends a pending expiry: a new
+        // session replaces it, and anonymous has nothing left to expire.
+        draft.expired = false
+        draft.loadFailure = null
     })
     flush()
+}
+
+/** The server turned this session down (401) while someone was using the app.
+ *  Keeps them where they are; the banner asks them to sign in again. A no-op
+ *  unless they are signed in - an anonymous visitor is redirected instead. */
+export function markExpired(): void {
+    // Called from effects, where a bare read warns and `flush()` is a no-op:
+    // the read is a one-off check and the write is picked up by the flush that
+    // is already running.
+    if (untrack(() => state.status !== 'authenticated' || state.expired)) return
+    setState((draft) => {
+        draft.expired = true
+    })
 }
 
 // 401 is an answer ("nobody is logged in"), so it resolves. Anything else - a
 // 500, a dropped connection - is not an answer, so it throws and leaves the
 // state as it was rather than logging a signed-in user out on a blip.
 export async function refresh(): Promise<void> {
-    const { data, error, response } = await api.GET('/api/v1/auth/me')
+    const { data, error, response } = await api.GET('/api/v1/auth/me').catch((failure: unknown) => {
+        noteLoadFailure('network')
+        throw failure
+    })
     if (data) {
         set('authenticated', data)
         return
     }
-    if (response.status === 401) {
+    if (classify(response) === 'unauthorized') {
         set('anonymous', null)
         return
     }
+    // An answer that is not 401 and not a session: the server is there and unwell.
+    noteLoadFailure('server')
     throw toProblem(response, error)
+}
+
+// Only the very first answer matters here: once we know who is signed in, a
+// later failed check changes nothing on screen.
+function noteLoadFailure(kind: 'network' | 'server') {
+    if (state.status !== 'unknown') return
+    setState((draft) => {
+        draft.loadFailure = kind
+    })
+    flush()
 }
 
 // Both endpoints set the cookie, but neither returns the permissions, so a
@@ -111,7 +159,7 @@ export function onLogout(fn: () => void | Promise<void>): () => void {
 export async function logout(): Promise<void> {
     try {
         const { error, response } = await api.POST('/api/v1/auth/logout')
-        if (error && response.status !== 401) throw toProblem(response, error)
+        if (error && classify(response) !== 'unauthorized') throw toProblem(response, error)
     } catch (failure) {
         console.error('logout request failed; signing out locally anyway', failure)
     }
