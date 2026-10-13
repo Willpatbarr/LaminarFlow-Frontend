@@ -71,7 +71,12 @@ remember to be. Anonymous visitors are sent to `/login?returnTo=<where they
 were going>`; `returnTo` passes through `safeReturnTo`
 (`features/auth/returnTo.ts`), the only place it is trusted, and anything that
 is not a same-origin path becomes `/`. While the session is still `unknown` the
-shell renders with a placeholder rather than redirecting.
+shell renders in its loading state rather than redirecting: the side nav and the
+routed page each draw their own skeleton (see "Loading states" in
+[src/components/README.md](src/components/README.md)). The layout renders the
+page while the session is `unknown`, so a page under it must pass
+`loading={session.status === 'unknown'}` to its container (or show nothing, as
+the not-found page does).
 
 `createAppRouter(history?)` builds the real tree on any history adapter, which
 is how the route tests start it at a given URL.

@@ -4,10 +4,6 @@
   max-width: 760px;
 }
 
-.tickets__pending {
-  color: var(--text-3);
-}
-
 .tickets__header {
   display: flex;
   flex-wrap: wrap;
@@ -33,6 +29,9 @@
   display: flex;
   align-items: center;
   gap: var(--s-8);
+  /* The pill is 21px; the heading's own line is 22. Said out loud so the
+   * placeholder group header (a div, not a heading) is the same height. */
+  min-height: 22px;
   font: inherit;
 }
 
@@ -164,4 +163,13 @@
 .ticket__notice:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* A placeholder bar sitting where a line of text will be: the box keeps the
+ * text's line height and the bar is centred in it, so a loaded label or hint
+ * lands in exactly the space its placeholder held. */
+.ticket__skeleton-line {
+  display: flex;
+  align-items: center;
+  min-height: 1lh;
 }

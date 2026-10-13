@@ -3,11 +3,11 @@ import { createSignal, Show } from 'solid-js'
 import { Button } from '@/components/ui/Button'
 
 import { refresh, session } from '../session'
-import './SessionPending.css'
+import './SessionUnreachable.css'
 
 // What the content area shows when the very first /auth/me got no usable
 // answer (the server is down, or the network is). Without it the app would
-// show "Loading…" for as long as the server stays away. Retry asks again; the
+// show its loading state for as long as the server stays away. Retry asks again; the
 // session store clears the failure when any answer lands, and this goes with it.
 export function SessionUnreachable() {
     const [trying, setTrying] = createSignal(false)

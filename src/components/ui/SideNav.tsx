@@ -1,6 +1,7 @@
 import type { JSX } from '@solidjs/web'
 import { For, Show } from 'solid-js'
 
+import { SkeletonCircle, SkeletonLine } from './Skeleton'
 import './SideNav.css'
 
 // Interface/House_02.svg, the Home icon from the Nav Links specimen. It is the
@@ -23,6 +24,9 @@ type SideNavProps = {
      *  such as the connection indicator. Optional, and the caller's to fill. */
     status?: JSX.Element
     onLogout: () => void
+    /** Draw the rail's own placeholder: the profile slot and one bar per link,
+     *  with nothing to click. For the moment before the session is known. */
+    loading?: boolean
 }
 
 /** Up to two letters for the profile monogram: first and last word's initial. */
@@ -41,52 +45,98 @@ export function monogram(name: string): string {
 //
 // Links are plain anchors; the router adds `aria-current="page"` to the one
 // matching the URL, and the stylesheet keys the active look off that.
+//
+// Loading draws the same rail: the monogram's circle, a bar for the name, a
+// 32px row for each link the caller listed (so the placeholder is as tall as the
+// real rail will be), and a row where Log out goes. `status` and `onLogout` are
+// not shown - a connection indicator or a way out of a session nobody has
+// confirmed yet would be a lie.
 export function SideNav(props: SideNavProps) {
     return (
-        <aside class="side-nav">
-            <div class="side-nav__profile">
-                <span class="side-nav__monogram t-meta" aria-hidden="true">
-                    {monogram(props.userName ?? '')}
-                </span>
-                <span class="side-nav__name t-cell">{props.userName}</span>
-            </div>
-            <nav aria-label="Main">
-                <ul class="side-nav__list">
-                    <For each={props.links}>
-                        {(link) => (
-                            <li>
-                                <a class="side-nav__link t-body" href={link.href}>
-                                    <svg
-                                        class="side-nav__icon"
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        aria-hidden="true"
-                                    >
-                                        <path
-                                            d={HOME_PATH}
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        />
-                                    </svg>
-                                    {link.label}
-                                </a>
-                            </li>
-                        )}
-                    </For>
-                </ul>
-            </nav>
-            <div class="side-nav__foot">
-                {props.status}
-                <Show when={props.userName}>
-                    <button type="button" class="side-nav__logout t-body" onClick={props.onLogout}>
-                        Log out
-                    </button>
-                </Show>
-            </div>
+        <aside class="side-nav" aria-busy={props.loading ? 'true' : undefined}>
+            <Show
+                when={props.loading}
+                fallback={
+                    <>
+                        <div class="side-nav__profile">
+                            <span class="side-nav__monogram t-meta" aria-hidden="true">
+                                {monogram(props.userName ?? '')}
+                            </span>
+                            <span class="side-nav__name t-cell">{props.userName}</span>
+                        </div>
+                        <nav aria-label="Main">
+                            <ul class="side-nav__list">
+                                <For each={props.links}>
+                                    {(link) => (
+                                        <li>
+                                            <a class="side-nav__link t-body" href={link.href}>
+                                                <svg
+                                                    class="side-nav__icon"
+                                                    width="20"
+                                                    height="20"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d={HOME_PATH}
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                    />
+                                                </svg>
+                                                {link.label}
+                                            </a>
+                                        </li>
+                                    )}
+                                </For>
+                            </ul>
+                        </nav>
+                        <div class="side-nav__foot">
+                            {props.status}
+                            <Show when={props.userName}>
+                                <button
+                                    type="button"
+                                    class="side-nav__logout t-body"
+                                    onClick={props.onLogout}
+                                >
+                                    Log out
+                                </button>
+                            </Show>
+                        </div>
+                    </>
+                }
+            >
+                {/* The one announcement. The main area has its own, and the two
+                    are different regions saying different things. */}
+                <p class="visually-hidden" role="status">
+                    Loading navigation…
+                </p>
+                <div class="side-nav__profile" aria-hidden="true">
+                    <SkeletonCircle size="26px" />
+                    <SkeletonLine width="110px" height="12px" />
+                </div>
+                <nav aria-label="Main">
+                    <ul class="side-nav__list" aria-hidden="true">
+                        <For each={props.links}>
+                            {() => (
+                                <li>
+                                    <div class="side-nav__link side-nav__link--loading">
+                                        <SkeletonCircle size="20px" />
+                                        <SkeletonLine width="64px" height="12px" />
+                                    </div>
+                                </li>
+                            )}
+                        </For>
+                    </ul>
+                </nav>
+                <div class="side-nav__foot" aria-hidden="true">
+                    <div class="side-nav__logout side-nav__link--loading">
+                        <SkeletonLine width="56px" height="12px" />
+                    </div>
+                </div>
+            </Show>
         </aside>
     )
 }

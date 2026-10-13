@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
+import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { Table } from '@/components/ui/Table'
 import {
@@ -23,13 +24,13 @@ import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
 import { NewTicketDialog } from './NewTicketDialog'
 import { TicketRow } from './TicketRow'
-import { TicketsPending } from './TicketsPending'
 import './tickets.css'
 
 type TicketListProps = {
     viewer: Viewer
-    /** Force the placeholder, whatever the store says. For LAM-69's skeletons
-     *  and for anything that wants to show the page before it has data. */
+    /** Force the placeholder, whatever the store says. The route passes it while
+     *  the session is still unknown; the store's own `isLoading()` covers the
+     *  first hydration. */
     loading?: boolean
 }
 
@@ -52,13 +53,18 @@ function byRecency(a: Ticket, b: Ticket) {
 
 // The tickets screen. Everything it shows is read from the local store; the
 // only thing it ever asks the network for directly is nothing at all.
+//
+// While loading it draws its own placeholder in the list's own layout - the
+// same heading and button, the same group header over the same table rows -
+// because it is the only thing that knows where those sit. The page does not
+// rearrange when the tickets arrive.
 export function TicketList(props: TicketListProps) {
+    const busy = () => props.loading || isLoading()
     return (
-        <section class="tickets">
+        <section class="tickets" aria-busy={busy() ? 'true' : undefined}>
             <Switch>
-                <Match when={props.loading || isLoading()}>
-                    <h1 class="t-screen-title">Tickets</h1>
-                    <TicketsPending />
+                <Match when={busy()}>
+                    <LoadingTickets />
                 </Match>
                 <Match when={loadFailed()}>
                     <h1 class="t-screen-title">Tickets</h1>
@@ -79,6 +85,42 @@ export function TicketList(props: TicketListProps) {
                 </Match>
             </Switch>
         </section>
+    )
+}
+
+// How much of the title column each placeholder row takes. Varied so the
+// column does not read as one repeated bar.
+const TITLE_WIDTHS: SkeletonLength[] = ['62%', '44%', '73%']
+
+// The heading and the button stay: they are true before any data arrives. The
+// button is disabled rather than hidden, so it does not appear a moment later,
+// and there is no project to create a ticket in yet anyway.
+function LoadingTickets() {
+    return (
+        <>
+            <header class="tickets__header">
+                <h1 class="t-screen-title">Tickets</h1>
+                <div class="tickets__actions">
+                    <Button disabled>New ticket</Button>
+                </div>
+            </header>
+            {/* The one announcement. It is visually hidden: sighted users have
+                the placeholder itself. */}
+            <p class="visually-hidden" role="status">
+                Loading tickets…
+            </p>
+            <div class="tickets__group" aria-hidden="true">
+                <div class="tickets__group-title">
+                    <SkeletonBox shape="pill" width="88px" height="21px" />
+                    <SkeletonLine width="2ch" height="11px" />
+                </div>
+                <Table columns={['Title', 'Status', '', '']} template={COLUMNS}>
+                    <For each={TITLE_WIDTHS}>
+                        {(width) => <TicketRow loading titleWidth={width} />}
+                    </For>
+                </Table>
+            </div>
+        </>
     )
 }
 

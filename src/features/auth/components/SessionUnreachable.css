@@ -1,7 +1,3 @@
-.session-pending {
-  color: var(--text-3);
-}
-
 .session-unreachable {
   display: grid;
   justify-items: start;

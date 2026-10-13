@@ -77,6 +77,16 @@
   color: var(--accent);
 }
 
+/* A placeholder row has the link's box (height, padding, gap) and none of its
+ * reactions. */
+.side-nav__link--loading {
+  cursor: default;
+}
+
+.side-nav__link--loading:hover {
+  background: transparent;
+}
+
 .side-nav__link[aria-current='page'] {
   color: var(--text-1);
 }

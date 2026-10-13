@@ -5,7 +5,6 @@ import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
-import { SessionPending } from '@/features/auth/components/SessionPending'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
@@ -16,9 +15,10 @@ const LINKS: SideNavLink[] = [{ label: 'Tickets', href: '/' }]
 
 // The layout every signed-in route renders inside; login and sign-up are
 // outside it. The guard wraps the whole shell so an anonymous user sees none
-// of it, and the shell itself renders while the session is still `unknown`
-// (with a placeholder in the content area) so the page does not flash blank
-// and then rearrange.
+// of it, and the shell itself renders while the session is still `unknown`:
+// the rail in its loading state, and the routed page (which sees the same
+// session and draws its own loading state) in the content area, so the page
+// does not flash blank and then rearrange.
 //
 // Two kinds of "you are not signed in" meet here, and only one redirects. A
 // visitor with no session is `anonymous` and the guard sends them to /login.
@@ -28,6 +28,11 @@ const LINKS: SideNavLink[] = [{ label: 'Tickets', href: '/' }]
 export function AppLayout(props: RouteSectionProps) {
     const navigate = useNavigate()
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
+    // The first /auth/me got no usable answer: nothing more to wait for, and
+    // the content area says so instead of showing a placeholder for ever.
+    const unreachable = () => session.status === 'unknown' && session.loadFailure !== null
+    // The first /auth/me is still on its way.
+    const stillAsking = () => session.status === 'unknown' && session.loadFailure === null
 
     // `logout` does not reject: the store is cleared even if the request
     // failed, so landing on /login is unconditional. The guard has already
@@ -53,6 +58,7 @@ export function AppLayout(props: RouteSectionProps) {
                     <SideNav
                         links={LINKS}
                         userName={session.me?.display_name}
+                        loading={stillAsking()}
                         status={
                             <Show when={sync.active}>
                                 <PendingChanges />
@@ -78,15 +84,8 @@ export function AppLayout(props: RouteSectionProps) {
                     </Show>
                 }
             >
-                <Show
-                    when={session.status === 'authenticated'}
-                    fallback={
-                        <Show when={session.loadFailure} fallback={<SessionPending />}>
-                            <SessionUnreachable />
-                        </Show>
-                    }
-                >
-                    {props.children}
+                <Show when={unreachable()} fallback={props.children}>
+                    <SessionUnreachable />
                 </Show>
             </AppShell>
             <Show when={confirmingLogout()}>

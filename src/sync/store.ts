@@ -331,7 +331,10 @@ export function wipeLocalData(dbName: string = DB_NAME): Promise<void> {
 
 // ── reads ───────────────────────────────────────────────────────────────────
 
-/** Nothing to show yet and no answer yet. LAM-69 draws skeletons for this. */
+/** Nothing to show yet and no answer yet: the screens draw their skeletons for
+ *  this. False as soon as the database has been read and holds anything, so a
+ *  warm reload shows its data without waiting for the server - keep it that
+ *  way, a skeleton over data already on disk is a flash. */
 export function isLoading(): boolean {
     if (!state.active || !state.loaded) return true
     return state.projects.length === 0 && !state.hydrated && state.hydration !== 'failed'
