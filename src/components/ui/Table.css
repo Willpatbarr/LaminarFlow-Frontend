@@ -1,0 +1,63 @@
+.table {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-raised);
+}
+
+.table__header,
+.table__row {
+  display: grid;
+  grid-template-columns: var(--table-columns);
+  align-items: center;
+  gap: var(--s-8);
+  padding: 0 var(--s-12);
+}
+
+.table__header {
+  height: 28px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-3);
+}
+
+.table__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.table__item + .table__item {
+  border-top: 1px solid var(--border);
+}
+
+.table__row {
+  height: var(--row-h);
+  color: var(--text-1);
+  text-decoration: none;
+}
+
+.table__row:hover {
+  background: var(--row-hover);
+  color: var(--text-1);
+}
+
+/* Inside the card's clipped corners an outset ring would be cut off. */
+.table__row:focus-visible {
+  outline-offset: -2px;
+}
+
+/* A cell that holds free text: one line, cut with an ellipsis. */
+.table__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table__empty {
+  display: grid;
+  place-items: center;
+  height: var(--row-h);
+  color: var(--text-3);
+}

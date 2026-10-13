@@ -1,0 +1,131 @@
+.tickets {
+  display: grid;
+  gap: var(--s-16);
+  max-width: 760px;
+}
+
+.tickets__pending {
+  color: var(--text-3);
+}
+
+.tickets__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-16);
+}
+
+.tickets__picker {
+  width: 220px;
+}
+
+/* Pushed to the far end, whatever sits between it and the title. */
+.tickets__actions {
+  margin-left: auto;
+}
+
+.tickets__group {
+  display: grid;
+  gap: var(--s-8);
+}
+
+.tickets__group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  font: inherit;
+}
+
+.tickets__count {
+  color: var(--text-3);
+}
+
+/* Dashed means "nothing here yet" everywhere in this system. */
+.tickets__empty {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: center;
+  padding: var(--s-32) var(--s-16);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-card);
+  color: var(--text-2);
+  text-align: center;
+}
+
+.tickets__empty .t-section {
+  color: var(--text-1);
+}
+
+.tickets__setup {
+  display: grid;
+  gap: var(--s-16);
+  max-width: 380px;
+}
+
+.tickets__setup-lede {
+  color: var(--text-2);
+}
+
+.tickets__setup-error {
+  color: var(--rust-fg);
+}
+
+/* The unsynced marker: a ring while it is only waiting, solid rust once it
+ * needs someone to do something. */
+.sync-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-6);
+  color: var(--text-2);
+}
+
+.sync-marker__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--amber-fg);
+  border-radius: 50%;
+}
+
+.sync-marker:not([data-state='pending']) {
+  color: var(--rust-fg);
+}
+
+.sync-marker:not([data-state='pending']) .sync-marker__dot {
+  border-color: var(--rust-fg);
+  background: var(--rust-fg);
+}
+
+/* The ticket page. */
+.ticket__form {
+  display: grid;
+  gap: var(--s-16);
+}
+
+/* Holds its height when empty, so the form does not jump when the marker
+ * appears and disappears. */
+.ticket__status-line {
+  min-height: 17px;
+}
+
+.ticket__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s-16);
+}
+
+.ticket__assignee {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 40px;
+}
+
+.ticket__hint {
+  color: var(--text-3);
+}
+
+.ticket__danger {
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--border);
+}

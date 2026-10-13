@@ -1,6 +1,6 @@
 import { useLocation, useNavigate, useSearchParams } from '@solidjs/router'
 import type { JSX } from '@solidjs/web'
-import { createEffect, Show } from 'solid-js'
+import { createEffect, Show, untrack } from 'solid-js'
 
 import { safeReturnTo, loginPathFor } from './returnTo'
 import { session } from './session'
@@ -40,10 +40,11 @@ export function RequireAuth(props: RequireAuthProps) {
         (status) => {
             if (status !== 'anonymous') return
             // Read in the apply half on purpose: only the status should re-run
-            // this, not every later navigation.
-            navigate(loginPathFor(location.pathname + location.search + location.hash), {
-                replace: true,
-            })
+            // this, not every later navigation. `untrack` says so out loud -
+            // without it Solid's dev build warns STRICT_READ_UNTRACKED, since
+            // a bare reactive read here usually means a forgotten dependency.
+            const here = untrack(() => location.pathname + location.search + location.hash)
+            navigate(loginPathFor(here), { replace: true })
         },
     )
 
@@ -63,7 +64,8 @@ export function useRedirectIfAuthenticated() {
         () => session.status,
         (status) => {
             if (status === 'authenticated') {
-                navigate(safeReturnTo(params.returnTo), { replace: true })
+                // One-off read of where to go; see RequireAuth for `untrack`.
+                navigate(safeReturnTo(untrack(() => params.returnTo)), { replace: true })
             }
         },
     )

@@ -9,6 +9,8 @@ type InputProps = {
     label: string
     value: string
     onInput: (value: string) => void
+    /** Focus left the control. For a field that saves when you leave it. */
+    onBlur?: () => void
     type?: 'text' | 'email' | 'password'
     name?: string
     autocomplete?: 'email' | 'current-password' | 'new-password' | 'given-name' | 'family-name'
@@ -46,6 +48,7 @@ export function Input(props: InputProps) {
                 aria-invalid={props.error ? 'true' : undefined}
                 aria-describedby={props.error ? errorId : undefined}
                 onInput={(event) => props.onInput(event.currentTarget.value)}
+                onBlur={() => props.onBlur?.()}
             />
             <Show when={props.error}>
                 <span id={errorId} class="input__error t-meta">

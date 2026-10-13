@@ -44,7 +44,9 @@ it('renders the shell with a placeholder, not the login screen, until /auth/me a
     )
     await asking
 
+    // The session placeholder has given way to the tickets screen. That screen
+    // has a loading state of its own (nothing has been synced here), so "no
+    // status at all" is no longer the thing to assert.
     expect(await screen.findByRole('heading', { name: 'Tickets' })).toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(history.get()).toBe('/')
 })

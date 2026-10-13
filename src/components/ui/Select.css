@@ -1,0 +1,16 @@
+/* The Input's box with the browser's own arrow replaced by the specimen's
+ * caret: a 5px triangle in --text-3, drawn with gradients so it follows the
+ * theme without an image. */
+.select__control {
+  appearance: none;
+  padding-right: var(--s-32);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
+    linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position:
+    right 16px center,
+    right 11px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
