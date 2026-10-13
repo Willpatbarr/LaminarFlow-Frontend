@@ -1,6 +1,6 @@
 # LaminarFlow — Frontend
 
-React + TypeScript + Vite. Built with `npm run build` into `dist/`.
+Solid + TypeScript + Vite. Built with `npm run build` into `dist/`.
 
 The Go API, schema, and migrations live in
 [LaminarFlow-Backend](https://github.com/Willpatbarr/LaminarFlow-Backend).
@@ -45,6 +45,24 @@ a branch that has not merged yet.
 Calls go through `src/api/client.ts`, which is typed from the generated schema:
 a path or field the backend does not have is a build error, not a 404.
 
+## Routing
+
+The route tree is declared in [src/router.tsx](src/router.tsx) with
+`defineRoutes` from `@solidjs/router` — config routes, not the file-system
+adapter. `defineRoutes` keeps the path literals, and those literals are what
+type `router.paths`: a path the tree does not have is a compile error, not a
+404.
+
+The file-system adapter (`@solidjs/router/fs`) would generate the tree from
+`src/routes/`, but its manifest needs a build step that ships with the Solid
+CLI templates and SolidStart, and neither is installed here. Two routes do not
+justify the integration. **Revisit when the route tree grows.**
+
+Solid Router has no link component. Links are plain `<a href>` and the router
+intercepts the click. `routes/__root.tsx` uses a literal `href="/"` because
+`router.tsx` imports it, so reaching back for `router.paths` there would be an
+import cycle.
+
 ## Where components live
 
 | Path | What belongs there |
@@ -55,7 +73,7 @@ a path or field the backend does not have is a build error, not a 404.
 | `e2e/` | Playwright specs — one per user-visible flow, not per component. |
 
 Imports run one way — `routes/` → `features/` → `components/` — and **nothing
-enforces it**. React has no compile-time module boundary the way Gradle modules
+enforces it**. Solid has no compile-time module boundary the way Gradle modules
 do in Kotlin, so a cross-feature import compiles happily. If that starts
 happening, an import lint rule is the fix; there is deliberately none today.
 

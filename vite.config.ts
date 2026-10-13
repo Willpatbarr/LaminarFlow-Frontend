@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import react from '@vitejs/plugin-react'
+import solid from '@solidjs/vite-plugin'
 import { defineConfig } from 'vitest/config'
 
 // The deployed app is same-origin: the Go backend serves this bundle and the
@@ -15,12 +14,7 @@ import { defineConfig } from 'vitest/config'
 const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8080'
 
 export default defineConfig({
-  plugins: [
-    // Must precede react(): the plugin generates the route modules that
-    // @vitejs/plugin-react then transforms.
-    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
-    react(),
-  ],
+  plugins: [solid()],
 
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

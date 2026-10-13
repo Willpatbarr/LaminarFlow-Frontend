@@ -1,3 +1,5 @@
+import { For } from 'solid-js'
+
 import { Button } from '@/components/ui/Button'
 
 // Placeholder data until LAM-7 lands the API contract. The folder shape is the
@@ -9,9 +11,8 @@ export function TicketList() {
         <section>
             <h1>Tickets</h1>
             <ul>
-                {tickets.map((title) => (
-                    <li key={title}>{title}</li>
-                ))}
+                {/* No `key` prop in Solid: <For> tracks its items itself. */}
+                <For each={tickets}>{(title) => <li>{title}</li>}</For>
             </ul>
             <Button>New ticket</Button>
         </section>
