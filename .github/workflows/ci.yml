@@ -21,19 +21,58 @@ jobs:
       - run: npm ci
 
       - run: npm run lint
-          
-          # Regenerated from the committed spec, so a spec pulled without a
-          # regeneration fails here rather than at the next call site.
-          - name: Check the generated types are current
-            run: |
-              npm run api:types
-              git diff --exit-code src/api/schema.d.ts
 
-          - run: npm test
+      # Regenerated from the committed spec, so a spec pulled without a
+      # regeneration fails here rather than at the next call site.
+      - name: Check the generated types are current
+        run: |
+          npm run api:types
+          git diff --exit-code src/api/schema.d.ts
 
       - run: npm test
 
       - run: npm run build
+
+  # The sync engine against the real Go backend and a real Postgres (LAM-72),
+  # because a reconciliation bug loses data silently and a stubbed fetch only
+  # proves the engine agrees with itself. scripts/test-stack.sh builds the
+  # backend's own image with this checkout as its frontend, runs the suite, and
+  # removes everything afterwards.
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # .backend-ref names the backend branch to test against. It is a branch
+      # rather than main only until the backend's endpoint PRs merge; then it
+      # goes back to main. A BACKEND_REF repository variable overrides it, for
+      # trying another ref without a commit.
+      - name: Read the backend ref
+        id: backend
+        env:
+          BACKEND_REF: ${{ vars.BACKEND_REF }}
+        run: echo "ref=$(scripts/test-stack.sh ref)" >> "$GITHUB_OUTPUT"
+
+      # Public, so no token is needed. Inside the workspace because checkout
+      # cannot write outside it; the script is told where with BACKEND_DIR.
+      - uses: actions/checkout@v7
+        with:
+          repository: Willpatbarr/LaminarFlow-Backend
+          ref: ${{ steps.backend.outputs.ref }}
+          path: .backend-checkout
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: scripts/test-stack.sh
+        env:
+          BACKEND_DIR: .backend-checkout
 
   e2e:
     runs-on: ubuntu-latest

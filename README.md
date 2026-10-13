@@ -34,6 +34,9 @@ type error fails the build rather than shipping.
     npm run test:e2e
     npm run build
 
+`npm run test:sync` is separate and needs Docker; see
+[Testing against the real backend](#testing-against-the-real-backend).
+
 ## Consuming the API
 
     npm run api:pull
@@ -240,6 +243,73 @@ does not expose. It stays behind `db.ts`: nothing else imports it, so replacing
 it is a one-file change. Tests run the same code against
 [`fake-indexeddb`](https://github.com/dumbmatter/fakeIndexedDB) (pinned,
 dev-only).
+
+## Testing against the real backend
+
+The sync unit tests stub `fetch` and fake the socket, so they prove the engine
+agrees with itself. A reconciliation bug loses data silently, which is why there
+is a second suite that runs the **real** `src/sync` engine, database layer and
+socket against the **real** Go backend and a real Postgres (LAM-72).
+
+    ./scripts/test-stack.sh          # build, start, wait healthy, run the suite, always tear down
+
+That builds the backend's own image (its `Dockerfile` bakes this checkout in as
+the frontend, via a named build context), starts it with a throwaway
+`postgres:17`, applies migrations on startup, runs `npm run test:sync` with
+`SYNC_BASE_URL` pointing at it, and removes the containers and network whether
+the run passed or not. Postgres keeps its data on a tmpfs and publishes no port,
+so nothing survives a run. The first build is slow (it pulls the Node, Go and
+Postgres images and compiles both repos); later ones reuse the layer cache.
+
+| | |
+| --- | --- |
+| `scripts/test-stack.sh up` | start the stack and leave it running; prints `export SYNC_BASE_URL=...` |
+| `npm run test:sync` | the suite alone, against whatever `SYNC_BASE_URL` names (iterate with this after `up`) |
+| `scripts/test-stack.sh down` | tear it down |
+| `scripts/test-stack.sh -- <cmd>` | the same stack, running `<cmd>` instead |
+
+`npm run test:sync` **fails, it does not skip,** when `SYNC_BASE_URL` is unset
+or the backend does not answer `/healthz/db`. It is its own Vitest config
+(`vitest.sync.config.ts`, files `tests/sync/**/*.sync.test.ts`) and is not part
+of `npm test`.
+
+Settings, all optional: `STACK_PORT` (host port, loopback only, default `18180`
+- not 8080 or 5173, which a dev server is likely to hold), `STACK_PROJECT`
+(compose project name, default `lf-sync-test`), `BACKEND_DIR` (a backend
+checkout; default `../LaminarFlow-Backend` if it exists, otherwise the backend is
+cloned at the ref into `.backend-checkout`), `BACKEND_REF`, `KEEP_STACK=1`
+(leave it up afterwards).
+
+**Which backend.** `.backend-ref` is one line naming the backend branch or tag to
+test against; `BACKEND_REF` overrides it. CI checks that ref out; a local run
+uses your sibling checkout as it stands and warns if it is on a different branch.
+The file names the integration branch only because the backend's endpoint pull
+requests are not merged yet. **Once they are, it goes back to `main`.**
+
+**What it covers.** Create and update reconciling to the server's id and
+version (and `If-Match` being sent); two edits queued behind each other; a
+create followed by an edit before the create is answered; archive; offline then
+drain, both as the browser's `offline` event and as a dead network; a stale
+edit parked as a `conflict` with the server's copy and who changed it and when;
+an edit to a ticket archived underneath (`ticket_archived`); retry, discard and
+keep-as-new on a real conflict; another account's change arriving over a real
+WebSocket and landing in the local store; this client's own echo not
+double-applying; an expired session parking as `unauthorized` and resuming
+after sign-in; hydration paging past one page and removing a ticket archived
+elsewhere; re-listing after a dropped socket.
+
+**What it does not cover.** There is no browser: no Solid, no components, no
+router, no `connectSyncToSession`. IndexedDB is `fake-indexeddb`, so a real
+browser's storage limits, eviction and transaction timing are not exercised.
+The socket is the `ws` package with the cookie and `Origin` a browser would send,
+not a browser's WebSocket (which also answers pings out of sight of JS).
+Cookies are carried by hand because Node's `fetch` has no jar, so `Secure` /
+`SameSite` behaviour is not tested. The proxy in front of production, if any, is
+not there. Whole-app flows are the Playwright suite's job (LAM-73).
+
+Each test registers its own accounts and builds its own team and project, because
+every account joins the same single workspace; assertions are only ever about a
+test's own tickets.
 
 ## This repo never talks to Postgres
 

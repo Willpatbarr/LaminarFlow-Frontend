@@ -1,0 +1,45 @@
+# The disposable stack `npm run test:sync` runs against (LAM-72): Postgres plus
+# the real Go backend, with the frontend bundle baked into the backend's image.
+#
+# Not for running by hand - scripts/test-stack.sh builds the image, supplies
+# every variable below, and tears the whole thing down afterwards.
+#
+# Nothing here outlives a run, on purpose:
+#   * Postgres keeps its data on a tmpfs, so there is no volume to leak (the
+#     image declares an anonymous one; mounting over it stops docker making it)
+#     and every run starts from an empty database.
+#   * Postgres publishes no host port; the app reaches it as `db` over the
+#     project's own network. Only the app is published, on loopback, on
+#     STACK_PORT - not 8080, which a developer's own server is likely to hold.
+#   * There are no container_name entries, so the project name alone decides
+#     what the containers are called and two stacks can run side by side.
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: laminarflow
+      POSTGRES_USER: laminarflow
+      POSTGRES_PASSWORD: sync-test-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    # Durability is the one thing a throwaway database does not need.
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laminarflow -d laminarflow"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    image: ${STACK_IMAGE:?set by scripts/test-stack.sh}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://laminarflow:sync-test-only@db:5432/laminarflow?sslmode=disable
+      PORT: "8080"
+      # The schema has to exist before the first test; the binary defaults to off.
+      MIGRATE_ON_STARTUP: "true"
+    ports:
+      - "127.0.0.1:${STACK_PORT:-18180}:8080"

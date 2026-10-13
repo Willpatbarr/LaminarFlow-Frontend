@@ -24,3 +24,6 @@ playwright-report
 *.njsproj
 *.sln
 *.sw?
+
+# A backend checkout made by scripts/test-stack.sh when there is no sibling one
+.backend-checkout
