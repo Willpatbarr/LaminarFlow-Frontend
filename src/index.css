@@ -14,10 +14,17 @@
  *   --text-on-accent        measured off the sheet's Primary button, never named
  *   --row-hover (light)     "black by symmetry" with the dark theme's white wash
  *   --accent-hover and      the sheet gives only the base light accent, so these
- *   --accent-pressed        two keep their dark-theme values in light mode
+ *   --accent-pressed        two are picked here (light mode: darker than the base)
  *   --sans and --mono       carried over from the old scaffold, not decided
  * Also worth knowing: --accent-tint is not overridden in light, so it is still
- * the dark accent at 14%. */
+ * the dark accent at 14%.
+ *
+ * DEPARTS FROM THE SHEET, for contrast (found by the axe scan in e2e/, WCAG AA
+ * is 4.5:1 for text of this size): --text-3 in both themes and the light
+ * --accent are a little darker/lighter than _shared.md has them. The sheet's
+ * values measured 3.3:1 (dark --text-3 on --bg-overlay), 4.3:1 (light --text-3
+ * on --bg-base), 3.8:1 (light --accent as link text) and 4.1:1 (white on light
+ * --accent as a button). The sheet should take these values too. */
 
 :root {
   color-scheme: dark light;
@@ -32,7 +39,7 @@
   /* Text */
   --text-1: #e6ebef;
   --text-2: #98a3ab;
-  --text-3: #697178;
+  --text-3: #808a92;
 
   /* Accent */
   --accent: #2ab8c9;
@@ -100,9 +107,13 @@
 
     --text-1: #191c1f;
     --text-2: #5f666c;
-    --text-3: #6e767d;
+    --text-3: #686f76;
 
-    --accent: #0f8a9c;
+    --accent: #0a7a8a;
+    /* The dark theme's hover and pressed are lighter than the base; on a light
+     * page that would fade a link away as the pointer reaches it. */
+    --accent-hover: #086878;
+    --accent-pressed: #065866;
     --text-on-accent: #ffffff;
 
     --slate-fg: #4a555e;
