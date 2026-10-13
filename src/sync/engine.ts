@@ -25,8 +25,8 @@ import {
 ╔═ engine.ts ═══════════════════════════════════════════════════════════════════════════
 ║  sync · the rules: what a user action writes locally, and how it reaches the server
 ╠═ declares ════════════════════════════════════════════════════════════════════════════
-║      createSyncEngine   start/stop, hydrate, the three ticket writes, retry/discard/resume,
-║                         applyRemote (one event from the change feed)
+║      createSyncEngine   start/stop, hydrate, the three ticket writes, retry/discard/keepAsNew/
+║                         resume, applyRemote (one event from the change feed)
 ║      Timer, Connectivity   the two things it needs from the outside world
 ╠═ reached from ════════════════════════════════════════════════════════════════════════
 ║      store.ts (the app, and the socket it owns), engine tests, the real-backend integration test (LAM-72)
@@ -138,6 +138,15 @@ export type SyncEngine = {
      *  was all built on top of it), and puts the local row back to the
      *  server's copy. False if there is no such entry or it is on the wire. */
     discard(entryId: number): Promise<boolean>
+    /** For a parked edit that lost to someone else's change: makes a new
+     *  ticket, in the same project, out of the user's version (the row as it
+     *  stands, later edits queued behind the conflict included), then resolves
+     *  the original exactly as `discard` does. All in one transaction, so there
+     *  is never a moment with the edit gone and no copy of it. Resolves with
+     *  the new ticket's (temporary) id; null if there is no such entry, it is
+     *  on the wire, or it is not an edit in conflict - an archive has no
+     *  version of the user's to keep. */
+    keepAsNew(entryId: number): Promise<string | null>
     /** After a 401 has been dealt with (the user signed in again): un-parks
      *  every `unauthorized` entry and carries on. */
     resume(): Promise<void>
@@ -243,7 +252,10 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         let row: Ticket | null = (await tx.serverTickets.get(ticketId)) ?? null
         const existing = await tx.tickets.get(ticketId)
 
+        // Whether the queue so far has an entry that is waiting for a person.
+        let parked = false
         for (const entry of await tx.outbox.forTicket(ticketId)) {
+            parked ||= entry.state === 'conflict' || entry.state === 'failed'
             if (entry.kind === 'create') {
                 row = {
                     id: ticketId,
@@ -266,7 +278,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     }
                 }
             } else {
-                row = null
+                // An archive hides the ticket until the server has agreed. But
+                // a ticket whose queue is waiting for a person - this archive
+                // was refused or collided, or an edit before it was - must stay
+                // reachable: its page is where the user is told so and decides.
+                row = parked ? (row ?? existing ?? null) : null
             }
         }
 
@@ -327,7 +343,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
 
             const entries = await tx.outbox.forTicket(id)
             const last = entries.at(-1)
-            if (last && last.kind !== 'archive' && canFold(last)) {
+            // A ticket whose archive is parked keeps its row so it can be
+            // reached, not so it can be edited: the user decides about the
+            // archive first.
+            if (last?.kind === 'archive') return 'held'
+            if (last && canFold(last)) {
                 // A refused entry is worth sending again once its payload has
                 // changed; a conflict still needs someone to decide.
                 const state = last.state === 'failed' ? 'pending' : last.state
@@ -358,7 +378,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             notify()
             kick()
         }
-        return queued !== null
+        return queued !== null && queued !== 'held'
     }
 
     async function archiveTicket(id: string): Promise<boolean> {
@@ -366,6 +386,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         const found = await db.write(async (tx) => {
             if (!(await tx.tickets.get(id))) return false
             const entries = await tx.outbox.forTicket(id)
+            if (entries.at(-1)?.kind === 'archive') return false
             const only = entries.length === 1 ? entries[0] : undefined
             if (only && only.kind === 'create' && only.attempts === 0 && only.id !== inFlight) {
                 // The server has never heard of this ticket, so there is
@@ -450,7 +471,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             if (!entry) return {}
 
             const park = async (change: Partial<OutboxEntry>) => {
-                await tx.outbox.put({ ...entry, ...change } as OutboxEntry)
+                const parked = { ...entry, ...change } as OutboxEntry
+                await tx.outbox.put(parked)
+                // Whether an archive queued here hides the row depends on the
+                // state of what is ahead of it.
+                await rebuild(tx, parked.ticket_id)
                 return {}
             }
             const unanswered = (error: EntryError) =>
@@ -775,6 +800,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 error: null,
                 conflict: null,
             })
+            // A retried archive hides its row again while it is on the wire.
+            await rebuild(tx, entry.ticket_id)
             return true
         })
         if (found) {
@@ -785,22 +812,29 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         return found
     }
 
+    // Drops `entry` and everything queued behind it, and puts the row back to
+    // the server's copy. Shared by discard and keepAsNew, which differ only in
+    // what they do first.
+    async function dropFrom(tx: SyncTx, entry: OutboxEntry) {
+        for (const queued of await tx.outbox.forTicket(entry.ticket_id)) {
+            if (queued.id < entry.id) continue
+            waits.delete(queued.id)
+            await tx.outbox.delete(queued.id)
+        }
+        // The server's copy of an archived ticket is not something to go
+        // back to: the ticket is gone, and the row goes with it.
+        if (entry.conflict?.code === 'ticket_archived') {
+            await tx.serverTickets.delete(entry.ticket_id)
+        }
+        await rebuild(tx, entry.ticket_id)
+    }
+
     async function discard(entryId: number): Promise<boolean> {
         if (!isRunning() || entryId === inFlight) return false
         const found = await db.write(async (tx) => {
             const entry = await tx.outbox.get(entryId)
             if (!entry || entryId === inFlight) return false
-            for (const queued of await tx.outbox.forTicket(entry.ticket_id)) {
-                if (queued.id < entry.id) continue
-                waits.delete(queued.id)
-                await tx.outbox.delete(queued.id)
-            }
-            // The server's copy of an archived ticket is not something to go
-            // back to: the ticket is gone, and the row goes with it.
-            if (entry.conflict?.code === 'ticket_archived') {
-                await tx.serverTickets.delete(entry.ticket_id)
-            }
-            await rebuild(tx, entry.ticket_id)
+            await dropFrom(tx, entry)
             return true
         })
         if (found) {
@@ -808,6 +842,38 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             kick()
         }
         return found
+    }
+
+    async function keepAsNew(entryId: number): Promise<string | null> {
+        if (!isRunning() || entryId === inFlight) return null
+        const created = await db.write(async (tx) => {
+            const entry = await tx.outbox.get(entryId)
+            if (!entry || entryId === inFlight) return null
+            if (entry.kind !== 'update' || entry.state !== 'conflict') return null
+            // The row is the user's version: the server's copy with every
+            // entry of theirs replayed on top, the ones behind the conflict
+            // included. It has to be read before `dropFrom` rewrites it.
+            const mine = await tx.tickets.get(entry.ticket_id)
+            if (!mine) return null
+
+            const id = newId()
+            await tx.outbox.add({
+                kind: 'create',
+                ticket_id: id,
+                // The title as the user left it: a copy is not marked as one.
+                payload: { ...fieldsOf(mine), project_id: mine.project_id },
+                base_version: null,
+                ...blank(),
+            })
+            await rebuild(tx, id)
+            await dropFrom(tx, entry)
+            return id
+        })
+        if (created) {
+            notify()
+            kick()
+        }
+        return created
     }
 
     function unparkUnauthorized() {
@@ -876,6 +942,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         archiveTicket,
         retry,
         discard,
+        keepAsNew,
         resume,
         retryNow,
         applyRemote,

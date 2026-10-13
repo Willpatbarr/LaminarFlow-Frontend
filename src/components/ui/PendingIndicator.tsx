@@ -16,9 +16,10 @@ export type PendingItem = {
 type PendingIndicatorProps = {
     /** The summary, as the button reads it: "3 changes waiting". */
     label: string
-    /** `attention` draws the dot solid; `waiting` leaves it a ring, which is
-     *  how the row markers draw "just not there yet" too. */
-    tone: 'waiting' | 'attention'
+    /** `attention` draws the dot solid rust; `decision` solid blue, for a
+     *  choice rather than a fault; `waiting` leaves it a ring, which is how the
+     *  row markers draw "just not there yet" too. */
+    tone: 'waiting' | 'attention' | 'decision'
     items: PendingItem[]
 }
 

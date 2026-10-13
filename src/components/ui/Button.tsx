@@ -16,6 +16,8 @@ type ButtonProps = {
     variant?: ButtonVariant
     /** `sm` is for a button sitting inside another surface (a toast). */
     size?: 'md' | 'sm'
+    /** The id of text that explains what the button does beyond its name. */
+    describedBy?: string
     /** Receives the <button>, so a dialog can put focus on it. */
     ref?: (el: HTMLButtonElement) => void
 }
@@ -33,6 +35,7 @@ export function Button(props: ButtonProps) {
             type={props.type ?? 'button'}
             class={`button button--${props.variant ?? 'primary'}${props.size === 'sm' ? ' button--sm' : ''}`}
             disabled={props.disabled}
+            aria-describedby={props.describedBy}
             onClick={props.onClick}
         >
             {props.children}

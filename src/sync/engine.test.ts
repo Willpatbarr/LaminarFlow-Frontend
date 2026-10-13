@@ -1285,3 +1285,262 @@ describe('failures, by kind', () => {
         expect((await local(second.db)).outbox).toEqual([])
     })
 })
+
+// LAM-71: deciding what happens to a change that lost to someone else's.
+describe('resolving a conflict', () => {
+    const theirs = () => ticket({ title: 'Theirs', description: 'Their words', version: 5, updated_by: 'acc-other' })
+
+    // t-1 is edited by the user and refused with `code`.
+    function edited(code: 'ticket_conflict' | 'ticket_archived' = 'ticket_conflict') {
+        const puts: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'PUT /api/v1/tickets/t-1': (request) => {
+                puts.push(request.headers.get('If-Match'))
+                return conflictBody(code, theirs(), 'acc-other')
+            },
+            'POST /api/v1/tickets': async (request) => {
+                const body = await bodyOf(request)
+                return ok(ticket({ ...body, id: 't-new', version: 1, updated_by: ME }))
+            },
+        })
+        return puts
+    }
+
+    async function park(code: 'ticket_conflict' | 'ticket_archived' = 'ticket_conflict') {
+        const puts = edited(code)
+        const started = await startEngine()
+        await started.engine.updateTicket('t-1', { title: 'Mine', description: 'My words' })
+        await started.engine.idle()
+        const [entry] = (await local(started.db)).outbox
+        return { ...started, puts, entry }
+    }
+
+    describe.each(['ticket_conflict', 'ticket_archived'] as const)('keepAsNew on %s', (code) => {
+        it('makes a queued create from the user\'s version in the same project, then resolves the original', async () => {
+            const { engine, db, entry } = await park(code)
+            expect(entry.state).toBe('conflict')
+
+            const id = await engine.keepAsNew(entry.id)
+
+            expect(id).toBe('tmp_1')
+            const now = await local(db)
+            // The copy: the title exactly as it was typed, no "(copy)".
+            expect(now.tickets.find((t) => t.id === id)).toMatchObject({
+                id: 'tmp_1',
+                project_id: 'p-1',
+                title: 'Mine',
+                description: 'My words',
+                status_id: 's-todo',
+                version: 0,
+            })
+            expect(now.outbox).toMatchObject([
+                { kind: 'create', ticket_id: 'tmp_1', state: 'pending', payload: { title: 'Mine', project_id: 'p-1' } },
+            ])
+            // The original is resolved as discard would: back to theirs, or gone.
+            if (code === 'ticket_conflict') {
+                expect(now.tickets.find((t) => t.id === 't-1')).toEqual(theirs())
+            } else {
+                expect(now.tickets.find((t) => t.id === 't-1')).toBeUndefined()
+            }
+        })
+
+        it('sends the create and the copy takes its server id', async () => {
+            const { engine, db, entry } = await park(code)
+            await engine.keepAsNew(entry.id)
+            await engine.idle()
+
+            const now = await local(db)
+            expect(now.outbox).toEqual([])
+            expect(now.tickets.map((t) => t.id).sort()).toEqual(
+                code === 'ticket_conflict' ? ['t-1', 't-new'] : ['t-new'],
+            )
+        })
+    })
+
+    it('keeps the edits queued behind the conflict in the copy, and drops them from the original', async () => {
+        const first = deferred()
+        const started = deferred<void>()
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'PUT /api/v1/tickets/t-1': () => {
+                started.resolve()
+                return first.promise
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'Mine' })
+        await started.promise
+        // The first edit is on the wire, so this one queues behind it.
+        await engine.updateTicket('t-1', { description: 'Written later', assignee_id: ME })
+        first.resolve(conflictBody('ticket_conflict', theirs(), 'acc-other'))
+        await engine.idle()
+
+        const before = await local(db)
+        expect(before.outbox).toMatchObject([{ state: 'conflict' }, { state: 'pending' }])
+
+        const id = await engine.keepAsNew(before.outbox[0].id)
+
+        const now = await local(db)
+        expect(now.tickets.find((t) => t.id === id)).toMatchObject({
+            title: 'Mine',
+            description: 'Written later',
+            assignee_id: ME,
+        })
+        expect(now.outbox).toMatchObject([{ kind: 'create', ticket_id: id }])
+        expect(now.tickets.find((t) => t.id === 't-1')).toEqual(theirs())
+    })
+
+    it('does nothing for an archive, a refused edit, or an entry that is not there', async () => {
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'DELETE /api/v1/tickets/t-1': () => conflictBody('ticket_conflict', theirs(), 'acc-other'),
+        })
+        const { engine, db } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+        const [archive] = (await local(db)).outbox
+        const snapshot = await local(db)
+
+        expect(archive).toMatchObject({ kind: 'archive', state: 'conflict' })
+        expect(await engine.keepAsNew(archive.id)).toBeNull()
+        expect(await engine.keepAsNew(999)).toBeNull()
+        expect(await local(db)).toEqual(snapshot)
+    })
+
+    it('discard() and retry() on an archived conflict: the first removes the row, the second asks again', async () => {
+        const { engine, db, entry, puts } = await park('ticket_archived')
+
+        expect(await engine.retry(entry.id)).toBe(true)
+        await engine.idle()
+        // Resent on the version the conflict showed, and it collided again.
+        expect(puts).toEqual(['"3"', '"5"'])
+        expect((await local(db)).outbox).toMatchObject([{ state: 'conflict' }])
+
+        await engine.discard((await local(db)).outbox[0].id)
+        expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+    })
+
+    it('a "use mine" that collides again parks with the newer conflict', async () => {
+        const answers = [
+            conflictBody('ticket_conflict', ticket({ title: 'Theirs', version: 5 }), 'acc-other'),
+            conflictBody('ticket_conflict', ticket({ title: 'Theirs again', version: 6 }), 'acc-third'),
+        ]
+        const ifMatch: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'PUT /api/v1/tickets/t-1': (request) => {
+                ifMatch.push(request.headers.get('If-Match'))
+                return answers.shift()!
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'Mine' })
+        await engine.idle()
+        await engine.retry((await local(db)).outbox[0].id)
+        await engine.idle()
+
+        expect(ifMatch).toEqual(['"3"', '"5"'])
+        expect((await local(db)).outbox).toMatchObject([
+            {
+                state: 'conflict',
+                payload: { title: 'Mine' },
+                conflict: { current: { title: 'Theirs again', version: 6 }, changed_by: { account_id: 'acc-third' } },
+            },
+        ])
+    })
+
+    it('a conflicted entry is still there, still parked and not resent, when the engine starts again', async () => {
+        const { engine, db, entry, puts } = await park()
+        await engine.stop()
+
+        const again = await startEngine({ db })
+        await again.engine.idle()
+
+        const now = await local(db)
+        expect(now.outbox).toMatchObject([{ id: entry.id, state: 'conflict', conflict: { code: 'ticket_conflict' } }])
+        expect(now.tickets.find((t) => t.id === 't-1')).toMatchObject({ title: 'Mine' })
+        expect(puts).toHaveLength(1)
+    })
+})
+
+// The gap LAM-70 flagged: an archive that did not go through used to take the
+// row with it, and with the row the page that says so.
+describe('an archive that is parked', () => {
+    it('keeps the ticket reachable when the server refuses it, and puts it back on discard', async () => {
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'DELETE /api/v1/tickets/t-1': () => problem(403, 'forbidden'),
+        })
+        const { engine, db } = await startEngine()
+
+        await engine.archiveTicket('t-1')
+        // Pending: hidden, as it always was.
+        expect((await local(db)).tickets).toEqual([])
+        await engine.idle()
+
+        const now = await local(db)
+        expect(now.outbox).toMatchObject([{ kind: 'archive', state: 'failed' }])
+        expect(now.tickets).toMatchObject([{ id: 't-1', title: 'Write the outbox' }])
+
+        await engine.discard(now.outbox[0].id)
+        expect(await local(db)).toMatchObject({ tickets: [{ id: 't-1' }], outbox: [] })
+    })
+
+    it('shows the server\'s newer copy when the archive collided, and hides it again while it is resent', async () => {
+        const answers = [
+            () => conflictBody('ticket_conflict', ticket({ title: 'Edited meanwhile', version: 5 }), 'acc-other'),
+            () => new Response(null, { status: 204, headers: { ETag: '"6"' } }),
+        ]
+        const ifMatch: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'DELETE /api/v1/tickets/t-1': (request) => {
+                ifMatch.push(request.headers.get('If-Match'))
+                return answers.shift()!()
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+
+        let now = await local(db)
+        expect(now.outbox).toMatchObject([{ kind: 'archive', state: 'conflict' }])
+        expect(now.tickets).toMatchObject([{ title: 'Edited meanwhile', version: 5 }])
+
+        // Nothing more can be queued on a ticket whose archive is waiting.
+        expect(await engine.updateTicket('t-1', { title: 'Too late' })).toBe(false)
+        expect(await engine.archiveTicket('t-1')).toBe(false)
+        expect((await local(db)).outbox).toHaveLength(1)
+
+        await engine.retry(now.outbox[0].id)
+        expect((await local(db)).tickets).toEqual([])
+        await engine.idle()
+
+        expect(ifMatch).toEqual(['"3"', '"5"'])
+        now = await local(db)
+        expect(now).toEqual({ tickets: [], outbox: [] })
+    })
+
+    it('keeps the ticket reachable when an edit before the archive is the one waiting', async () => {
+        const first = deferred()
+        const started = deferred<void>()
+        stubFetch({
+            ...listRoutes([ticket({ id: 't-1', version: 3 })]),
+            'PUT /api/v1/tickets/t-1': () => {
+                started.resolve()
+                return first.promise
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'Mine' })
+        await started.promise
+        await engine.archiveTicket('t-1')
+        first.resolve(conflictBody('ticket_conflict', ticket({ title: 'Theirs', version: 5 }), 'acc-other'))
+        await engine.idle()
+
+        const now = await local(db)
+        expect(now.outbox).toMatchObject([{ kind: 'update', state: 'conflict' }, { kind: 'archive' }])
+        expect(now.tickets).toMatchObject([{ id: 't-1', title: 'Mine' }])
+    })
+})

@@ -96,6 +96,16 @@
   background: var(--rust-fg);
 }
 
+/* A conflict is a choice to make, not a fault: the information hue. */
+.sync-marker[data-state='conflict'] {
+  color: var(--text-2);
+}
+
+.sync-marker[data-state='conflict'] .sync-marker__dot {
+  border-color: var(--blue-fg);
+  background: var(--blue-fg);
+}
+
 /* The ticket page. */
 .ticket__form {
   display: grid;
@@ -140,4 +150,18 @@
   border-radius: var(--r-control);
   background: color-mix(in srgb, var(--rust) var(--chip-alpha), transparent);
   color: var(--rust-fg);
+}
+
+/* The outcome of the last conflict, said once. It is focused (not announced
+ * alone) when the page it was said on has just changed under the reader. */
+.ticket__notice:not(:empty) {
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  background: var(--bg-raised);
+}
+
+.ticket__notice:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

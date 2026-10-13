@@ -44,9 +44,9 @@ import type {
 ║      currentProject, selectProject          the project picker's state, remembered
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket   the only way a screen changes a ticket
-║      retry, discard, resume, rehydrate           for the error and conflict screens
+║      retry, discard, keepAsNew, resume, rehydrate   for the error and conflict screens
 ║      resumeFor, retryNow                         after a re-login (same account only); skip the backoff
-║      ticketHead, unsyncedCount                   a ticket's queue head; how many changes are unsent
+║      ticketHead, archiveOnHold, unsyncedCount    a ticket's queue head; whether its archive is parked; how many changes are unsent
 ║      createTeam, createProject                   first-run setup; online only
 ║      startSync, stopSync, wipeLocalData          lifecycle (called from session.ts)
 ║      sync.connection                              the change feed's state, for the indicator
@@ -407,6 +407,14 @@ export function ticketHead(id: string): OutboxEntry | undefined {
     return queueHeads().get(resolveTicketId(id))
 }
 
+/** True for a ticket whose archive the server refused or collided with. The row
+ *  is kept for it (see `rebuild` in the engine) so that its page can say so;
+ *  this is what tells a list that such a row is not an ordinary one. */
+export function archiveOnHold(id: string): boolean {
+    const head = queueHeads().get(resolveTicketId(id))
+    return head?.kind === 'archive' && (head.state === 'conflict' || head.state === 'failed')
+}
+
 /** How many changes have not reached the server: one per outbox entry. */
 export function unsyncedCount(): number {
     return state.outbox.length
@@ -449,6 +457,15 @@ export async function discard(entryId: number): Promise<boolean> {
     const found = await running().engine.discard(entryId)
     await caughtUp()
     return found
+}
+
+/** Resolves a conflicted edit by keeping the user's version as a new ticket in
+ *  the same project and dropping the original change (as `discard`). Resolves
+ *  with the new ticket's id, to navigate to; null if nothing could be done. */
+export async function keepAsNew(entryId: number): Promise<string | null> {
+    const id = await running().engine.keepAsNew(entryId)
+    await caughtUp()
+    return id
 }
 
 export async function resume(): Promise<void> {

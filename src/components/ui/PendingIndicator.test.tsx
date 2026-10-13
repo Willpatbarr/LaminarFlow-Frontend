@@ -53,4 +53,13 @@ describe('PendingIndicator', () => {
 
         expect(onClick).toHaveBeenCalledTimes(1)
     })
+
+    it('marks the tone on the indicator, so a decision can look different from a fault', () => {
+        render(() => <PendingIndicator label="1 change needs a decision" tone="decision" items={items} />)
+
+        expect(screen.getByRole('button', { name: '1 change needs a decision' }).parentElement).toHaveAttribute(
+            'data-tone',
+            'decision',
+        )
+    })
 })

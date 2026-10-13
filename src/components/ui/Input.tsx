@@ -17,6 +17,8 @@ type InputProps = {
     placeholder?: string
     required?: boolean
     disabled?: boolean
+    /** Shows the value and lets it be selected and read out, but not changed. */
+    readOnly?: boolean
     /** Marks the control invalid and renders the message under it. */
     error?: string
     /** Receives the <input>, so a form can move focus to the first invalid one. */
@@ -44,6 +46,7 @@ export function Input(props: InputProps) {
                 placeholder={props.placeholder}
                 required={props.required}
                 disabled={props.disabled}
+                readonly={props.readOnly}
                 value={props.value}
                 aria-invalid={props.error ? 'true' : undefined}
                 aria-describedby={props.error ? errorId : undefined}

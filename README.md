@@ -126,7 +126,7 @@ sent is folded into it.
 | 2xx | removed | The row takes the server's copy and version. |
 | no response, 5xx | stays `pending` | Retried with capped exponential backoff (1s doubling to 60s), and at once when the browser comes back online. |
 | 401 | `unauthorized` | Nothing at all is sent until `resume()` (or a new engine starts: a reload). |
-| 409 | `conflict`, with the server's copy on it | That ticket's queue waits for `retry()` (mine wins) or `discard()`. Other tickets carry on. |
+| 409 | `conflict`, with the server's copy on it | That ticket's queue waits for `retry()` (mine wins), `discard()` or `keepAsNew()`. Other tickets carry on. |
 | 422, other 4xx | `failed`, with the `errors[]` | Waits for the user to change the edit, or `discard()`. |
 
 A 409 that only says the server is already where the entry wanted it - an
@@ -207,10 +207,23 @@ API answer as `network`.
 - **Refused changes** park as `failed`. The ticket page shows each
   `errors[].location` at its field (`tickets/entryFailure.ts`); editing a field
   folds into the failed entry and sends again, "Discard my change" drops it.
+- **Conflicts** (LAM-71) are a decision, not a fault: the ticket page shows a
+  `ConflictPanel` (a labelled region, neutral colours) with the sentence built
+  from the 409 (who, edited or archived, how long ago), both versions field by
+  field where they differ, and the way out: `discard()` ("Keep theirs"),
+  `retry()` ("Use mine", edits only), or `keepAsNew()`, which in one transaction
+  queues a `create` of the user's version (later edits behind the conflict
+  included, same project, title untouched) and then resolves the original as
+  `discard()` does. The ticket's fields are read-only until it is decided.
+- **A parked archive keeps its row.** An archive hides the row only while
+  nothing in that ticket's queue is waiting for a person (`rebuild` in the
+  engine); once the archive, or an edit ahead of it, is `failed` or `conflict`,
+  the row is shown again so the page can say so, and `archiveOnHold(id)` tells a
+  list the row is there for that reason. Nothing more can be queued on it.
 - **Pending indicator** in the side nav foot (`pendingSummary()`); logout asks
-  first when `unsyncedCount() > 0`. LAM-71: `conflict` entries are counted as
-  "needs attention" in `sync/status.ts` and worded in
-  `features/syncstatus/components/PendingChanges.tsx`.
+  first when `unsyncedCount() > 0`. `failed` entries read "needs attention",
+  `conflict` entries "need a decision" (`reason: 'decision'`, a blue dot), worded
+  in `features/syncstatus/components/PendingChanges.tsx`.
 
 ### `idb` rather than a hand-written wrapper
 
