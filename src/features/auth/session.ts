@@ -12,6 +12,7 @@ import type { components } from '@/api/schema'
 ║      session      reactive { status, me }, read-only from outside
 ║      refresh      GET /auth/me, then set the state from the answer
 ║      markExpired  the session ended while the user was in the app (the sync layer calls it)
+║      recheckExpired  while that banner shows: ask /auth/me again, and clear it if the session is fine
 ║      login        POST /auth/login, then refresh
 ║      register     POST /auth/register, then refresh
 ║      logout       POST /auth/logout, then clear - clears even if the request fails
@@ -84,6 +85,33 @@ export function markExpired(): void {
     setState((draft) => {
         draft.expired = true
     })
+}
+
+let rechecking: Promise<void> | null = null
+
+/** For when the "signed out" banner is showing and the session may in fact be
+ *  fine: a 401 that was the server's passing trouble, or a sign-in made in
+ *  another tab. Asks /auth/me once. A 200 is handled exactly as a sign-in is
+ *  (`set` ends the expiry): the same account lets the sync layer resume what it
+ *  was holding, a different one is the different-account path it already has.
+ *  A 401, any other answer, or no answer leaves the banner as it was. Does
+ *  nothing when no banner is showing, and never rejects. */
+export function recheckExpired(): Promise<void> {
+    if (rechecking) return rechecking
+    if (untrack(() => !state.expired)) return Promise.resolve()
+    rechecking = (async () => {
+        try {
+            const { data } = await api.GET('/api/v1/auth/me')
+            // The user may have signed in through the banner, or logged out,
+            // while this was on the wire; either already settled it.
+            if (data && untrack(() => state.expired)) set('authenticated', data)
+        } catch {
+            // Unreachable is not "signed in" and not "signed out": nothing to say.
+        }
+    })().finally(() => {
+        rechecking = null
+    })
+    return rechecking
 }
 
 // 401 is an answer ("nobody is logged in"), so it resolves. Anything else - a

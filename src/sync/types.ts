@@ -89,7 +89,16 @@ type EntryBase = {
 
 export type OutboxEntry = EntryBase &
     (
-        | { kind: 'create'; payload: NewTicket }
+        | {
+              kind: 'create'
+              payload: NewTicket
+              /** The `Idempotency-Key` every attempt to send this create carries.
+               *  Made once, when the create is queued, so that an attempt whose
+               *  response was lost and the attempt after it are the same request
+               *  to the server. A create of a different ticket gets a different
+               *  key, always: the server never forgets one. */
+              idempotency_key: string
+          }
         | { kind: 'update'; payload: TicketFields }
         | { kind: 'archive'; payload: null }
     )
@@ -105,6 +114,12 @@ const TEMP_PREFIX = 'tmp_'
 
 export function newTempId(): string {
     return TEMP_PREFIX + crypto.randomUUID()
+}
+
+/** A fresh `Idempotency-Key`: 36 printable ASCII characters, inside the 1-128
+ *  the server accepts. */
+export function newIdempotencyKey(): string {
+    return crypto.randomUUID()
 }
 
 /** True for an id this client made up, which the server will replace. */

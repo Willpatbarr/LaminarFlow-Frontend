@@ -131,6 +131,7 @@ export function createSocket(deps: SocketDeps): RealtimeSocket {
     let retry: unknown = null
     let greetingDeadline: unknown = null
     let offOnline = () => {}
+    let offOffline = () => {}
     let offVisible = () => {}
 
     const isRunning = () => phase === 'running'
@@ -271,10 +272,24 @@ export function createSocket(deps: SocketDeps): RealtimeSocket {
         connect()
     }
 
+    // The browser's `offline` is authoritative. An open socket proves nothing
+    // about the network: a connection that went half-open still looks open, and
+    // may keep looking open for minutes. So the socket is closed here, on
+    // purpose, and `online` is the way back.
+    function goOffline() {
+        if (!isRunning() || paused) return
+        clearTimers()
+        if (current) drop(current)
+        current = null
+        live = false
+        setState('offline')
+    }
+
     function start() {
         if (phase !== 'new') throw new Error('a socket starts once; make a new one')
         phase = 'running'
         offOnline = connectivity?.onOnline(nudge) ?? (() => {})
+        offOffline = connectivity?.onOffline(goOffline) ?? (() => {})
         offVisible = visibility?.onVisible(nudge) ?? (() => {})
         connect()
     }
@@ -283,6 +298,7 @@ export function createSocket(deps: SocketDeps): RealtimeSocket {
         if (phase === 'stopped') return
         phase = 'stopped'
         offOnline()
+        offOffline()
         offVisible()
         clearTimers()
         if (current) drop(current)

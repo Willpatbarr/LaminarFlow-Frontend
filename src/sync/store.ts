@@ -187,6 +187,10 @@ const browserConnectivity: Connectivity = {
         window.addEventListener('online', fn)
         return () => window.removeEventListener('online', fn)
     },
+    onOffline(fn) {
+        window.addEventListener('offline', fn)
+        return () => window.removeEventListener('offline', fn)
+    },
 }
 
 export type StartOptions = {

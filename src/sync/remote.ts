@@ -215,7 +215,10 @@ export function createRemote(api: SyncApi) {
             let result: { data?: unknown; error?: unknown; response: Response }
             try {
                 if (entry.kind === 'create') {
-                    result = await api.POST('/api/v1/tickets', { body: entry.payload })
+                    result = await api.POST('/api/v1/tickets', {
+                        params: { header: { 'Idempotency-Key': entry.idempotency_key } },
+                        body: entry.payload,
+                    })
                 } else if (entry.kind === 'update') {
                     result = await api.PUT('/api/v1/tickets/{id}', {
                         params: { path: { id: entry.ticket_id }, header: ifMatch(entry.base_version) },

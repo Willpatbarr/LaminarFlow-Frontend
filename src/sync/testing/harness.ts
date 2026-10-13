@@ -53,17 +53,24 @@ export function manualTimer(start = Date.parse('2026-01-01T00:00:00Z')) {
 export function manualConnectivity(initiallyOnline = true) {
     let online = initiallyOnline
     const listeners = new Set<() => void>()
+    const offlineListeners = new Set<() => void>()
     const connectivity: Connectivity = {
         isOnline: () => online,
         onOnline(fn) {
             listeners.add(fn)
             return () => listeners.delete(fn)
         },
+        onOffline(fn) {
+            offlineListeners.add(fn)
+            return () => offlineListeners.delete(fn)
+        },
     }
     return {
         connectivity,
+        /** The browser's `offline` event: flips the status, then tells listeners. */
         goOffline() {
             online = false
+            for (const fn of offlineListeners) fn()
         },
         goOnline() {
             online = true

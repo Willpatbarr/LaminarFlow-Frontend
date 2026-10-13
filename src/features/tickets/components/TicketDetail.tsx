@@ -33,6 +33,7 @@ import {
 } from '@/sync'
 
 import { describeFailure } from '../entryFailure'
+import { BLANK_TITLE, descriptionCount, overMessage, titleCount } from '../limits'
 import type { Viewer } from '../viewer'
 import { ConflictPanel } from './ConflictPanel'
 import { SyncMarker } from './SyncMarker'
@@ -235,11 +236,32 @@ function TicketEditor(props: TicketEditorProps) {
         (value) => updateTicket(id(), { description: value }),
     )
 
+    // Nothing over its limit, and no blank title, is ever queued. The text
+    // stays in the field with the reason beside it - the same place a refusal
+    // from the server puts it, so there is one place to look. The server's own
+    // 422 is still the authority and still lands on the field (`refused`).
+    const [blankTried, setBlankTried] = createSignal(false)
+    const titleOver = () => overMessage('Title', titleCount(title.value()))
+    const descriptionOver = () => overMessage('Description', descriptionCount(description.value()))
+    const titleError = () =>
+        titleOver() ??
+        (blankTried() && title.value().trim() === '' ? BLANK_TITLE : undefined) ??
+        refused()?.fields.title
+    const descriptionError = () => descriptionOver() ?? refused()?.fields.description
+
     function commitTitle() {
-        // A ticket with no title is a row nobody can find again: put the old
-        // one back instead of saving the blank.
-        if (title.value().trim() === '') title.reset()
-        else void title.commit()
+        // A ticket with no title is a row nobody can find again.
+        if (title.value().trim() === '') {
+            setBlankTried(true)
+            return
+        }
+        if (titleOver()) return
+        void title.commit()
+    }
+
+    function commitDescription() {
+        if (descriptionOver()) return
+        void description.commit()
     }
 
     const statusOptions = () => {
@@ -434,9 +456,13 @@ function TicketEditor(props: TicketEditorProps) {
                 }}
                 readOnly={locked()}
                 value={title.value()}
-                onInput={title.input}
+                onInput={(value) => {
+                    setBlankTried(false)
+                    title.input(value)
+                }}
                 onBlur={commitTitle}
-                error={refused()?.fields.title}
+                count={titleCount(title.value())}
+                error={titleError()}
             />
 
             <TextArea
@@ -444,8 +470,9 @@ function TicketEditor(props: TicketEditorProps) {
                 readOnly={locked()}
                 value={description.value()}
                 onInput={description.input}
-                onBlur={() => void description.commit()}
-                error={refused()?.fields.description}
+                onBlur={commitDescription}
+                count={descriptionCount(description.value())}
+                error={descriptionError()}
             />
 
             <div class="ticket__row">

@@ -10,6 +10,7 @@ import type { EntryError } from '@/sync'
 ├─ example ───────────────────────────────────────
 │      422 [{location:'body.title', message:'expected length >= 1'}]
 │        →  { fields: { title: "The server didn't accept this title: expected length >= 1." }, fieldShaped: true }
+│      422 status_not_found  →  { fields: { status: 'That status no longer exists. Pick another.' } }
 */
 
 export type EditableField = 'title' | 'description' | 'status' | 'assignee'
@@ -45,6 +46,20 @@ const NAME: Record<EditableField, string> = {
 function fieldOf(location: string | undefined): EditableField | null {
     const match = /^body\.([A-Za-z0-9_]+)/.exec(location ?? '')
     return match ? (FIELD_OF_LOCATION[match[1]] ?? null) : null
+}
+
+// Two refusals that have a code of their own because the cause is not the
+// user's typing but something that changed under them: the status or the
+// assignee they picked has since gone (LAM-75). Each says so, and what to do.
+const GONE: Record<string, { field: EditableField; sentence: string }> = {
+    status_not_found: {
+        field: 'status',
+        sentence: 'That status no longer exists. Pick another.',
+    },
+    assignee_not_found: {
+        field: 'assignee',
+        sentence: 'That assignee is no longer available. Pick another.',
+    },
 }
 
 const trimStop = (message: string) => message.trim().replace(/[.\s]+$/, '')
@@ -90,6 +105,9 @@ export function describeFailure(error: EntryError, sent?: SentText): FailureDesc
     if (kind === 'too_large') return tooLarge(sent)
 
     if (kind === 'validation') {
+        const gone = GONE[error.code]
+        if (gone) return { fields: { [gone.field]: gone.sentence }, form: null, fieldShaped: true }
+
         const fields: FailureDescription['fields'] = {}
         const loose: string[] = []
         for (const detail of error.errors) {

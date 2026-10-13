@@ -387,3 +387,80 @@ describe('realtimeUrl', () => {
         expect(realtimeUrl({ protocol: 'https:', host: 'app.example.com' })).toBe('wss://app.example.com/api/v1/ws')
     })
 })
+
+describe('the browser reports offline (LAM-76)', () => {
+    it('shows offline at once and closes the socket on purpose, whatever the socket says', () => {
+        const { socket, net, states } = setup()
+        socket.start()
+        FakeWebSocket.last.hello()
+        const open = FakeWebSocket.last
+        expect(socket.state()).toBe('live')
+
+        // No close or error event from the socket: a half-open connection
+        // says nothing. The browser's word is enough.
+        net.goOffline()
+
+        expect(socket.state()).toBe('offline')
+        expect(states).toEqual(['connecting', 'live', 'offline'])
+        expect(open.closedByClient).not.toBeNull()
+    })
+
+    it('ignores what the socket it closed says afterwards, and tries nothing while offline', () => {
+        const { socket, clock, net, events } = setup()
+        socket.start()
+        FakeWebSocket.last.hello()
+        const open = FakeWebSocket.last
+
+        net.goOffline()
+        open.drop()
+        open.receive({ type: 'ticket.updated' })
+
+        expect(socket.state()).toBe('offline')
+        expect(events).toEqual([])
+        expect(clock.nextDelay()).toBeNull()
+        expect(FakeWebSocket.instances).toHaveLength(1)
+    })
+
+    it('cancels a reconnect that was waiting out its backoff', () => {
+        const { socket, clock, net } = setup()
+        socket.start()
+        FakeWebSocket.last.drop()
+        expect(socket.state()).toBe('reconnecting')
+
+        net.goOffline()
+
+        expect(socket.state()).toBe('offline')
+        expect(clock.nextDelay()).toBeNull()
+    })
+
+    it('reconnects on online, from the short end of the backoff, and lists again on the new hello', () => {
+        const { socket, net, opens } = setup()
+        socket.start()
+        FakeWebSocket.last.hello()
+
+        net.goOffline()
+        net.goOnline()
+
+        expect(FakeWebSocket.instances).toHaveLength(2)
+        expect(socket.state()).toBe('reconnecting')
+        FakeWebSocket.last.hello()
+        expect(socket.state()).toBe('live')
+        expect(opens).toEqual([{ first: true }, { first: false }])
+    })
+
+    it('does nothing when it is paused, and is silent once stopped', () => {
+        const { socket, net, states } = setup()
+        socket.start()
+        socket.setPaused(true)
+        const seen = states.length
+
+        net.goOffline()
+        net.goOnline()
+        expect(states).toHaveLength(seen)
+        expect(FakeWebSocket.instances).toHaveLength(1)
+
+        socket.stop()
+        net.goOffline()
+        expect(states.at(-1)).toBe('offline')
+    })
+})

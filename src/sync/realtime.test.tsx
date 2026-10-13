@@ -77,6 +77,36 @@ describe('the connection', () => {
         expect(sync.connection).toBe('live')
     })
 
+    it('says offline the moment the browser does, without a word from the socket, and live again after online', async () => {
+        const { net } = await open()
+        FakeWebSocket.last.hello()
+        expect(sync.connection).toBe('live')
+        const first = FakeWebSocket.last
+
+        net.goOffline()
+        expect(sync.connection).toBe('offline')
+        expect(first.closedByClient).not.toBeNull()
+
+        net.goOnline()
+        expect(sync.connection).toBe('reconnecting')
+        FakeWebSocket.last.hello()
+        expect(sync.connection).toBe('live')
+    })
+
+    it('listens for the window\'s own offline and online events by default', async () => {
+        stubFetch(listRoutes())
+        await startSync(ME, { dbName: freshName() })
+        FakeWebSocket.last.hello()
+        expect(sync.connection).toBe('live')
+
+        window.dispatchEvent(new Event('offline'))
+        expect(sync.connection).toBe('offline')
+
+        window.dispatchEvent(new Event('online'))
+        FakeWebSocket.last.hello()
+        expect(sync.connection).toBe('live')
+    })
+
     it('connects to the feed on the page\'s own origin by default', async () => {
         stubFetch(listRoutes())
         await startSync(ME, { dbName: freshName() })
