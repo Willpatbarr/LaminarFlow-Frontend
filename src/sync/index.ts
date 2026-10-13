@@ -3,6 +3,7 @@
 export * from './store'
 export { connectSyncToSession } from './session'
 export { isTempId } from './types'
+export type { ConnectionState } from './socket'
 export type {
     EntryError,
     EntryKind,

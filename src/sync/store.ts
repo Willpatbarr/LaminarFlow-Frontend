@@ -13,6 +13,16 @@ import {
     type Timer,
 } from './engine'
 import type { SyncApi } from './remote'
+import {
+    browserVisibility,
+    createSocket,
+    realtimeUrl,
+    type ConnectionState,
+    type RealtimeSocket,
+    type SocketBackoff,
+    type SocketClass,
+    type Visibility,
+} from './socket'
 import type {
     NewTicket,
     OutboxEntry,
@@ -36,6 +46,7 @@ import type {
 ║      retry, discard, resume, rehydrate           for the error and conflict screens
 ║      createTeam, createProject                   first-run setup; online only
 ║      startSync, stopSync, wipeLocalData          lifecycle (called from session.ts)
+║      sync.connection                              the change feed's state, for the indicator
 ╠═ reached from ════════════════════════════════════════════════════════════════════════
 ║      features/tickets, and later the error (LAM-70) and conflict (LAM-71) screens
 ╚═══════════════════════════════════════════════════════════════════════════════════════
@@ -54,6 +65,8 @@ export type SyncState = {
     hydrated: boolean
     /** The server answered 401; nothing is being sent until `resume()`. */
     paused: boolean
+    /** The change feed (WebSocket). `offline` also means "not running". */
+    connection: ConnectionState
     teams: Team[]
     projects: Project[]
     statuses: Status[]
@@ -74,6 +87,7 @@ function empty(): SyncState {
         hydration: 'idle',
         hydrated: false,
         paused: false,
+        connection: 'offline',
         teams: [],
         projects: [],
         statuses: [],
@@ -93,6 +107,7 @@ type Running = {
     accountId: string
     db: SyncDb
     engine: SyncEngine
+    socket: RealtimeSocket
     api: SyncApi
     off: () => void
 }
@@ -172,6 +187,17 @@ export type StartOptions = {
     timer?: Timer
     connectivity?: Connectivity
     dbName?: string
+    /** For tests: a fake WebSocket class, and the other things the socket would
+     *  otherwise take from the browser. The timer and connectivity above are
+     *  shared with the engine. */
+    socket?: {
+        url?: string
+        WebSocketImpl?: SocketClass
+        visibility?: Visibility
+        random?: () => number
+        backoff?: SocketBackoff
+        helloTimeoutMs?: number
+    }
 }
 
 // Start, stop and wipe each touch the database connection, and each is async.
@@ -191,6 +217,8 @@ const META_PROJECT = 'last_project_id'
 async function halt() {
     if (!current) return
     const stopping = current
+    // First, so no frame is handed to an engine that is on its way out.
+    stopping.socket.stop()
     await stopping.engine.stop()
     stopping.off()
     current = null
@@ -221,8 +249,43 @@ export function startSync(accountId: string, options: StartOptions = {}): Promis
             timer: options.timer,
             connectivity: options.connectivity ?? browserConnectivity,
         })
-        const started: Running = { accountId, db, engine, api, off: () => {} }
-        started.off = engine.subscribe((change) => void refresh(started, change))
+        const connectivity = options.connectivity ?? browserConnectivity
+        const socketOptions = options.socket ?? {}
+        const socket = createSocket({
+            url: socketOptions.url ?? realtimeUrl(),
+            WebSocketImpl: socketOptions.WebSocketImpl,
+            timer: options.timer,
+            connectivity,
+            visibility: socketOptions.visibility ?? browserVisibility,
+            random: socketOptions.random,
+            backoff: socketOptions.backoff,
+            helloTimeoutMs: socketOptions.helloTimeoutMs,
+            onEvent: (frame) => void engine.applyRemote(frame),
+            onOpen: ({ first }) => {
+                // Delivery is best-effort and there is no replay: whatever was
+                // missed while the socket was down is only found by listing
+                // again. The first `hello` is the exception when the first
+                // hydration has not finished - it is that list. (One that
+                // finished before the socket was live may have missed
+                // something in between, so that one lists again.)
+                const { hydration } = engine.status()
+                if (first && (hydration === 'idle' || hydration === 'running')) return
+                void engine.hydrate()
+            },
+            onStateChange: (connection) => {
+                setState((draft) => {
+                    draft.connection = connection
+                })
+                flush()
+            },
+        })
+        const started: Running = { accountId, db, engine, socket, api, off: () => {} }
+        started.off = engine.subscribe((change) => {
+            // A 401 anywhere (a send, a list) parks the engine; a socket opened
+            // now would be refused too. `resume()` brings it back.
+            socket.setPaused(engine.status().paused)
+            void refresh(started, change)
+        })
         current = started
 
         const projectId = (await db.getMeta<string>(META_PROJECT)) ?? null
@@ -233,6 +296,9 @@ export function startSync(accountId: string, options: StartOptions = {}): Promis
         // What is already on disk is shown before the server is asked.
         await refresh(started, {})
         engine.start()
+        // After the engine, so the first `hello` can tell whether the first
+        // hydration is still going.
+        socket.start()
     })
 }
 

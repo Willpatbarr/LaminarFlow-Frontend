@@ -1,0 +1,39 @@
+/* A dot and a word, sized to sit in the rail's foot beside the other 32px rows.
+ * Colours are the design tokens: green when live, amber while trying, grey
+ * when nothing is being tried. */
+.connection {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: var(--s-22);
+  padding: 0 var(--s-8);
+  color: var(--text-2);
+}
+
+.connection__dot {
+  flex-shrink: 0;
+  width: var(--s-8);
+  height: var(--s-8);
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.connection[data-state='live'] .connection__dot {
+  background: var(--green);
+}
+
+.connection[data-state='connecting'] .connection__dot,
+.connection[data-state='reconnecting'] .connection__dot {
+  background: var(--amber);
+}
+
+/* Present for assistive technology, absent from the screen. */
+.connection__label--quiet {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

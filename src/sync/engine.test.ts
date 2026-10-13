@@ -857,3 +857,289 @@ describe('stop', () => {
         await expect(engine.updateTicket('t-1', { title: 'x' })).rejects.toThrow()
     })
 })
+
+// One frame of the change feed, shaped like the server's.
+function frame(type: string, row: Ticket) {
+    return {
+        type,
+        ticket_id: row.id,
+        version: row.version,
+        actor_id: 'acc-other',
+        at: row.updated_at,
+        ticket: row,
+    }
+}
+
+async function serverCopies(db: Awaited<ReturnType<typeof startEngine>>['db']) {
+    let copies: Ticket[] = []
+    await db.write(async (tx) => {
+        copies = await tx.serverTickets.all()
+    })
+    return copies
+}
+
+describe('applyRemote', () => {
+    it('stores a ticket created elsewhere, even in a project this store has never listed', async () => {
+        stubFetch(listRoutes())
+        const { engine, db } = await startEngine()
+        const changes: SyncChange[] = []
+        engine.subscribe((change) => changes.push(change))
+
+        const created = ticket({ id: 't-new', project_id: 'p-elsewhere', version: 1 })
+        expect(await engine.applyRemote(frame('ticket.created', created))).toBe(true)
+
+        expect((await local(db)).tickets).toEqual([created])
+        expect(await serverCopies(db)).toEqual([created])
+        expect(changes).toHaveLength(1)
+    })
+
+    it('takes a newer version', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+
+        const edited = ticket({ title: 'Edited elsewhere', version: 2 })
+        expect(await engine.applyRemote(frame('ticket.updated', edited))).toBe(true)
+
+        expect((await local(db)).tickets).toEqual([edited])
+    })
+
+    it('ignores the echo of our own write: same version, nothing changes, nobody is told', async () => {
+        const answer = ok(ticket({ title: 'Mine', version: 2, updated_by: ME }))
+        stubFetch({ ...listRoutes([ticket()]), 'PUT /api/v1/tickets/t-1': () => answer.clone() })
+        const { engine, db } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'Mine' })
+        await engine.idle()
+        const before = await local(db)
+        const changes: SyncChange[] = []
+        engine.subscribe((change) => changes.push(change))
+
+        const echo = ticket({ title: 'Mine', version: 2, updated_by: ME })
+        expect(await engine.applyRemote(frame('ticket.updated', echo))).toBe(false)
+
+        expect(await local(db)).toEqual(before)
+        expect(changes).toEqual([])
+    })
+
+    it('ignores a version older than the one it holds, however late it arrives', async () => {
+        stubFetch(listRoutes([ticket({ version: 3, title: 'Third' })]))
+        const { engine, db } = await startEngine()
+
+        expect(await engine.applyRemote(frame('ticket.updated', ticket({ version: 2, title: 'Second' })))).toBe(
+            false,
+        )
+
+        expect((await local(db)).tickets).toMatchObject([{ title: 'Third', version: 3 }])
+    })
+
+    it('applies frames in order of version, whatever order they arrive in', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+
+        await Promise.all([
+            engine.applyRemote(frame('ticket.updated', ticket({ version: 3, title: 'Third' }))),
+            engine.applyRemote(frame('ticket.updated', ticket({ version: 2, title: 'Second' }))),
+        ])
+
+        expect((await local(db)).tickets).toMatchObject([{ title: 'Third', version: 3 }])
+    })
+
+    it('removes an archived ticket, and an older frame cannot bring it back', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+
+        expect(await engine.applyRemote(frame('ticket.archived', ticket({ version: 3 })))).toBe(true)
+        expect((await local(db)).tickets).toEqual([])
+        expect(await serverCopies(db)).toEqual([])
+
+        // Version 2 was written before the archive and merely arrived after it.
+        expect(await engine.applyRemote(frame('ticket.updated', ticket({ version: 2 })))).toBe(false)
+        expect((await local(db)).tickets).toEqual([])
+    })
+
+    it('brings a ticket back when it is unarchived at a higher version', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+        await engine.applyRemote(frame('ticket.archived', ticket({ version: 3 })))
+
+        expect(await engine.applyRemote(frame('ticket.unarchived', ticket({ version: 4 })))).toBe(true)
+
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1', version: 4 }])
+    })
+
+    it('ends up with the ticket present at 4 whichever way round the archive and restore arrive', async () => {
+        stubFetch(listRoutes([ticket({ version: 2 })]))
+        const { engine, db } = await startEngine()
+
+        await engine.applyRemote(frame('ticket.unarchived', ticket({ version: 4 })))
+        await engine.applyRemote(frame('ticket.archived', ticket({ version: 3 })))
+
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1', version: 4 }])
+    })
+
+    it('treats our own archive as buried too, so a late echo of an earlier write does not undo it', async () => {
+        stubFetch({
+            ...listRoutes([ticket()]),
+            'DELETE /api/v1/tickets/t-1': () => new Response(null, { status: 204 }),
+        })
+        const { engine, db } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+        expect((await local(db)).tickets).toEqual([])
+
+        expect(await engine.applyRemote(frame('ticket.updated', ticket({ version: 1 })))).toBe(false)
+        expect((await local(db)).tickets).toEqual([])
+    })
+
+    describe('a ticket with unsent changes', () => {
+        it('keeps the row the user sees while its server copy moves on, and a discard goes to the new copy', async () => {
+            stubFetch({
+                ...listRoutes([ticket()]),
+                'PUT /api/v1/tickets/t-1': () =>
+                    problem(422, 'validation_failed', [{ location: 'body.title', message: 'no' }]),
+            })
+            const { engine, db } = await startEngine()
+            await engine.updateTicket('t-1', { title: 'Mine' })
+            await engine.idle()
+            const parked = (await local(db)).outbox[0]
+            expect(parked.state).toBe('failed')
+
+            const theirs = ticket({ title: 'Theirs', description: 'new words', version: 3 })
+            expect(await engine.applyRemote(frame('ticket.updated', theirs))).toBe(true)
+
+            // What the user sees is still theirs...
+            expect((await local(db)).tickets).toMatchObject([{ title: 'Mine', version: 1 }])
+            // ...the server's copy is not.
+            expect(await serverCopies(db)).toEqual([theirs])
+            // And the entry still names the version it was made on.
+            expect((await local(db)).outbox).toEqual([parked])
+
+            await engine.discard(parked.id)
+            expect((await local(db)).tickets).toEqual([theirs])
+        })
+
+        it('still sends the stale base version, so the server can refuse it', async () => {
+            const sent: (string | null)[] = []
+            stubFetch({
+                ...listRoutes([ticket()]),
+                'PUT /api/v1/tickets/t-1': (request) => {
+                    sent.push(request.headers.get('If-Match'))
+                    return conflictBody('ticket_conflict', ticket({ title: 'Theirs', version: 3 }), 'acc-other')
+                },
+            })
+            const { engine, db, net } = await startEngine()
+            net.goOffline()
+            await engine.updateTicket('t-1', { title: 'Mine' })
+
+            await engine.applyRemote(frame('ticket.updated', ticket({ title: 'Theirs', version: 3 })))
+            expect((await local(db)).outbox).toMatchObject([{ base_version: 1 }])
+
+            net.goOnline()
+            await engine.idle()
+
+            expect(sent).toEqual(['"1"'])
+            expect((await local(db)).outbox).toMatchObject([{ state: 'conflict' }])
+        })
+
+        it('keeps the row when the ticket is archived elsewhere, and the send reports it', async () => {
+            stubFetch({
+                ...listRoutes([ticket()]),
+                'PUT /api/v1/tickets/t-1': () => conflictBody('ticket_archived', ticket({ version: 3 }), 'acc-other'),
+            })
+            const { engine, db, net } = await startEngine()
+            net.goOffline()
+            await engine.updateTicket('t-1', { title: 'Mine' })
+
+            await engine.applyRemote(frame('ticket.archived', ticket({ version: 3 })))
+            expect((await local(db)).tickets).toMatchObject([{ title: 'Mine' }])
+            expect(await serverCopies(db)).toEqual([])
+
+            net.goOnline()
+            await engine.idle()
+            expect((await local(db)).outbox).toMatchObject([{ state: 'conflict', conflict: { code: 'ticket_archived' } }])
+        })
+    })
+
+    it('ignores frames that are malformed or of a type it does not know, without throwing', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+        const before = await local(db)
+        const good = frame('ticket.updated', ticket({ version: 2 }))
+
+        const junk: unknown[] = [
+            null,
+            undefined,
+            42,
+            'ticket.updated',
+            [],
+            {},
+            { type: 'hello' },
+            frame('ticket.exploded', ticket({ version: 2 })),
+            { ...good, ticket: null },
+            { ...good, ticket: { ...good.ticket, title: 7 } },
+            { ...good, ticket: { ...good.ticket, version: '2' } },
+            { ...good, ticket: { ...good.ticket, version: 0 } },
+            { ...good, ticket: { ...good.ticket, status_id: undefined } },
+            { ...good, ticket_id: 'someone-else' },
+            { ...good, version: 9 },
+        ]
+        for (const item of junk) expect(await engine.applyRemote(item)).toBe(false)
+
+        expect(await local(db)).toEqual(before)
+        // And the engine is still fine afterwards.
+        expect(await engine.applyRemote(good)).toBe(true)
+    })
+
+    it('waits for a list that is on the wire, then applies on top of it', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+        const tickets = deferred()
+        stubFetch({ ...listRoutes(), 'POST /api/v1/tickets/list': () => tickets.promise })
+
+        const hydrating = engine.hydrate()
+        await vi.waitFor(() => expect(engine.status().hydration).toBe('running'))
+        const updated = engine.applyRemote(frame('ticket.updated', ticket({ title: 'Newer', version: 2 })))
+        const created = engine.applyRemote(frame('ticket.created', ticket({ id: 't-2', version: 1 })))
+
+        // The list was read before either happened, so it knows neither.
+        tickets.resolve(page([ticket()]))
+        expect(await hydrating).toBe(true)
+        expect(await updated).toBe(true)
+        expect(await created).toBe(true)
+
+        // The new ticket is not removed as "missing from the list", and the
+        // list did not put version 1 back over version 2.
+        const rows = (await local(db)).tickets
+        expect(rows.toSorted((a, b) => a.id.localeCompare(b.id))).toMatchObject([
+            { id: 't-1', title: 'Newer', version: 2 },
+            { id: 't-2', version: 1 },
+        ])
+    })
+
+    it('waits for a create on the wire, so its echo does not make a second row', async () => {
+        const answer = deferred()
+        stubFetch({ ...listRoutes(), 'POST /api/v1/tickets': () => answer.promise })
+        const { engine, db } = await startEngine()
+        await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+
+        const own = ticket({ id: 't-9', title: 'New', version: 1, updated_by: ME })
+        const echo = engine.applyRemote(frame('ticket.created', own))
+        // Not applied yet: it would find no ticket by that id.
+        expect((await local(db)).tickets).toMatchObject([{ id: 'tmp_1' }])
+
+        answer.resolve(ok(own))
+        expect(await echo).toBe(false)
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-9', version: 1 }])
+    })
+
+    it('applies frames while the browser is offline, and says no once stopped', async () => {
+        stubFetch(listRoutes())
+        const { engine, db, net } = await startEngine()
+        net.goOffline()
+
+        expect(await engine.applyRemote(frame('ticket.created', ticket()))).toBe(true)
+        expect((await local(db)).tickets).toHaveLength(1)
+
+        await engine.stop()
+        expect(await engine.applyRemote(frame('ticket.updated', ticket({ version: 2 })))).toBe(false)
+    })
+})
