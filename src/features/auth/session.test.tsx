@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiProblem } from '@/api/problem'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
-import { can, login, logout, refresh, register, session } from './session'
+import { can, login, logout, onLogout, refresh, register, session } from './session'
 
 const me = {
     account_id: 'acc-1',
@@ -97,6 +97,121 @@ describe('session store', () => {
 
         expect(session.status).toBe('anonymous')
         expect(session.me).toBeNull()
+    })
+})
+
+describe('logout when the request fails', () => {
+    beforeEach(async () => {
+        stubFetch({ 'GET /api/v1/auth/me': () => ok(me) })
+        await refresh()
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it('clears the store on a network error and does not reject', async () => {
+        stubFetch({
+            'POST /api/v1/auth/logout': () => {
+                throw new TypeError('Failed to fetch')
+            },
+        })
+
+        await expect(logout()).resolves.toBeUndefined()
+
+        expect(session.status).toBe('anonymous')
+        expect(session.me).toBeNull()
+    })
+
+    it('clears the store on a server error too', async () => {
+        stubFetch({ 'POST /api/v1/auth/logout': () => problem(500, 'internal_server_error') })
+
+        await logout()
+
+        expect(session.status).toBe('anonymous')
+    })
+
+    it('treats a 401 as already logged out, without complaint', async () => {
+        stubFetch({ 'POST /api/v1/auth/logout': () => problem(401, 'unauthorized') })
+
+        await logout()
+
+        expect(session.status).toBe('anonymous')
+        expect(console.error).not.toHaveBeenCalled()
+    })
+})
+
+describe('onLogout', () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    async function signedIn() {
+        stubFetch({ 'GET /api/v1/auth/me': () => ok(me) })
+        await refresh()
+        stubFetch({ 'POST /api/v1/auth/logout': () => new Response(null, { status: 204 }) })
+    }
+
+    it('runs a registered hook after the store is cleared', async () => {
+        await signedIn()
+        let statusSeen = ''
+        const off = onLogout(() => {
+            statusSeen = session.status
+        })
+
+        await logout()
+        off()
+
+        expect(statusSeen).toBe('anonymous')
+    })
+
+    it('runs the hook even when the logout request fails', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        await signedIn()
+        stubFetch({
+            'POST /api/v1/auth/logout': () => {
+                throw new TypeError('Failed to fetch')
+            },
+        })
+        const hook = vi.fn()
+        const off = onLogout(hook)
+
+        await logout()
+        off()
+
+        expect(hook).toHaveBeenCalledOnce()
+    })
+
+    it('stops calling a hook once it is unregistered', async () => {
+        await signedIn()
+        const hook = vi.fn()
+        onLogout(hook)()
+
+        await logout()
+
+        expect(hook).not.toHaveBeenCalled()
+    })
+
+    it('lets a failing hook neither stop the others nor reject the logout', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        await signedIn()
+        const later = vi.fn()
+        const offA = onLogout(() => {
+            throw new Error('sync hook broke')
+        })
+        const offB = onLogout(async () => {
+            throw new Error('async hook broke')
+        })
+        const offC = onLogout(later)
+
+        await expect(logout()).resolves.toBeUndefined()
+        offA()
+        offB()
+        offC()
+
+        expect(later).toHaveBeenCalledOnce()
+        expect(session.status).toBe('anonymous')
     })
 })
 

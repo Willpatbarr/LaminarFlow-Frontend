@@ -8,3 +8,7 @@ import { afterEach } from 'vitest'
 // They are off here, so unmounting is manual - without this, the second render
 // in a file finds two copies of the component and every query throws.
 afterEach(cleanup)
+
+// jsdom does not implement scrolling, and the router asks for it on every
+// navigation; without this each one prints a "not implemented" warning.
+window.scrollTo = () => {}

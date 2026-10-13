@@ -1,0 +1,99 @@
+/* The rail from the Side Nav specimen: --bg-raised with a hairline on its
+ * right edge, 264px wide. Elevation is lightness, so no shadow. */
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  width: 264px;
+  padding: var(--s-8);
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+}
+
+.side-nav__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: var(--s-32);
+  padding: 0 var(--s-8);
+}
+
+/* TopNavBar's profile circle. */
+.side-nav__monogram {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text-1);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.side-nav__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-nav__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Nav Links specimen: a 32px row, icon then label, with a text-1 wash on hover
+ * that inverts with the theme on its own. The specimen draws links as buttons;
+ * these navigate, so they are anchors with the same look, and they override the
+ * global `a` colours to match. */
+.side-nav__link,
+.side-nav__logout {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  width: 100%;
+  height: var(--s-32);
+  padding: 0 var(--s-8);
+  border: none;
+  border-radius: var(--r-card);
+  background: transparent;
+  color: var(--text-2);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 90ms ease-out, color 90ms ease-out;
+}
+
+.side-nav__link:hover,
+.side-nav__logout:hover {
+  background: color-mix(in srgb, var(--text-1) 10%, transparent);
+  color: var(--accent);
+}
+
+.side-nav__link[aria-current='page'] {
+  color: var(--text-1);
+}
+
+.side-nav__icon {
+  flex-shrink: 0;
+}
+
+/* Pushed to the foot of the rail so it is never next to the links it could be
+ * mis-clicked from. */
+.side-nav__logout {
+  margin-top: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-nav__link,
+  .side-nav__logout {
+    transition: none;
+  }
+}

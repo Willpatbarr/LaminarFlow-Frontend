@@ -12,7 +12,8 @@ import type { components } from '@/api/schema'
 ║      refresh      GET /auth/me, then set the state from the answer
 ║      login        POST /auth/login, then refresh
 ║      register     POST /auth/register, then refresh
-║      logout       POST /auth/logout, then clear
+║      logout       POST /auth/logout, then clear - clears even if the request fails
+║      onLogout     register a function to run after the store is cleared
 ║      can          does the signed-in account hold this permission
 ╠═ reached from ════════════════════════════════════════════════════════════════════════
 ║      the login and sign-up forms, route guards, the sync engine
@@ -86,12 +87,43 @@ export async function register(email: string, password: string, displayName: str
     await refresh()
 }
 
-// A 401 on logout means the session was already gone, which is the state the
-// caller wanted.
+// Who to tell once the store is cleared. A registration point rather than an
+// import, so the sync layer can wipe its local data on logout without this
+// feature knowing it exists.
+const logoutHooks = new Set<() => void | Promise<void>>()
+
+/** Runs `fn` after every logout, once the session store is cleared. Returns
+ *  the function that unregisters it. A hook that throws is logged and does not
+ *  stop the others or the logout. */
+export function onLogout(fn: () => void | Promise<void>): () => void {
+    logoutHooks.add(fn)
+    return () => {
+        logoutHooks.delete(fn)
+    }
+}
+
+// The user asked to leave, so this never leaves them signed in locally: a 401
+// (the session was already gone), a 5xx, and a dropped connection all end the
+// same way, with the store cleared and the hooks run. The catch is that a
+// failed request means the server may still hold the session, so the cookie
+// can sign them straight back in on the next load; that is logged, not hidden.
+// It does not reject, so a caller can navigate to /login unconditionally.
 export async function logout(): Promise<void> {
-    const { error, response } = await api.POST('/api/v1/auth/logout')
-    if (error && response.status !== 401) throw toProblem(response, error)
+    try {
+        const { error, response } = await api.POST('/api/v1/auth/logout')
+        if (error && response.status !== 401) throw toProblem(response, error)
+    } catch (failure) {
+        console.error('logout request failed; signing out locally anyway', failure)
+    }
     set('anonymous', null)
+
+    // Hooks wipe local data, which must happen whatever the server said, and
+    // must not depend on each other. `async` so a hook that throws before its
+    // first await still lands in allSettled instead of escaping the map.
+    const results = await Promise.allSettled([...logoutHooks].map(async (hook) => hook()))
+    for (const result of results) {
+        if (result.status === 'rejected') console.error('a logout hook failed', result.reason)
+    }
 }
 
 // Hides actions; it does not guard them. The server re-checks every request,
