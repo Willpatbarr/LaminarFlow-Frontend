@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    // DOM because the specs pass functions to page.evaluate, which run in the page.
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "paths": { "@/*": ["./src/*"] },
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  // The specs reuse the sync suite's server-side helpers (an account is a
+  // cookie, a world is a team and a project) so both suites arrange state the
+  // same way.
+  "include": ["e2e", "playwright.config.ts", "tests/sync/support/stack.ts", "src/api/schema.d.ts"]
+}
