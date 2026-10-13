@@ -1,0 +1,36 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 100svh;
+}
+
+/* The rail stays put while the main area scrolls, like the specimen's. */
+.app-shell > :first-child {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow-y: auto;
+}
+
+.app-shell__main {
+  padding: var(--s-22) var(--s-32);
+}
+
+/* Narrow screens: the rail becomes a bar above the content instead of eating
+ * two thirds of the width. */
+@media (max-width: 640px) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .app-shell > :first-child {
+    position: static;
+    width: auto;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .app-shell__main {
+    padding: var(--s-16);
+  }
+}

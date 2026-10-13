@@ -8,8 +8,12 @@ import { register } from '../session'
 import { AuthCard } from './AuthCard'
 
 type SignUpFormProps = {
-    /** Runs once the session store holds the new account. */
-    onSuccess: () => void
+    /** Runs once the session store holds the new account. Optional because a
+     *  route may react to the session instead (see useRedirectIfAuthenticated). */
+    onSuccess?: () => void
+    /** The link to the other auth screen, for a route that wants to carry
+     *  `returnTo` across. */
+    loginHref?: string
 }
 
 // The specimen asks for a first and last name; the backend stores one
@@ -77,7 +81,7 @@ export function SignUpForm(props: SignUpFormProps) {
             return
         }
         setPending(false)
-        props.onSuccess()
+        props.onSuccess?.()
     }
 
     return (
@@ -86,7 +90,7 @@ export function SignUpForm(props: SignUpFormProps) {
             onSubmit={submit}
             footer={
                 <>
-                    Already have an account? <a href="/login">Sign in</a>
+                    Already have an account? <a href={props.loginHref ?? '/login'}>Sign in</a>
                 </>
             }
         >

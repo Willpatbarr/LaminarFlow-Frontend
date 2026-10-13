@@ -1,8 +1,10 @@
-import { useNavigate } from '@solidjs/router'
+import { useSearchParams } from '@solidjs/router'
 
+import { useRedirectIfAuthenticated, withReturnTo } from '@/features/auth'
 import { SignUpForm } from '@/features/auth/components/SignUpForm'
 
 export function SignUpPage() {
-    const navigate = useNavigate()
-    return <SignUpForm onSuccess={() => navigate('/')} />
+    useRedirectIfAuthenticated()
+    const [params] = useSearchParams()
+    return <SignUpForm loginHref={withReturnTo('/login', params.returnTo)} />
 }

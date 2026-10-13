@@ -59,9 +59,22 @@ CLI templates and SolidStart, and neither is installed here. Two routes do not
 justify the integration. **Revisit when the route tree grows.**
 
 Solid Router has no link component. Links are plain `<a href>` and the router
-intercepts the click. `routes/__root.tsx` uses a literal `href="/"` because
-`router.tsx` imports it, so reaching back for `router.paths` there would be an
-import cycle.
+intercepts the click; it also sets `aria-current="page"` on the one matching the
+URL.
+
+### Protected routes
+
+`/login` and `/signup` stand alone. Every other route is a child of the
+pathless `AppLayout` (`routes/app.tsx`), which is the auth guard and the app
+shell in one - so a route added under it is protected without having to
+remember to be. Anonymous visitors are sent to `/login?returnTo=<where they
+were going>`; `returnTo` passes through `safeReturnTo`
+(`features/auth/returnTo.ts`), the only place it is trusted, and anything that
+is not a same-origin path becomes `/`. While the session is still `unknown` the
+shell renders with a placeholder rather than redirecting.
+
+`createAppRouter(history?)` builds the real tree on any history adapter, which
+is how the route tests start it at a given URL.
 
 ## Where components live
 
