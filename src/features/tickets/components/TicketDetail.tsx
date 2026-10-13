@@ -16,10 +16,13 @@ import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { TextArea } from '@/components/ui/TextArea'
 import {
+    archiveOnHold,
     archiveTicket,
     discard,
     isLoading,
+    keepAsNew,
     resolveTicketId,
+    retry,
     statusesForProject,
     ticketById,
     ticketHead,
@@ -30,6 +33,7 @@ import {
 
 import { describeFailure } from '../entryFailure'
 import type { Viewer } from '../viewer'
+import { ConflictPanel } from './ConflictPanel'
 import { SyncMarker } from './SyncMarker'
 import { TicketsPending } from './TicketsPending'
 import './tickets.css'
@@ -53,6 +57,17 @@ export function TicketDetail(props: TicketDetailProps) {
     const navigate = useNavigate()
     const ticket = createMemo(() => ticketById(props.id))
 
+    // What the last resolved conflict did, said in a polite status region that
+    // lives here rather than in the editor: the editor is gone by the time a
+    // discarded ticket is, and is reused when the page moves on to the copy.
+    const [notice, setNotice] = createSignal('')
+    let noticeEl: HTMLDivElement | undefined
+    const announce: Announce = (text, options) => {
+        setNotice(text)
+        // Focus follows the news when the thing that had it is gone.
+        if (options?.focus) noticeEl?.focus()
+    }
+
     createEffect(
         () => resolveTicketId(props.id),
         (resolved) => {
@@ -67,6 +82,17 @@ export function TicketDetail(props: TicketDetailProps) {
             <p class="t-meta">
                 <a href="/">← Tickets</a>
             </p>
+            <div
+                ref={(el) => {
+                    noticeEl = el
+                }}
+                class="ticket__notice t-body"
+                aria-live="polite"
+                aria-atomic="true"
+                tabindex="-1"
+            >
+                {notice()}
+            </div>
             <Switch
                 fallback={
                     <>
@@ -81,7 +107,9 @@ export function TicketDetail(props: TicketDetailProps) {
                     <TicketsPending />
                 </Match>
                 <Match when={ticket()}>
-                    {(found) => <TicketEditor ticket={found()} viewer={props.viewer} />}
+                    {(found) => (
+                        <TicketEditor ticket={found()} viewer={props.viewer} announce={announce} />
+                    )}
                 </Match>
             </Switch>
         </section>
@@ -112,9 +140,12 @@ function createDraft(saved: () => string, save: (value: string) => Promise<unkno
     }
 }
 
+type Announce = (text: string, options?: { focus?: boolean }) => void
+
 type TicketEditorProps = {
     ticket: Ticket
     viewer: Viewer
+    announce: Announce
 }
 
 // HOW IT SAVES: there is no Save button. Title and description save when focus
@@ -128,6 +159,12 @@ type TicketEditorProps = {
 // entry replayed on top - and editing a field and leaving it folds the new
 // value into that same entry and sends it again (the engine's `updateTicket`
 // does that for a failed head), so there is nothing here to "reopen".
+//
+// WHEN SOMEONE ELSE GOT THERE FIRST (409): the entry is parked as `conflict`
+// and the ConflictPanel asks which version stands. Until it is answered the
+// fields are read-only - more edits would only pile onto a version that may be
+// set aside - and an archive that collided keeps the ticket on screen, locked,
+// for the same reason.
 function TicketEditor(props: TicketEditorProps) {
     const navigate = useNavigate()
     const [confirmingArchive, setConfirmingArchive] = createSignal(false)
@@ -135,6 +172,8 @@ function TicketEditor(props: TicketEditorProps) {
 
     const id = () => props.ticket.id
     const statuses = createMemo(() => statusesForProject(props.ticket.project_id))
+
+    let titleEl: HTMLInputElement | undefined
 
     const title = createDraft(
         () => props.ticket.title,
@@ -171,6 +210,103 @@ function TicketEditor(props: TicketEditorProps) {
             ? { entryId: head.id, ...describeFailure(head.error) }
             : null
     })
+
+    // The parked change that collided with someone else's, if the head of the
+    // queue is one: just enough of it for the panel and the actions.
+    const conflicted = createMemo(() => {
+        const head = ticketHead(id())
+        return head?.state === 'conflict' && head.conflict
+            ? {
+                  entryId: head.id,
+                  kind: head.kind === 'archive' ? ('archive' as const) : ('update' as const),
+                  conflict: head.conflict,
+              }
+            : null
+    })
+    // Read-only: a collision to decide, or an archive that did not go through.
+    const locked = () => conflicted() !== null || archiveOnHold(id())
+
+    function focusTitle() {
+        titleEl?.focus()
+    }
+
+    async function keepTheirs() {
+        const found = conflicted()
+        if (!found) return
+        await discard(found.entryId)
+        if (found.conflict.code === 'ticket_archived') {
+            // The ticket is gone for good, and so is this form.
+            props.announce(
+                "Discarded your change. The ticket was archived, so it's no longer in your list.",
+                { focus: true },
+            )
+        } else {
+            props.announce('Kept their version. Your change was discarded.')
+            focusTitle()
+        }
+    }
+
+    // "Use mine" is sent, and may collide again; the panel then simply shows
+    // the new situation. `waitingFor` is the entry whose answer we are waiting
+    // to hear, so the page can say what became of it.
+    let waitingFor: number | null = null
+    async function useMine() {
+        const found = conflicted()
+        if (!found) return
+        if (found.kind === 'archive') {
+            // As archiving does: leave first, the row is about to disappear.
+            navigate('/')
+            await retry(found.entryId)
+            return
+        }
+        waitingFor = found.entryId
+        props.announce('Sending your version.')
+        await retry(found.entryId)
+    }
+
+    createEffect(
+        () => {
+            const head = ticketHead(id())
+            return head ? `${head.id}:${head.state}:${head.conflict?.changed_at ?? ''}` : 'none'
+        },
+        () => {
+            if (waitingFor === null) return
+            // Everything below reads the store, and none of it should re-run
+            // this: the compute half above is what says when.
+            untrack(() => {
+                const head = ticketHead(id())
+                if (head?.id === waitingFor) {
+                    if (head.state === 'conflict') {
+                        waitingFor = null
+                        props.announce(
+                            "That didn't go through: the ticket changed again. Your version still hasn't been saved.",
+                        )
+                    } else if (head.state !== 'pending') {
+                        // Refused or signed out: those have their own words.
+                        waitingFor = null
+                    }
+                    return
+                }
+                waitingFor = null
+                props.announce('Saved. Your version replaced theirs.')
+                focusTitle()
+            })
+        },
+    )
+
+    async function keepMineAsNew() {
+        const found = conflicted()
+        if (!found) return
+        const copy = await keepAsNew(found.entryId)
+        if (!copy) return
+        navigate(`/tickets/${copy}`)
+        props.announce(
+            found.conflict.code === 'ticket_archived'
+                ? 'Saved your version as a new ticket. The original stays archived.'
+                : 'Saved your version as a new ticket. The original is back to their version.',
+            { focus: true },
+        )
+    }
 
     const assignedToMe = () => props.ticket.assignee_id === props.viewer.accountId
     const assignedElsewhere = () => props.ticket.assignee_id !== null && !assignedToMe()
@@ -221,8 +357,27 @@ function TicketEditor(props: TicketEditorProps) {
                 )}
             </Show>
 
+            <Show when={conflicted()}>
+                {(found) => (
+                    <ConflictPanel
+                        kind={found().kind}
+                        conflict={found().conflict}
+                        mine={props.ticket}
+                        statuses={statuses()}
+                        viewer={props.viewer}
+                        onKeepTheirs={keepTheirs}
+                        onUseMine={useMine}
+                        onKeepAsNew={keepMineAsNew}
+                    />
+                )}
+            </Show>
+
             <Input
                 label="Title"
+                ref={(el) => {
+                    titleEl = el
+                }}
+                readOnly={locked()}
                 value={title.value()}
                 onInput={title.input}
                 onBlur={commitTitle}
@@ -231,6 +386,7 @@ function TicketEditor(props: TicketEditorProps) {
 
             <TextArea
                 label="Description"
+                readOnly={locked()}
                 value={description.value()}
                 onInput={description.input}
                 onBlur={() => void description.commit()}
@@ -242,6 +398,7 @@ function TicketEditor(props: TicketEditorProps) {
                     label="Status"
                     value={props.ticket.status_id ?? ''}
                     options={statusOptions()}
+                    disabled={locked()}
                     onChange={(value) => void updateTicket(id(), { status_id: value || null })}
                     error={refused()?.fields.status}
                 />
@@ -258,6 +415,7 @@ function TicketEditor(props: TicketEditorProps) {
                             <span class="t-body">{assignedToMe() ? 'You' : 'Unassigned'}</span>
                             <Button
                                 variant="secondary"
+                                disabled={locked()}
                                 onClick={() =>
                                     void updateTicket(id(), {
                                         assignee_id: assignedToMe() ? null : props.viewer.accountId,
@@ -274,10 +432,18 @@ function TicketEditor(props: TicketEditorProps) {
                 </div>
             </div>
 
-            <p class="t-meta ticket__hint">Changes are saved as you make them.</p>
+            <p class="t-meta ticket__hint">
+                {locked() && !conflicted()
+                    ? 'Editing is paused until you deal with the archive that did not go through.'
+                    : 'Changes are saved as you make them.'}
+            </p>
 
             <div class="ticket__danger">
-                <Button variant="danger" onClick={() => setConfirmingArchive(true)}>
+                <Button
+                    variant="danger"
+                    disabled={locked()}
+                    onClick={() => setConfirmingArchive(true)}
+                >
                     Archive ticket
                 </Button>
             </div>

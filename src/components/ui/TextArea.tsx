@@ -12,6 +12,8 @@ type TextAreaProps = {
     rows?: number
     placeholder?: string
     disabled?: boolean
+    /** Shows the value and lets it be selected and read out, but not changed. */
+    readOnly?: boolean
     /** Marks the control invalid and renders the message under it. */
     error?: string
 }
@@ -30,6 +32,7 @@ export function TextArea(props: TextAreaProps) {
                 rows={props.rows ?? 6}
                 placeholder={props.placeholder}
                 disabled={props.disabled}
+                readonly={props.readOnly}
                 value={props.value}
                 aria-invalid={props.error ? 'true' : undefined}
                 aria-describedby={props.error ? errorId : undefined}

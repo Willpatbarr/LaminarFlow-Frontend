@@ -35,6 +35,12 @@
   border-color: var(--rust);
 }
 
+/* Readable and selectable, but visibly not an invitation to type. */
+.input__control[readonly] {
+  background: transparent;
+  border-style: dashed;
+}
+
 .input__control:disabled {
   opacity: 0.6;
   cursor: not-allowed;

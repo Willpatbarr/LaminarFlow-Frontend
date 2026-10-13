@@ -226,7 +226,7 @@ describe('the pending-changes indicator', () => {
         expect(await nav().findByRole('button', { name: 'Sign in to sync 2 changes' })).toBeInTheDocument()
     })
 
-    it('lets a refused archive, which has no page, be discarded from the list', async () => {
+    it('keeps a refused archive reachable: the list links to its page, which can discard it', async () => {
         const { archiveTicket } = await import('@/sync')
         await openApp('/', {
             ...two,
@@ -239,12 +239,14 @@ describe('the pending-changes indicator', () => {
         const user = userEvent.setup()
         await user.click(await nav().findByRole('button', { name: '1 change needs attention' }))
         const list = nav().getByRole('list', { name: 'Changes not synced yet' })
-        expect(within(list).getByText('Archived ticket')).toBeInTheDocument()
-        expect(within(list).queryByRole('link')).not.toBeInTheDocument()
-        await user.click(within(list).getByRole('button', { name: 'Discard my change' }))
+        await user.click(within(list).getByRole('link', { name: 'First one' }))
+
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent("You don't have permission")
+        await user.click(within(alert).getByRole('button', { name: 'Discard my change' }))
 
         await vi.waitFor(() => expect(sync.outbox).toEqual([]))
-        expect(screen.getByRole('main')).toHaveTextContent('First one')
+        expect(screen.getByLabelText('Title')).toHaveValue('First one')
     })
 })
 

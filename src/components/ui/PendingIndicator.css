@@ -38,6 +38,11 @@
   background: var(--rust-fg);
 }
 
+.pending[data-tone='decision'] .pending__dot {
+  border-color: var(--blue-fg);
+  background: var(--blue-fg);
+}
+
 .pending__list {
   display: grid;
   gap: var(--s-6);

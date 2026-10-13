@@ -1,0 +1,75 @@
+/* A conflict is an ordinary event, so it takes the information hue (blue) the
+ * way the banners do, not the rust that means a refusal. */
+.conflict {
+  --hue: var(--blue);
+  --hue-fg: var(--blue-fg);
+  display: grid;
+  gap: var(--s-12);
+  padding: var(--s-16);
+  border: 1px solid color-mix(in srgb, var(--hue) 35%, transparent);
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--hue) var(--chip-alpha), transparent);
+}
+
+.conflict__title {
+  color: var(--text-1);
+}
+
+.conflict__fields {
+  display: grid;
+  gap: var(--s-12);
+}
+
+.conflict__field {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.conflict__field-name {
+  margin: 0;
+  color: var(--text-2);
+}
+
+/* Side by side when there is room, stacked when there is not. */
+.conflict__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--s-8);
+}
+
+.conflict__side {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  min-width: 0;
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  background: var(--bg-raised);
+}
+
+.conflict__side-label {
+  color: var(--text-2);
+}
+
+.conflict__value {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.conflict__value--empty {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.conflict__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.conflict__note {
+  margin: 0;
+  color: var(--text-2);
+}

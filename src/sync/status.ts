@@ -12,7 +12,8 @@ import type { EntryState, OutboxEntry } from './types'
 │      syncTrouble   null, or 'network' / 'server' while changes or lists keep failing to reach the server
 │      pendingSummary   null when everything is synced; else a count, the dominant reason, the tickets
 ├─ example ───────────────────────────────────────
-│      3 entries, one failed with a 422  →  { reason: 'attention', count: 1, … }
+│      3 entries, one failed with a 422  →  { reason: 'attention', count: 1, decisions: 0, … }
+│      3 entries, one in conflict        →  { reason: 'decision', count: 1, decisions: 1, … }
 │      3 entries, none failed, paused    →  { reason: 'sign_in', count: 3, … }
 */
 // Derived from the store and nothing else: no timers, no engine. The wording
@@ -39,8 +40,11 @@ export function syncTrouble(): Trouble | null {
 }
 
 export type PendingReason =
-    /** Something failed for good or collided; only a person can resolve it. */
+    /** Something failed for good; only a person can resolve it. */
     | 'attention'
+    /** Nothing failed, but a change collided with someone else's and waits for
+     *  the user to choose. A normal multi-user event, not an error. */
+    | 'decision'
     /** Held until the user signs in again. */
     | 'sign_in'
     /** Queued, or retrying. Nothing to do. */
@@ -63,20 +67,20 @@ export type PendingTicket = {
 
 export type PendingSummary = {
     reason: PendingReason
-    /** For `attention`: the changes that need it. Otherwise every change. */
+    /** For `attention`: the changes that failed. For `decision`: the conflicts.
+     *  Otherwise every change. */
     count: number
+    /** Changes in conflict, whatever the reason. */
+    decisions: number
     /** Every change not on the server, whatever the reason. */
     total: number
     /** One per ticket, those needing attention first, then oldest first. */
     tickets: PendingTicket[]
 }
 
-// LAM-71: a `conflict` entry counts as `attention` here and is listed with the
-// rest. The conflict screen should change what the panel says about it (and
-// where its link goes), not whether it is counted - the one place to do that
-// is `needsAttention` below and the `conflict` line in the panel's wording
-// (features/status/components/PendingChanges.tsx).
-const needsAttention = (state: EntryState) => state === 'failed' || state === 'conflict'
+// What needs a person, in either way: a refusal to fix or a conflict to decide.
+// Both go to the top of the list; only the wording and the tone tell them apart.
+const needsPerson = (state: EntryState) => state === 'failed' || state === 'conflict'
 
 const summary = createRoot(() =>
     createMemo<PendingSummary | null>(() => {
@@ -101,15 +105,17 @@ const summary = createRoot(() =>
             }
         })
         // Stable: equal rank keeps the oldest-first order the outbox is in.
-        tickets.sort((a, b) => Number(needsAttention(b.state)) - Number(needsAttention(a.state)))
+        tickets.sort((a, b) => Number(needsPerson(b.state)) - Number(needsPerson(a.state)))
 
-        const attention = sync.outbox.filter((entry) => needsAttention(entry.state)).length
+        const failed = sync.outbox.filter((entry) => entry.state === 'failed').length
+        const decisions = sync.outbox.filter((entry) => entry.state === 'conflict').length
         const total = sync.outbox.length
-        if (attention > 0) return { reason: 'attention', count: attention, total, tickets }
+        if (failed > 0) return { reason: 'attention', count: failed, decisions, total, tickets }
+        if (decisions > 0) return { reason: 'decision', count: decisions, decisions, total, tickets }
         if (sync.paused || sync.outbox.some((entry) => entry.state === 'unauthorized')) {
-            return { reason: 'sign_in', count: total, total, tickets }
+            return { reason: 'sign_in', count: total, decisions, total, tickets }
         }
-        return { reason: 'waiting', count: total, total, tickets }
+        return { reason: 'waiting', count: total, decisions, total, tickets }
     }),
 )
 

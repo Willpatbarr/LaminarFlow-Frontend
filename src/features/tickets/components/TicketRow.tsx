@@ -2,7 +2,7 @@ import { Show } from 'solid-js'
 
 import { StatusPill } from '@/components/ui/StatusPill'
 import { TableRow } from '@/components/ui/Table'
-import { ticketSyncState, type Status, type Ticket } from '@/sync'
+import { archiveOnHold, ticketSyncState, type Status, type Ticket } from '@/sync'
 
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
@@ -35,7 +35,10 @@ export function TicketRow(props: TicketRowProps) {
                 </Show>
             </span>
             <AssigneeMarker assigneeId={props.ticket.assignee_id} viewer={props.viewer} />
-            <SyncMarker state={ticketSyncState(props.ticket.id)} />
+            <SyncMarker
+                state={ticketSyncState(props.ticket.id)}
+                archive={archiveOnHold(props.ticket.id)}
+            />
         </TableRow>
     )
 }
