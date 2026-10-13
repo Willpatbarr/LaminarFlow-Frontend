@@ -1,0 +1,37 @@
+.auth {
+  display: grid;
+  justify-items: center;
+  gap: var(--s-16);
+  padding: var(--s-32) var(--s-16);
+}
+
+/* The Login and Sign Up specimens' card: a grid so the gap is one number, not
+ * a margin on each child. 372px is their 340px field plus the card's padding;
+ * min() lets it shrink below that on a phone. */
+.auth__card {
+  display: grid;
+  gap: var(--s-12);
+  width: min(100%, 372px);
+  padding: var(--s-16);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-base);
+}
+
+/* The action keeps its own row, centred under the fields. --s-4 on top is the
+ * one place the card admits a button is not another field. */
+.auth__actions {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--s-4);
+}
+
+/* The attempt-level message: a claim about the pair of credentials, not about
+ * either field, so it sits above the action rather than under a control. */
+.auth__status {
+  color: var(--rust-fg);
+}
+
+.auth__switch {
+  color: var(--text-2);
+}

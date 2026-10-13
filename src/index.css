@@ -1,111 +1,197 @@
+/* Design tokens, transcribed from the vault's Component Lab/_shared.md, which is
+ * itself transcribed from the Design System Sheet. Components use these
+ * variables and never a raw hex.
+ *
+ * Dark is the base and light overrides it under prefers-color-scheme, the same
+ * shape as _shared.md. There is no manual toggle.
+ *
+ * Elevation is background lightness, not shadow: base -> raised -> overlay. A
+ * shadow belongs only on something that genuinely floats (a dragged card, a
+ * popover, a modal), not on a card sitting in a list.
+ *
+ * GUESSES. _shared.md flags these values as not being on the sheet, so they
+ * stay guesses until the sheet says otherwise:
+ *   --text-on-accent        measured off the sheet's Primary button, never named
+ *   --row-hover (light)     "black by symmetry" with the dark theme's white wash
+ *   --accent-hover and      the sheet gives only the base light accent, so these
+ *   --accent-pressed        two keep their dark-theme values in light mode
+ *   --sans and --mono       carried over from the old scaffold, not decided
+ * Also worth knowing: --accent-tint is not overridden in light, so it is still
+ * the dark accent at 14%. */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  color-scheme: dark light;
+
+  /* Surfaces */
+  --bg-base: #0d1013;
+  --bg-raised: #14181c;
+  --bg-overlay: #1b2025;
+  --border: #23292f;
+  --border-strong: #333b42;
+
+  /* Text */
+  --text-1: #e6ebef;
+  --text-2: #98a3ab;
+  --text-3: #697178;
+
+  /* Accent */
+  --accent: #2ab8c9;
+  --accent-hover: #3fcbdb;
+  --accent-pressed: #1f9aa9;
+  --accent-tint: rgba(42, 184, 201, 0.14);
+
+  /* A dark teal rather than --bg-base: white on #2ab8c9 would be about 2.3:1. */
+  --text-on-accent: #062429;
+
+  /* Status and label hues. The fill is the same in both themes; only the
+   * foreground swaps. A chip is the hue at 14-20% alpha behind its fg, so
+   * nothing a user creates is more saturated than the accent. */
+  --slate: #6b757d;
+  --blue: #4a7fb5;
+  --teal: #3f9ea8;
+  --green: #4e9a6a;
+  --amber: #a8873f;
+  --clay: #b0724a;
+  --rust: #b05a55;
+  --violet: #8a6fb0;
+
+  --slate-fg: #a9b6c0;
+  --blue-fg: #9ec2e8;
+  --teal-fg: #8fd0d8;
+  --green-fg: #8fd8b4;
+  --amber-fg: #d6c48f;
+  --clay-fg: #e0b39c;
+  --rust-fg: #e2a29d;
+  --violet-fg: #c2a8e0;
+
+  --chip-alpha: 16%;
+
+  /* Spacing */
+  --s-2: 2px;
+  --s-4: 4px;
+  --s-6: 6px;
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-22: 22px;
+  --s-32: 32px;
+
+  /* Radii */
+  --r-chip: 4px;
+  --r-control: 5px;
+  --r-card: 8px;
+  --r-panel: 10px;
+
+  /* Table rows. The sheet's 2.8% wash is white, i.e. a dark-theme value. */
+  --row-h: 34px;
+  --row-hover: rgba(255, 255, 255, 0.028);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+    --bg-base: #f7f7f5;
+    --bg-raised: #ffffff;
+    --bg-overlay: #ffffff;
+    --border: #e5e5e1;
+    --border-strong: #d2d2cd;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --text-1: #191c1f;
+    --text-2: #5f666c;
+    --text-3: #6e767d;
+
+    --accent: #0f8a9c;
+    --text-on-accent: #ffffff;
+
+    --slate-fg: #4a555e;
+    --blue-fg: #2f5a85;
+    --teal-fg: #26707a;
+    --green-fg: #2f6b45;
+    --amber-fg: #7a6120;
+    --clay-fg: #8a5230;
+    --rust-fg: #8e3f3b;
+    --violet-fg: #5e4880;
+
+    --row-hover: rgba(0, 0, 0, 0.028);
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+/* Type scale. Tracking is a percentage on the sheet: -2.5% is -0.025em. */
+.t-page-title {
+  font: 600 30px/36px var(--sans);
+  letter-spacing: -0.025em;
+}
+.t-screen-title {
+  font: 600 23px/29px var(--sans);
+  letter-spacing: -0.02em;
+}
+.t-section {
+  font: 600 16px/22px var(--sans);
+}
+.t-body {
+  font: 400 13.5px/22px var(--sans);
+}
+.t-cell {
+  font: 500 13px/1 var(--sans);
+}
+.t-meta {
+  font: 400 11.5px/17px var(--sans);
+}
+.t-overline {
+  font: 600 11px/1 var(--sans);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.t-code {
+  font: 400 12px/20px var(--mono);
+}
+
+/* Page base. */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--bg-base);
+  color: var(--text-1);
+  font: 400 13.5px/22px var(--sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100svh;
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
+h2,
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-hover);
+}
+a:active {
+  color: var(--accent-pressed);
 }
 
 code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  font: 400 12px/20px var(--mono);
+}
+
+/* One visible focus ring for every control that does not draw its own. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

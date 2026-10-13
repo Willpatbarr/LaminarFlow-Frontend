@@ -1,0 +1,27 @@
+/* Primary skin from the Button variants specimen. The disabled fill is the
+ * accent mixed 40% into the page, as read off the sheet's own BUTTON panel. */
+.button {
+  padding: var(--s-8) var(--s-16);
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  /* Not .t-body: that sets a 22px line-height, which would make the button
+   * taller than the sheet's. */
+  font: 400 13.5px/1 var(--sans);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.button:active:not(:disabled) {
+  background: var(--accent-pressed);
+}
+
+.button:disabled {
+  background: color-mix(in srgb, var(--accent) 40%, var(--bg-base));
+  color: color-mix(in srgb, var(--text-on-accent) 80%, transparent);
+  cursor: not-allowed;
+}
