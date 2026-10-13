@@ -1,7 +1,7 @@
 // Runs before every test file: registers the DOM matchers and guarantees each
 // test starts against an empty document.
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup } from '@solidjs/testing-library'
 import { afterEach } from 'vitest'
 
 // Testing Library only registers its own cleanup when Vitest globals are on.

@@ -1,21 +1,8 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { RouterProvider, createRouter } from '@tanstack/react-router'
+import { render } from '@solidjs/web'
 import './index.css'
-import { routeTree } from './routeTree.gen'
+import { router as Router } from './router'
 
-const router = createRouter({ routeTree })
-
-    // Registers the route tree with the library's types, which is what makes
-    // <Link to="/nope"> a compile error instead of a 404 at runtime.
-declare module '@tanstack/react-router' {
-    interface Register {
-        router: typeof router
-        }
-    }
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-      <RouterProvider router={router} />
-  </StrictMode>,
-)
+// The router instance is itself the provider component; the route tree, root
+// layout included, lives in router.tsx. There is no type registration step -
+// the tree's literal types flow through `router.paths` on their own.
+render(() => <Router />, document.getElementById('root')!)
