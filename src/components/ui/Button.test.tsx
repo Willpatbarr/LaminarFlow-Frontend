@@ -13,4 +13,37 @@ describe('Button', () => {
 
         expect(onClick).toHaveBeenCalledOnce()
     })
+
+    it('is type=button unless told otherwise, so it never submits a form by accident', () => {
+        render(() => <Button>Save</Button>)
+
+        expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('type', 'button')
+    })
+
+    it('type=submit submits its form', async () => {
+        const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault())
+        render(() => (
+            <form onSubmit={onSubmit}>
+                <Button type="submit">Go</Button>
+            </form>
+        ))
+
+        await userEvent.click(screen.getByRole('button', { name: 'Go' }))
+
+        expect(onSubmit).toHaveBeenCalledOnce()
+    })
+
+    it('disabled does not fire onClick', async () => {
+        const onClick = vi.fn()
+        render(() => (
+            <Button disabled onClick={onClick}>
+                Save
+            </Button>
+        ))
+
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+        expect(onClick).not.toHaveBeenCalled()
+    })
 })

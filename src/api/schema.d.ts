@@ -4,6 +4,209 @@
  */
 
 export interface paths {
+    "/api/v1/accounts/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete your own account (this one does delete)
+         * @description Irreversible, unlike archiving a ticket. Private saved views go with the account - nobody else could see them, and left behind they would be owned by nobody and visible to nobody. Shared views stay with the team, now ownerless. Comments and ticket assignments keep their rows and lose their name: work outlives the people who touched it.
+         *
+         *     Only your own account. Deleting someone else's would need an authority model this schema does not define.
+         */
+        delete: operations["delete-account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a team's aspect types
+         * @description Names only - fields are empty here. Fetch one type to get its fields.
+         */
+        get: operations["list-aspect-types"];
+        put?: never;
+        /**
+         * Create an aspect type
+         * @description Created with no fields. An aspect type with none is legal - it renders as a document with a title and nothing else.
+         */
+        post: operations["create-aspect-type"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one aspect type with its fields */
+        get: operations["get-aspect-type"];
+        /** Rename an aspect type */
+        put: operations["rename-aspect-type"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types/{id}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a field to an aspect type
+         * @description An insert, and nothing else. No document is touched - the new field is simply a key absent from every body, which renders empty.
+         */
+        post: operations["add-aspect-type-field"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types/{id}/fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a field
+         * @description The field's id does not change, so every document keeps the values stored under it.
+         */
+        put: operations["rename-aspect-type-field"];
+        post?: never;
+        /**
+         * Remove a field
+         * @description Deletes the field row. Values already stored under its id stay in every document's body and simply stop being rendered - stripping them would be unrecoverable, and would mean rewriting every body of this type.
+         */
+        delete: operations["remove-aspect-type-field"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types/{id}/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the order of every field
+         * @description Send the complete list, in the order wanted. Idempotent, and the result is exactly what was sent - a partial list is rejected, because it would renumber some fields and leave others.
+         */
+        post: operations["reorder-aspect-type-fields"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log in and receive a session cookie */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke the current session */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who the current credential belongs to */
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an account and log in as it
+         * @description Public: this is how a person gets a session. Creates the account and, in the same transaction, its membership of the workspace - creating the workspace first if the install has none. On success it sets the session cookie exactly as login does.
+         *
+         *     Single-workspace model: when a workspace already exists the new account joins it as a member. There is no invitation or approval step yet (ADR 0004), so until there is, anyone who can reach this endpoint can join - do not expose it beyond a trusted network.
+         *
+         *     A duplicate email answers 409 `email_taken`. That reveals the address is registered, which a registration endpoint cannot avoid; it costs the same time as a success.
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ping": {
         parameters: {
             query?: never;
@@ -21,25 +224,371 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a project, with the board it renders with
+         * @description Seeds one board with a column per status the team has, each mapped to that status. This is the second bootstrap point: board is project-scoped, so it cannot be seeded when the team is created. A project created from a bare team gets a board with no columns.
+         */
+        post: operations["create-project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one project */
+        get: operations["get-project"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the settings on one workspace or team
+         * @description Registered keys only. A stored row whose key is not registered is skipped rather than returned or raised - one bad row must not break the settings screen for everyone.
+         *
+         *     Registered keys:
+         *
+         *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
+         */
+        get: operations["list-settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one setting
+         * @description 404 with code setting_not_set means nothing is configured - fall back to the default. That is a different answer from an unknown key, which is a 422.
+         *
+         *     Registered keys:
+         *
+         *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
+         */
+        get: operations["get-setting"];
+        /**
+         * Write one setting
+         * @description The key, its scope and the value's shape are all checked before anything is stored. A misspelt key, a key at the wrong level, or a value of the wrong shape is a 422 here - previously each of those stored a row that nothing ever read.
+         *
+         *     Registered keys:
+         *
+         *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
+         */
+        put: operations["set-setting"];
+        post?: never;
+        /**
+         * Remove one setting, restoring its default
+         * @description Deletes the row. There is no value that means "the default" - absence is the default, and writing one would freeze today's default into the row.
+         *
+         *     Registered keys:
+         *
+         *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
+         */
+        delete: operations["unset-setting"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a team, with the rows it needs to be usable
+         * @description Seeds three statuses, five starter aspect types and one shared saved view, in the same transaction that creates the team - so a team is never observable half-configured. Everything seeded is an ordinary row: rename it, delete it, replace it. Nothing is privileged, and no default labels are seeded, because a label vocabulary is a team's own.
+         */
+        post: operations["create-team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one team with its statuses */
+        get: operations["get-team"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a ticket */
+        post: operations["create-ticket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tickets/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List tickets (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `assignee` (uuid)
+         *     - `created_at` (time)
+         *     - `description` (text)
+         *     - `epic` (uuid)
+         *     - `label` (uuid_set)
+         *     - `project` (uuid)
+         *     - `sprint` (uuid_set)
+         *     - `status` (uuid)
+         *     - `title` (text)
+         *     - `updated_at` (time)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-tickets"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tickets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one ticket */
+        get: operations["get-ticket"];
+        /** Replace a ticket's writable fields */
+        put: operations["update-ticket"];
+        post?: never;
+        /** Archive a ticket (soft delete - the row and its comments survive) */
+        delete: operations["archive-ticket"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tickets/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived ticket */
+        post: operations["unarchive-ticket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ErrorDetail: {
-            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
-            location?: string;
-            /** @description Error message text */
-            message?: string;
-            /** @description The value at the given location */
-            value?: unknown;
-        };
-        ErrorModel: {
+        AddFieldInputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ErrorModel.json
+             * @example https://example.com/api/v1/schemas/AddFieldInputBody.json
              */
             readonly $schema?: string;
+            label: string;
+        };
+        AspectTypeBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/AspectTypeBody.json
+             */
+            readonly $schema?: string;
+            /** @description In position order. Empty on the list endpoint, which does not load them. */
+            fields: components["schemas"]["FieldBody"][] | null;
+            id: string;
+            name: string;
+            team_id: string;
+        };
+        AspectTypeListOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/AspectTypeListOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["AspectTypeBody"][] | null;
+        };
+        ColumnBody: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            position: number;
+            status_id: string;
+        };
+        Condition: {
+            /** @description A name from this resource's filter vocabulary. */
+            field: string;
+            /** @description One of eq, neq, gt, gte, lt, lte, contains, in, is_null, is_not_null. */
+            op: string;
+            /** @description A scalar, or an array for in. Omitted for is_null and is_not_null. */
+            value?: unknown;
+        };
+        CreateAspectTypeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateAspectTypeInputBody.json
+             */
+            readonly $schema?: string;
+            name: string;
+            /** Format: uuid */
+            team_id: string;
+        };
+        CreateProjectInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateProjectInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Skip the board. A project with no board is legal and renders empty. */
+            bare: boolean;
+            name: string;
+            /** Format: uuid */
+            team_id: string;
+        };
+        CreateTeamInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateTeamInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Skip seeding. For an importer restoring a team that already has its own statuses and aspect types. */
+            bare: boolean;
+            name: string;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        CreateTicketInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateTicketInputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: uuid */
+            assignee_id: string | null;
+            description: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            status_id: string | null;
+            title: string;
+        };
+        DeleteAccountOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/DeleteAccountOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Private saved views removed with the account. Nobody else could see them.
+             */
+            private_views_deleted: number;
+            /**
+             * Format: int64
+             * @description Shared views left for the team, now owned by nobody.
+             */
+            shared_views_kept: number;
+        };
+        Error: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/Error.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description Stable machine-readable identifier for this kind of failure. Never reworded.
+             * @example ticket_archived
+             */
+            code: string;
             /**
              * @description A human-readable explanation specific to this occurrence of the problem.
              * @example Property foo is required but is missing.
@@ -72,11 +621,129 @@ export interface components {
              */
             type: string;
         };
+        ErrorDetail: {
+            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
+            location?: string;
+            /** @description Error message text */
+            message?: string;
+            /** @description The value at the given location */
+            value?: unknown;
+        };
+        FieldBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/FieldBody.json
+             */
+            readonly $schema?: string;
+            /** @description Stable forever. document.body is keyed by this, so it never changes - not even when the label does. */
+            id: string;
+            label: string;
+            /**
+             * Format: int64
+             * @description An ordering hint, not a slot. Duplicates are legal.
+             */
+            position: number;
+        };
+        Group: {
+            conditions?: components["schemas"]["Condition"][] | null;
+            groups?: components["schemas"]["Group"][] | null;
+            /** @description and or or. Joins every condition and subgroup in this group. */
+            op: string;
+        };
+        ListEnvelopeTicketBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeTicketBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["TicketBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
+        ListRequest: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListRequest.json
+             */
+            readonly $schema?: string;
+            /** @description next_cursor from the previous page. Opaque - do not construct or parse it. */
+            cursor?: string;
+            /** @description Conditions and nested groups. Omitted means every row the caller may see. */
+            filter?: components["schemas"]["Group"];
+            /**
+             * Format: int64
+             * @description Rows per page. Omitted means 50. Over the maximum is rejected, not clamped.
+             */
+            limit?: number;
+            /** @description Sort keys, most significant first. A unique tiebreak is always appended. */
+            sort?: components["schemas"]["Order"][] | null;
+        };
+        LoginInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/LoginInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description Matched case-insensitively.
+             * @example will@example.com
+             */
+            email: string;
+            /** @description Never logged, never echoed. */
+            password: string;
+        };
+        LoginOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/LoginOutputBody.json
+             */
+            readonly $schema?: string;
+            account_id: string;
+        };
+        MeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/MeOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The authenticated account. */
+            account_id: string;
+            /** @description What the app shows for this person. */
+            display_name: string;
+            email: string;
+            /**
+             * @description Everything this credential may do, as resource:action. Gate UI on membership in this list, not on its length: there is no authority model yet, so today every credential holds the full set, and roles will narrow it without changing its shape.
+             * @example [
+             *       "ticket:write"
+             *     ]
+             */
+            permissions: string[];
+            /**
+             * @description Which credential authenticated this request.
+             * @example session
+             */
+            via: string;
+            /** @description The workspace this account belongs to. Null only for an account with no membership. */
+            workspace_id: string | null;
+        };
+        Order: {
+            /** @description Descending. Nulls sort last either way. */
+            desc: boolean;
+            /** @description A name from this resource's filter vocabulary. */
+            field: string;
+        };
         PingBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PingBody.json
+             * @example https://example.com/api/v1/schemas/PingBody.json
              */
             readonly $schema?: string;
             /**
@@ -90,6 +757,169 @@ export interface components {
              */
             time: string;
         };
+        ProjectBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ProjectBody.json
+             */
+            readonly $schema?: string;
+            /** @description The board seeded on creation. Null when bare - a project with no board is legal. */
+            board_id: string | null;
+            /** @description One per status the team had. Empty when bare. */
+            columns: components["schemas"]["ColumnBody"][] | null;
+            id: string;
+            name: string;
+            team_id: string;
+        };
+        RegisterInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/RegisterInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description What the app shows for this person. Not unique.
+             * @example Will Barr
+             */
+            display_name: string;
+            /**
+             * Format: email
+             * @description Matched case-insensitively. Must not already be registered.
+             * @example will@example.com
+             */
+            email: string;
+            /** @description At least 10 characters and at most 72 bytes. Never logged, never echoed. */
+            password: string;
+        };
+        RegisterOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/RegisterOutputBody.json
+             */
+            readonly $schema?: string;
+            account_id: string;
+            /** @description True when this registration created the workspace - a fresh install with none. */
+            workspace_created: boolean;
+            /** @description The workspace the account now belongs to. */
+            workspace_id: string;
+        };
+        RenameAspectTypeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/RenameAspectTypeInputBody.json
+             */
+            readonly $schema?: string;
+            name: string;
+        };
+        RenameFieldInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/RenameFieldInputBody.json
+             */
+            readonly $schema?: string;
+            label: string;
+        };
+        ReorderInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ReorderInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Every field of this type, exactly once, in the order wanted. */
+            field_ids: string[] | null;
+        };
+        SetSettingInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/SetSettingInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The value, whose shape depends on the key. */
+            value: unknown;
+        };
+        SettingListOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/SettingListOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Registered keys only. A stored row whose key is not registered is skipped. */
+            items: {
+                [key: string]: unknown;
+            };
+        };
+        SettingOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/SettingOutputBody.json
+             */
+            readonly $schema?: string;
+            key: string;
+            value: unknown;
+        };
+        StatusBody: {
+            /** @description not_started, in_progress or done. Reporting depends on it, and it survives a rename. */
+            category: string;
+            color: string;
+            id: string;
+            name: string;
+            /** Format: int64 */
+            position: number;
+        };
+        TeamBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/TeamBody.json
+             */
+            readonly $schema?: string;
+            /** @description Seeded on creation. Starter types, not system types. */
+            aspect_types: string[] | null;
+            id: string;
+            name: string;
+            /** @description Seeded on creation. Ordinary rows - rename or delete them freely. */
+            statuses: components["schemas"]["StatusBody"][] | null;
+            workspace_id: string;
+        };
+        TicketBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/TicketBody.json
+             */
+            readonly $schema?: string;
+            /** @description Null is normal - an unassigned ticket. */
+            assignee_id: string | null;
+            description: string;
+            id: string;
+            project_id: string;
+            /** @description Null is normal - no status is sacred, so a ticket may have none. */
+            status_id: string | null;
+            title: string;
+        };
+        UpdateTicketInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/UpdateTicketInputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: uuid */
+            assignee_id: string | null;
+            description: string;
+            /** Format: uuid */
+            status_id: string | null;
+            title: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -99,6 +929,429 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "delete-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteAccountOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-aspect-types": {
+        parameters: {
+            query: {
+                team_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AspectTypeListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-aspect-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAspectTypeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-aspect-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "rename-aspect-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameAspectTypeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "add-aspect-type-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddFieldInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "rename-aspect-type-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameFieldInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "remove-aspect-type-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "reorder-aspect-type-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                "__Host-laminar_session"?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     ping: {
         parameters: {
             query?: never;
@@ -123,7 +1376,454 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-settings": {
+        parameters: {
+            query: {
+                /** @description Which level the setting hangs at. */
+                scope: "workspace" | "team";
+                /** @description The workspace's or the team's id, matching scope. */
+                target_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-setting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A registered key. An unregistered one is a 422 rather than a stored row nobody reads. */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "set-setting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSettingInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "unset-setting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A registered key. An unregistered one is a 422 rather than a stored row nobody reads. */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTeamInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTicketInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeTicketBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTicketInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "archive-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "unarchive-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
                 };
             };
         };

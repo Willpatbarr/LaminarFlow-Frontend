@@ -1,0 +1,52 @@
+/* Input from the "Input, Select, Checkbox" specimen. Focus and invalid are a
+ * border colour and nothing else - a border that thickens shifts the layout by
+ * a pixel. The ring from index.css is dropped here for that reason; the accent
+ * border is the focus indicator. */
+.input {
+  display: grid;
+  gap: var(--s-4);
+  width: 100%;
+}
+
+.input__label {
+  color: var(--text-1);
+}
+
+.input__control {
+  width: 100%;
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  background: var(--bg-raised);
+  color: var(--text-1);
+  font: 400 13.5px/22px var(--sans);
+}
+
+.input__control::placeholder {
+  color: var(--text-3);
+}
+
+.input__control:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.input__control[aria-invalid='true'] {
+  border-color: var(--rust);
+}
+
+.input__control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Under the control, not beside it, so a long message does not squeeze it. */
+.input__error {
+  color: var(--rust-fg);
+}
+
+@media (forced-colors: active) {
+  .input__control:focus-visible {
+    outline: 2px solid;
+  }
+}
