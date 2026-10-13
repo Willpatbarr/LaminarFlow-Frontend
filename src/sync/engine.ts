@@ -1,5 +1,13 @@
 import type { SyncDb, SyncTx } from './db'
-import { createRemote, ListFailure, type Outcome, type ServerState, type SyncApi } from './remote'
+import {
+    createRemote,
+    ListFailure,
+    parseTicketEvent,
+    type Outcome,
+    type ServerState,
+    type SyncApi,
+    type TicketEvent,
+} from './remote'
 import {
     fieldsOf,
     newTempId,
@@ -15,10 +23,11 @@ import {
 ╔═ engine.ts ═══════════════════════════════════════════════════════════════════════════
 ║  sync · the rules: what a user action writes locally, and how it reaches the server
 ╠═ declares ════════════════════════════════════════════════════════════════════════════
-║      createSyncEngine   start/stop, hydrate, the three ticket writes, retry/discard/resume
+║      createSyncEngine   start/stop, hydrate, the three ticket writes, retry/discard/resume,
+║                         applyRemote (one event from the change feed)
 ║      Timer, Connectivity   the two things it needs from the outside world
 ╠═ reached from ════════════════════════════════════════════════════════════════════════
-║      store.ts (the app), engine tests, the real-backend integration test (LAM-72)
+║      store.ts (the app, and the socket it owns), engine tests, the real-backend integration test (LAM-72)
 ╚═══════════════════════════════════════════════════════════════════════════════════════
 */
 // No Solid and no DOM in here, on purpose: everything it touches arrives as an
@@ -36,6 +45,16 @@ import {
 // one request at a time. They therefore never overlap, and that is what makes
 // "this ticket is missing from the server's list, remove it" safe: no create
 // can be answered between the list being read and being applied.
+//
+// REMOTE EVENTS (LAM-68) go through that same worker. `applyRemote` only queues;
+// the worker applies the queue between requests and after a hydration, never
+// during one. That ordering is what keeps the feed and the other two writers
+// from undoing each other: an event that arrives while a list is on the wire is
+// applied on top of the list, by version, instead of being overwritten by it
+// (or having its brand-new ticket removed as "missing from the list"); and one
+// that arrives while a create is on the wire waits for the answer, so it finds
+// the ticket under its real id instead of making a second row beside the
+// temporary one.
 
 export type Timer = {
     now(): number
@@ -118,6 +137,11 @@ export type SyncEngine = {
     /** After a 401 has been dealt with (the user signed in again): un-parks
      *  every `unauthorized` entry and carries on. */
     resume(): Promise<void>
+    /** Applies one frame of the change feed (`unknown`: it comes off the wire).
+     *  Resolves true if it changed the local data; false for an echo of our own
+     *  write, a stale or out-of-order frame, a type or shape it does not
+     *  understand, or an engine that has stopped. Never rejects on a bad frame. */
+    applyRemote(event: unknown): Promise<boolean>
     subscribe(listener: (change: SyncChange) => void): () => void
 }
 
@@ -157,6 +181,16 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     let networkRetryAt = 0
     // A 5xx is about one entry: only that entry waits. entry id -> not before.
     const waits = new Map<number, number>()
+
+    // Frames waiting for the worker, in arrival order.
+    let remoteQueue: { event: TicketEvent; resolve: (changed: boolean) => void }[] = []
+    // Tickets archived by someone else, and the version they were archived at.
+    // Events are not ordered across writers, so an update at version 2 can still
+    // arrive after the archive at 3, and with the server's copy deleted there
+    // would be nothing to tell it is stale. Anything at or below this version is;
+    // an unarchive is above it and clears it. A few bytes per archived ticket
+    // for the length of the session.
+    const buried = new Map<string, number>()
 
     let working: Promise<void> | null = null
     let again = false
@@ -415,6 +449,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 case 'ok':
                     waits.delete(entry.id)
                     if (outcome.ticket) return adopt(tx, entry, outcome.ticket)
+                    // Our own archive. Its echo says so; a late echo of an
+                    // earlier write must not bring the ticket back before it.
+                    if (entry.base_version !== null) buried.set(entry.ticket_id, entry.base_version + 1)
                     await forget(tx, entry.ticket_id)
                     return {}
 
@@ -520,6 +557,68 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         return done
     }
 
+    // ── the change feed ─────────────────────────────────────────────────────
+
+    // The server's copy is what a frame is compared with and what it replaces.
+    // A ticket with entries in the outbox is the user's until those are
+    // resolved - the same rule hydration follows - so only its server copy
+    // moves: the row on screen stays as it is, and a later discard goes back to
+    // the newest state rather than the one we last heard. Its entries are not
+    // touched either: a base version that is now stale must still reach the
+    // server and come back as the 409 that LAM-71 shows.
+    async function applyOne(tx: SyncTx, { type, ticket }: TicketEvent): Promise<boolean> {
+        const id = ticket.id
+        const server = await tx.serverTickets.get(id)
+        const dirty = (await tx.outbox.forTicket(id)).length > 0
+
+        if (type === 'ticket.archived') {
+            if (server && ticket.version < server.version) return false
+            buried.set(id, Math.max(ticket.version, buried.get(id) ?? 0))
+            if (!server && !(await tx.tickets.get(id))) return false
+            await tx.serverTickets.delete(id)
+            // With unsent changes the row stays, and sending them is what
+            // reports the archive (409).
+            if (!dirty) await tx.tickets.delete(id)
+            return true
+        }
+
+        if (server && ticket.version <= server.version) return false
+        if (ticket.version <= (buried.get(id) ?? 0)) return false
+        buried.delete(id)
+        await tx.serverTickets.put(ticket)
+        if (!dirty) await tx.tickets.put(ticket)
+        return true
+    }
+
+    async function applyQueuedEvents() {
+        while (remoteQueue.length > 0 && isRunning()) {
+            const batch = remoteQueue
+            remoteQueue = []
+            let changed = false
+            for (const item of batch) {
+                let applied = false
+                try {
+                    applied = await db.write((tx) => applyOne(tx, item.event))
+                } catch (error) {
+                    // One bad write must not stop the rest; the next hydration
+                    // repairs whatever it would have done.
+                    console.error('could not apply a remote change', error)
+                }
+                changed ||= applied
+                item.resolve(applied)
+            }
+            if (changed && isRunning()) notify()
+        }
+    }
+
+    function applyRemote(frame: unknown): Promise<boolean> {
+        const event = parseTicketEvent(frame)
+        if (!event || !isRunning()) return Promise.resolve(false)
+        const done = new Promise<boolean>((resolve) => remoteQueue.push({ event, resolve }))
+        kick()
+        return done
+    }
+
     // ── the worker ──────────────────────────────────────────────────────────
 
     // The oldest entry that may be sent now: at the head of its ticket's queue
@@ -565,6 +664,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         // Attempted even when the browser says it is offline: the failure is
         // what tells the screen "could not load" instead of "still loading".
         if (hydrateWanted) await runHydration()
+        // Also when nothing can be sent: the feed is not blocked by a pause or
+        // by being offline, only by a request actually on the wire.
+        await applyQueuedEvents()
 
         while (canSend()) {
             const entry = await pickNext()
@@ -577,6 +679,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 const change = await settle(entry, outcome)
                 inFlight = null
                 notify(change)
+                await applyQueuedEvents()
             } finally {
                 // Also on the early return and on a throw.
                 inFlight = null
@@ -723,6 +826,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         // Anyone still waiting on a hydration that will now never run.
         for (const resolve of hydrateWaiters) resolve(false)
         hydrateWaiters = []
+        for (const item of remoteQueue) item.resolve(false)
+        remoteQueue = []
     }
 
     return {
@@ -737,6 +842,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         retry,
         discard,
         resume,
+        applyRemote,
         subscribe(listener) {
             listeners.add(listener)
             return () => {

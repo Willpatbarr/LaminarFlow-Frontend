@@ -10,6 +10,7 @@ import type { EntryError, OutboxEntry, Project, Status, Team, Ticket, TicketConf
 ├─ out ───────────────────────────────────────────
 │      createRemote   send(entry) → Outcome, listEverything() → ServerState
 │      SyncApi        the typed client it needs (src/api/client.ts in the app)
+│      parseTicketEvent   one frame of the change feed → TicketEvent, or null
 ├─ example ───────────────────────────────────────
 │      PUT answered 409 {code:"ticket_conflict", current:{…}}  →  { type: 'conflict', conflict }
 */
@@ -70,6 +71,69 @@ function ifMatch(version: number | null) {
 function toError(response: Response, body: unknown): EntryError {
     const problem: ProblemBody = typeof body === 'object' && body !== null ? body : {}
     return { status: response.status, code: problem.code ?? 'unknown', errors: problem.errors ?? [] }
+}
+
+// ── the change feed ─────────────────────────────────────────────────────────
+// docs/realtime.md in the backend is the contract; the socket is not in the
+// OpenAPI document, so these types are written out here.
+
+export type TicketEventType =
+    | 'ticket.created'
+    | 'ticket.updated'
+    | 'ticket.archived'
+    | 'ticket.unarchived'
+
+const EVENT_TYPES: readonly string[] = [
+    'ticket.created',
+    'ticket.updated',
+    'ticket.archived',
+    'ticket.unarchived',
+]
+
+export type TicketEvent = {
+    type: TicketEventType
+    /** The ticket after the change - the whole row, archive included. */
+    ticket: Ticket
+}
+
+const isString = (value: unknown): value is string => typeof value === 'string'
+const isNullableString = (value: unknown): value is string | null => value === null || isString(value)
+
+/** Reads one frame of the change feed. Null for anything that is not a ticket
+ *  event this client understands: a type it has never heard of (the feed is
+ *  additive within v1), a body missing a member, an `id` or `version` that
+ *  disagrees with the ticket it carries. Never throws. */
+export function parseTicketEvent(frame: unknown): TicketEvent | null {
+    if (typeof frame !== 'object' || frame === null) return null
+    const event = frame as Record<string, unknown>
+    if (!isString(event.type) || !EVENT_TYPES.includes(event.type)) return null
+
+    const body = event.ticket
+    if (typeof body !== 'object' || body === null) return null
+    const row = body as Record<string, unknown>
+    if (
+        !isString(row.id) ||
+        !isString(row.project_id) ||
+        !isString(row.title) ||
+        !isString(row.description) ||
+        !isNullableString(row.status_id) ||
+        !isNullableString(row.assignee_id) ||
+        !isString(row.updated_at) ||
+        !isNullableString(row.updated_by) ||
+        typeof row.version !== 'number' ||
+        !Number.isInteger(row.version) ||
+        row.version < 1
+    ) {
+        return null
+    }
+    // Both are documented to equal the ticket's own. If they do not, something
+    // is wrong with the frame and a re-list will put it right.
+    if (event.ticket_id !== row.id || event.version !== row.version) return null
+
+    return {
+        type: event.type as TicketEventType,
+        ticket: toTicket(row as unknown as TicketBody),
+    }
 }
 
 const PAGE = 200

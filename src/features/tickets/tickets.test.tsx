@@ -15,6 +15,7 @@ import {
     TEAM,
     ticket,
 } from '@/sync/testing/harness'
+import { FakeWebSocket } from '@/sync/testing/fakeSocket'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
 // The ticket screens, driven through the real route tree, the real store and
@@ -43,6 +44,10 @@ async function open(url: string, routes: Routes) {
     return history
 }
 
+// The side nav has a status region of its own (the connection), so a page's
+// status is looked for inside the page.
+const inMain = () => within(screen.getByRole('main'))
+
 beforeEach(() => {
     disconnect = connectSyncToSession()
 })
@@ -58,11 +63,11 @@ describe('the ticket list', () => {
         const tickets = deferred()
         await open('/', { ...listRoutes(), 'POST /api/v1/tickets/list': () => tickets.promise })
 
-        expect(await screen.findByRole('status')).toHaveTextContent('Loading')
+        expect(await inMain().findByRole('status')).toHaveTextContent('Loading')
 
         tickets.resolve(page([ticket()]))
         expect(await screen.findByRole('link', { name: /Write the outbox/ })).toBeInTheDocument()
-        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+        expect(inMain().queryByRole('status')).not.toBeInTheDocument()
     })
 
     it('groups tickets by status in position order, with "No status" last and only if needed', async () => {
@@ -191,7 +196,7 @@ describe('the ticket list', () => {
         const title = await screen.findByLabelText('Title')
         expect(title).toHaveValue('Offline idea')
         expect(history.get()).toMatch(/^\/tickets\/tmp_/)
-        expect(screen.getByRole('status')).toHaveTextContent('Not synced yet')
+        expect(inMain().getByRole('status')).toHaveTextContent('Not synced yet')
         await vi.waitFor(() =>
             expect(sent).toEqual([
                 {
@@ -215,7 +220,7 @@ describe('the ticket list', () => {
         expect(screen.getByLabelText('Description')).toBe(description)
         expect(description).toHaveFocus()
         expect(description).toHaveValue('half a thou')
-        await vi.waitFor(() => expect(screen.getByRole('status')).toBeEmptyDOMElement())
+        await vi.waitFor(() => expect(inMain().getByRole('status')).toBeEmptyDOMElement())
     })
 })
 
@@ -414,5 +419,43 @@ describe('the ticket page', () => {
 
         expect(await screen.findByRole('heading', { name: 'Ticket not found' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: '← Tickets' })).toHaveAttribute('href', '/')
+    })
+})
+
+describe('live updates', () => {
+    const edited = ticket({ title: 'Changed in another tab', version: 2, updated_by: 'acc-other' })
+    const event = (type: string, row: ReturnType<typeof ticket>) => ({
+        type,
+        ticket_id: row.id,
+        version: row.version,
+        actor_id: 'acc-other',
+        at: row.updated_at,
+        ticket: row,
+    })
+
+    it('shows a change made elsewhere in the list and on the ticket page, as it happens', async () => {
+        await open('/tickets/t-1', listRoutes([ticket()]))
+        const title = (await screen.findByLabelText('Title')) as HTMLInputElement
+        expect(title).toHaveValue('Write the outbox')
+
+        FakeWebSocket.last.hello()
+        FakeWebSocket.last.receive(event('ticket.updated', edited))
+
+        await vi.waitFor(() => expect(title).toHaveValue('Changed in another tab'))
+    })
+
+    it('shows the connection quietly when live, and in words when not', async () => {
+        await open('/', listRoutes([ticket()]))
+        await screen.findByRole('link', { name: /Write the outbox/ })
+        const nav = within(screen.getByRole('complementary'))
+
+        expect(nav.getByRole('status')).toHaveTextContent('Connecting')
+
+        FakeWebSocket.last.hello()
+        await vi.waitFor(() => expect(nav.getByRole('status')).toHaveTextContent('Live'))
+        expect(nav.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+
+        FakeWebSocket.last.drop()
+        await vi.waitFor(() => expect(nav.getByRole('status')).toHaveTextContent('Reconnecting'))
     })
 })

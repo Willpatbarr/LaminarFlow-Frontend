@@ -87,7 +87,10 @@
 
 /* Pushed to the foot of the rail so it is never next to the links it could be
  * mis-clicked from. */
-.side-nav__logout {
+.side-nav__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
   margin-top: auto;
 }
 

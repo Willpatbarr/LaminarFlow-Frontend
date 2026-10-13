@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web'
 import { For, Show } from 'solid-js'
 
 import './SideNav.css'
@@ -18,6 +19,9 @@ type SideNavProps = {
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
+    /** Sits at the foot of the rail, above the log-out button: a quiet status
+     *  such as the connection indicator. Optional, and the caller's to fill. */
+    status?: JSX.Element
     onLogout: () => void
 }
 
@@ -75,11 +79,14 @@ export function SideNav(props: SideNavProps) {
                     </For>
                 </ul>
             </nav>
-            <Show when={props.userName}>
-                <button type="button" class="side-nav__logout t-body" onClick={props.onLogout}>
-                    Log out
-                </button>
-            </Show>
+            <div class="side-nav__foot">
+                {props.status}
+                <Show when={props.userName}>
+                    <button type="button" class="side-nav__logout t-body" onClick={props.onLogout}>
+                        Log out
+                    </button>
+                </Show>
+            </div>
         </aside>
     )
 }

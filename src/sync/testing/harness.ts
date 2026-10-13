@@ -7,6 +7,7 @@ import { ok } from '@/testing/fetch'
 
 import { openSyncDb, type SyncDb } from '../db'
 import { createSyncEngine, type Connectivity, type EngineDeps, type Timer } from '../engine'
+import type { Visibility } from '../socket'
 import type { Ticket } from '../types'
 
 // Shared by the engine and store tests. Importing this file installs
@@ -67,6 +68,27 @@ export function manualConnectivity(initiallyOnline = true) {
         goOnline() {
             online = true
             for (const fn of listeners) fn()
+        },
+    }
+}
+
+/** The tab coming back to the front, when the test says so. */
+export function manualVisibility() {
+    const listeners = new Set<() => void>()
+    const visibility: Visibility = {
+        onVisible(fn) {
+            listeners.add(fn)
+            return () => listeners.delete(fn)
+        },
+    }
+    return {
+        visibility,
+        show() {
+            for (const fn of listeners) fn()
+        },
+        /** How many listeners are still attached. */
+        get listening() {
+            return listeners.size
         },
     }
 }

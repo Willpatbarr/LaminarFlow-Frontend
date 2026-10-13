@@ -22,6 +22,14 @@ export default defineConfig({
 
   server: {
     proxy: {
+      // The change feed (LAM-68) is a WebSocket upgrade, which the proxy only
+      // forwards when told to. It also needs its own entry, ahead of /api,
+      // because the backend refuses an upgrade whose Origin host differs from
+      // its Host header: `changeOrigin` would rewrite Host to :8080 while the
+      // browser's Origin stays :5173, and every dev connection would be a 403.
+      // Leaving Host alone keeps the two equal. Production is same-origin, so
+      // none of this exists there.
+      '/api/v1/ws': { target: apiTarget, ws: true },
       '/api': { target: apiTarget, changeOrigin: true },
       // Health endpoints sit at the root rather than under /api, where probes
       // expect them, so they need their own entry to be reachable in dev.

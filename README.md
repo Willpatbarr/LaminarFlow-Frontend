@@ -145,6 +145,45 @@ whose *response* is lost is sent again and makes a second ticket. Two tabs each
 run their own engine over the same database and do not coordinate. Hydration
 re-reads every list in full.
 
+### Live changes (the WebSocket)
+
+`GET /api/v1/ws` pushes a frame whenever a ticket in the workspace is created,
+edited, archived or restored (contract: the backend's `docs/realtime.md`).
+`socket.ts` is the transport and knows nothing of tickets; `engine.applyRemote`
+is what a frame means. `store.ts` owns one socket per running engine and joins
+them.
+
+- **Apply by version.** A frame is applied only if its `version` is newer than
+  the server's copy we hold; the echo of our own write and an out-of-order older
+  frame are therefore ignored. An archive removes the ticket and remembers the
+  version it happened at, so an older frame arriving after it cannot bring the
+  ticket back. Unknown types and malformed frames are ignored.
+- **Same worker.** `applyRemote` queues; the engine's worker applies the queue
+  between requests and after a hydration, never during one. A frame that arrives
+  while a list is on the wire is applied on top of the list, and one that
+  arrives while a create is on the wire waits for the answer so the ticket is
+  not shown twice.
+- **Unsent changes win on screen.** For a ticket with outbox entries only the
+  server's copy moves (the same rule hydration follows), so a later `discard()`
+  goes back to the newest state. The entries' base versions are left alone: a
+  stale base must still reach the server and come back as the 409.
+- **Live only after `hello`.** An open socket is not a working one. A socket
+  that has not said hello in 10 seconds is dropped and retried.
+- **Reconnecting.** Capped exponential backoff (1s doubling to 30s) with
+  jitter, and at once on `online` and when the tab is shown again. Every
+  successful (re)connect lists again, because there is no replay, except the
+  first `hello` while the first list is still running. Nothing reconnects while
+  the engine is paused for a 401; `resume()` brings the socket back.
+- **The client never sends.** A data frame closes the connection (1008), and the
+  server's 30-second pings are answered by the browser out of sight of JS, so
+  there is no heartbeat: liveness is the close and error events plus the two
+  triggers above.
+- `sync.connection` is `connecting | live | reconnecting | offline`; the side nav
+  shows it (`ConnectionIndicator`, a polite status region, quiet when live).
+- In dev, `vite.config.ts` proxies `/api/v1/ws` with `ws: true` and without
+  `changeOrigin`, because the server refuses an upgrade whose `Origin` host is
+  not its `Host`.
+
 ### `idb` rather than a hand-written wrapper
 
 [`idb`](https://github.com/jakearchibald/idb) (pinned, about 1 kB gzipped, no

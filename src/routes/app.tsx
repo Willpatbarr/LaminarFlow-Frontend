@@ -2,9 +2,11 @@ import { useNavigate, type RouteSectionProps } from '@solidjs/router'
 import { Show } from 'solid-js'
 
 import { AppShell } from '@/components/ui/AppShell'
+import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, session } from '@/features/auth'
 import { SessionPending } from '@/features/auth/components/SessionPending'
+import { sync } from '@/sync'
 
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [{ label: 'Tickets', href: '/' }]
@@ -33,6 +35,11 @@ export function AppLayout(props: RouteSectionProps) {
                     <SideNav
                         links={LINKS}
                         userName={session.me?.display_name}
+                        status={
+                            <Show when={sync.active}>
+                                <ConnectionIndicator state={sync.connection} />
+                            </Show>
+                        }
                         onLogout={leave}
                     />
                 }
