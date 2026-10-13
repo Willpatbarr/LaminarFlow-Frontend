@@ -176,10 +176,13 @@
             "type": "string"
           },
           "bare": {
-            "description": "Skip the board. A project with no board is legal and renders empty.",
+            "default": false,
+            "description": "Skip the board. A project with no board is legal and renders empty. Optional; omitted means false, a project with its board.",
             "type": "boolean"
           },
           "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
@@ -190,8 +193,7 @@
         },
         "required": [
           "team_id",
-          "name",
-          "bare"
+          "name"
         ],
         "type": "object"
       },
@@ -208,10 +210,13 @@
             "type": "string"
           },
           "bare": {
-            "description": "Skip seeding. For an importer restoring a team that already has its own statuses and aspect types.",
+            "default": false,
+            "description": "Skip seeding. For an importer restoring a team that already has its own statuses and aspect types. Optional; omitted means false, a fully seeded team.",
             "type": "boolean"
           },
           "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
@@ -222,8 +227,7 @@
         },
         "required": [
           "workspace_id",
-          "name",
-          "bare"
+          "name"
         ],
         "type": "object"
       },
@@ -240,6 +244,7 @@
             "type": "string"
           },
           "assignee_id": {
+            "description": "Must be a member of the project's workspace, or assignee_not_found. Omit, or null, for unassigned.",
             "format": "uuid",
             "type": [
               "string",
@@ -247,6 +252,8 @@
             ]
           },
           "description": {
+            "description": "Up to 50,000 characters (not bytes). Omit for none.",
+            "maxLength": 50000,
             "type": "string"
           },
           "project_id": {
@@ -254,6 +261,7 @@
             "type": "string"
           },
           "status_id": {
+            "description": "Must be a status of the project's team, or status_not_found. Omit, or null, for no status.",
             "format": "uuid",
             "type": [
               "string",
@@ -261,15 +269,15 @@
             ]
           },
           "title": {
+            "description": "1 to 200 characters (not bytes), and not only whitespace.",
+            "maxLength": 200,
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
           "project_id",
-          "title",
-          "description",
-          "status_id",
-          "assignee_id"
+          "title"
         ],
         "type": "object"
       },
@@ -1309,6 +1317,7 @@
             "type": "string"
           },
           "assignee_id": {
+            "description": "Must be a member of the ticket's workspace, or assignee_not_found. Null clears it.",
             "format": "uuid",
             "type": [
               "string",
@@ -1316,9 +1325,12 @@
             ]
           },
           "description": {
+            "description": "Up to 50,000 characters (not bytes).",
+            "maxLength": 50000,
             "type": "string"
           },
           "status_id": {
+            "description": "Must be a status of the ticket's project's team, or status_not_found. Null clears it.",
             "format": "uuid",
             "type": [
               "string",
@@ -1326,6 +1338,9 @@
             ]
           },
           "title": {
+            "description": "1 to 200 characters (not bytes), and not only whitespace.",
+            "maxLength": 200,
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -2332,7 +2347,24 @@
     },
     "/api/v1/tickets": {
       "post": {
+        "description": "Send `Idempotency-Key` to make the create safe to retry after a lost response. The first request with a key creates the ticket and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original ticket as it is now - same status, 200, as a fresh create. A replay publishes nothing on the change feed. If the original has been archived the answer is a 409 `ticket_archived` carrying it. The body of a replay is ignored.",
         "operationId": "create-ticket",
+        "parameters": [
+          {
+            "description": "Makes the create safe to retry. The same key from the same account returns the ticket the first call created instead of creating another - the original's current state, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and never expire. A replay ignores the body it carries: send a new key for a different ticket. Omit it for a plain create.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "Makes the create safe to retry. The same key from the same account returns the ticket the first call created instead of creating another - the original's current state, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and never expire. A replay ignores the body it carries: send a new key for a different ticket. Omit it for a plain create.",
+              "examples": [
+                "2b0a7c9e-5d1f-4c8e-9a53-0f2f8d6b1e47"
+              ],
+              "maxLength": 128,
+              "pattern": "^[ -~]+$",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2359,8 +2391,28 @@
                   "description": "The ticket's version in quotes, as If-Match takes it back.",
                   "type": "string"
                 }
+              },
+              "Idempotent-Replayed": {
+                "schema": {
+                  "description": "Only when Idempotency-Key was sent. true: that key had been used, nothing was created, and the body is the original ticket as it is now. false: this request created the ticket.",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "type": "string"
+                }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when Idempotency-Key was sent and had already created a ticket that has since been archived: code is ticket_archived, current is that ticket and changed_by and changed_at say who archived it and when. Nothing was written, and no second ticket exists - restore the original or discard the local copy."
           },
           "default": {
             "content": {
@@ -2373,7 +2425,7 @@
             "description": "Error"
           }
         },
-        "summary": "Create a ticket"
+        "summary": "Create a ticket (safe to retry with Idempotency-Key)"
       }
     },
     "/api/v1/tickets/list": {
