@@ -22,7 +22,8 @@ export function unique(label: string): string {
   return `${label}-${run}-${++counter}`
 }
 
-const PASSWORD = 'sync-test-password-1'
+/** Every account made here signs in with this; the browser specs type it into the form. */
+export const PASSWORD = 'sync-test-password-1'
 
 export type Account = {
   email: string
@@ -102,8 +103,12 @@ function must<T extends { data?: unknown; error?: unknown; response: Response }>
 export type World = {
   teamId: string
   projectId: string
+  /** The project's name, as the project picker shows it. */
+  projectName: string
   /** The team's statuses, in position order. */
   statusIds: string[]
+  /** The same statuses' names, in the same order. */
+  statusNames: string[]
 }
 
 /** A team and a project of the test's own. Tests share one workspace, so
@@ -120,7 +125,13 @@ export async function newWorld(owner: Account): Promise<World> {
     await owner.api.POST('/api/v1/projects', { body: { team_id: team.id, name: unique('Project'), bare: false } }),
   )
   const statuses = [...(team.statuses ?? [])].sort((a, b) => a.position - b.position)
-  return { teamId: team.id, projectId: project.id, statusIds: statuses.map((status) => status.id) }
+  return {
+    teamId: team.id,
+    projectId: project.id,
+    projectName: project.name,
+    statusIds: statuses.map((status) => status.id),
+    statusNames: statuses.map((status) => status.name),
+  }
 }
 
 // ── what "someone else, on another device" does, straight to the server ─────

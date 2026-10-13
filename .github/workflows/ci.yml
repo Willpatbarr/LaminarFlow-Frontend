@@ -74,11 +74,29 @@ jobs:
         env:
           BACKEND_DIR: .backend-checkout
 
+  # Playwright against the real stack (LAM-73): the backend serving this
+  # checkout's built bundle same-origin on a disposable Postgres, driven by a
+  # real Chromium. Nothing is mocked, so it is the only job that proves the
+  # cookie, the WebSocket and the redirects work together.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v7
+
+      # Same backend checkout as the sync job; see the comments there.
+      - name: Read the backend ref
+        id: backend
+        env:
+          BACKEND_REF: ${{ vars.BACKEND_REF }}
+        run: echo "ref=$(scripts/test-stack.sh ref)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          repository: Willpatbarr/LaminarFlow-Backend
+          ref: ${{ steps.backend.outputs.ref }}
+          path: .backend-checkout
 
       - uses: actions/setup-node@v7
         with:
@@ -88,7 +106,24 @@ jobs:
       - run: npm ci
 
       # --with-deps pulls the system libraries the browser needs on a bare
-      # runner; the config's webServer starts Vite itself.
+      # runner.
       - run: npx playwright install --with-deps chromium
 
-      - run: npm run test:e2e
+      # Builds the stack, runs the specs against it, always removes it.
+      - run: scripts/test-stack.sh -- npm run test:e2e
+        env:
+          BACKEND_DIR: .backend-checkout
+
+      # Only on failure: the HTML report, and test-results/, which holds a
+      # trace.zip for every failed spec (open one with `npx playwright
+      # show-trace`, or drop it on trace.playwright.dev). A passing run keeps
+      # none of it.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-failure
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore

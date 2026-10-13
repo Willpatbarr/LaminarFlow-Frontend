@@ -74,3 +74,24 @@ describe('describeFailure', () => {
         expect(describeFailure(error(405))).toMatchObject({ fieldShaped: false })
     })
 })
+
+describe('describeFailure for a body over the size limit', () => {
+    it('blames the longer of the title and the description', () => {
+        expect(describeFailure(error(413), { title: 'short', description: 'much much longer' })).toEqual({
+            fields: { description: "The server didn't accept this description: it is too long to send." },
+            form: null,
+            fieldShaped: true,
+        })
+        expect(describeFailure(error(413), { title: 'a long title', description: '' }).fields).toEqual({
+            title: "The server didn't accept this title: it is too long to send.",
+        })
+    })
+
+    it('says so for the form, and still lets the user edit, when it does not know what was sent', () => {
+        expect(describeFailure(error(413))).toMatchObject({
+            fields: {},
+            form: expect.stringContaining('too large'),
+            fieldShaped: true,
+        })
+    })
+})

@@ -31,11 +31,13 @@ type error fails the build rather than shipping.
 
     npm run lint
     npm test
-    npm run test:e2e
     npm run build
 
-`npm run test:sync` is separate and needs Docker; see
-[Testing against the real backend](#testing-against-the-real-backend).
+`npm run test:sync` and `npm run test:e2e` are separate, need Docker, and run
+against a real backend; see
+[Testing against the real backend](#testing-against-the-real-backend) and
+[End-to-end tests](#end-to-end-tests-playwright). The quickest way to run
+either: `./scripts/test-stack.sh` (the sync suite) or `npm run test:e2e:stack`.
 
 ## Consuming the API
 
@@ -92,7 +94,7 @@ is how the route tests start it at a given URL.
 | `src/features/<name>/` | One domain feature: its components, API calls, and state. |
 | `src/components/ui/` | Domain-agnostic ui blocks used by more than one feature. |
 | `src/sync/` | The local database, the sync engine and the reactive store over them. Not a feature: features read and write tickets through `@/sync`. |
-| `e2e/` | Playwright specs — one per user-visible flow, not per component. |
+| `e2e/` | Playwright specs — one file per user-visible flow, not per component. They run against the real backend ([End-to-end tests](#end-to-end-tests-playwright)). |
 
 Imports run one way — `routes/` → `features/` → `components/` — and **nothing
 enforces it**. Solid has no compile-time module boundary the way Gradle modules
@@ -305,11 +307,100 @@ The socket is the `ws` package with the cookie and `Origin` a browser would send
 not a browser's WebSocket (which also answers pings out of sight of JS).
 Cookies are carried by hand because Node's `fetch` has no jar, so `Secure` /
 `SameSite` behaviour is not tested. The proxy in front of production, if any, is
-not there. Whole-app flows are the Playwright suite's job (LAM-73).
+not there. Whole-app flows are the Playwright suite's job (next section).
 
 Each test registers its own accounts and builds its own team and project, because
 every account joins the same single workspace; assertions are only ever about a
 test's own tickets.
+
+## End-to-end tests (Playwright)
+
+`e2e/` drives the whole app in a real Chromium against the same disposable stack
+as the sync suite (LAM-73): the Go backend serving this repo's built bundle
+same-origin on a throwaway Postgres, the way production serves it. Nothing is
+mocked and there is no Vite dev server, so a session cookie, a WebSocket
+upgrade and a login redirect are exercised for real.
+
+    npm run test:e2e:stack      # build the stack, run every spec, always tear it down
+
+That is `scripts/test-stack.sh -- npm run test:e2e`. To iterate, leave a stack up
+and point the specs at it:
+
+    scripts/test-stack.sh up                       # prints the export line
+    export SYNC_BASE_URL=http://127.0.0.1:18180
+    npm run test:e2e                               # all specs
+    npx playwright test e2e/07-conflict.spec.ts    # one file
+    npx playwright test --ui                       # Playwright's watch UI
+    scripts/test-stack.sh down
+
+The stack's image is built from a copy of this working tree, so **rebuild it
+(`down`, then `up`) after changing `src/`**; a stack left running serves the
+bundle it was built with. `npm run test:e2e` **fails with a message** when
+neither `E2E_BASE_URL` nor `SYNC_BASE_URL` is set or nothing answers there; it
+never skips. `E2E_BASE_URL` takes precedence if you have a backend of your own.
+
+**Every user-visible feature comes with a spec** (or a new test in the spec for
+its flow), the way it comes with unit tests. The unit tests prove a component
+does what it was written to do; the spec proves a person can still get through
+the flow with the real server, cookie and socket in the way. A change that
+alters a flow changes its spec in the same commit.
+
+**Conventions**
+
+- **Locators are roles and labels** (`getByRole`, `getByLabel`), never CSS or
+  test ids. If a control cannot be found that way, a screen reader cannot find
+  it either: fix the markup, do not add a test id.
+- **Wait on visible state, never on time.** There are no `waitForTimeout`s;
+  assertions retry until the page says what is expected. Remember the loading
+  placeholders have the same headings as the loaded page (`listLoaded`).
+- **Each spec makes its own accounts** and its own team and project on the
+  server (`e2e/support/app.ts`, over the sync suite's `tests/sync/support/stack.ts`),
+  then signs the browser in by handing it the account's session cookie. All
+  accounts share ONE workspace, so a spec selects its own project in the
+  picker and only asserts about its own tickets. Only the first account in a
+  fresh database sees the first-run "Set up your first team" form; the files are
+  numbered so `01-sign-up` runs first and covers it on a fresh stack.
+- **State that is not the point of a spec is arranged server-side**; "someone else
+  edits this ticket" is a `serverUpdate` as another account, not a second browser.
+- One worker, no retries: a spec that needs a second try is flaky, and a retry
+  would hide it.
+- `context.setOffline()` stops requests but leaves an open WebSocket standing, so
+  a ticket's copy is made stale with `cuttableSocket(page)` (closes the socket
+  and refuses reconnects) instead.
+
+**Specs**
+
+| File | Flow |
+| --- | --- |
+| `01-sign-up` | sign up (and the first-run form when it appears), still signed in after a reload; a taken email |
+| `02-log-out-and-in` | log out ends the session, log back in; a wrong password |
+| `03-deep-link` | an anonymous link to a ticket goes to login and returns to that ticket |
+| `04-create-ticket` | create a ticket, see it under its status with a real id, reload |
+| `05-live-changes` | a second browser, another account: edits, creates and archives arrive over the WebSocket |
+| `06-offline` | edit and create offline, the pending indicator, sync on return |
+| `07-conflict` | a stale edit: the panel names the other person; keep mine as new, keep theirs, use mine |
+| `08-session-expired` | the session ends mid-edit: banner in place, sign in from it, the edit syncs |
+| `09-validation` | a title the server refuses (over the 1 MiB body limit) is explained at the title |
+| `10-accessibility` | axe-core scan of login, sign-up, list, ticket page and conflict panel, light and dark |
+
+The scan fails on serious and critical violations and attaches the rest to the
+report; nothing is excluded. It catches contrast, names and ARIA misuse, not
+whether a screen *works* with a keyboard or a screen reader.
+
+**Reading a failure.** A failed spec keeps a trace (`trace: 'retain-on-failure'`),
+a recording of every action with DOM snapshots, network and console:
+
+    npx playwright show-trace test-results/<spec-folder>/trace.zip
+    npx playwright show-report            # the HTML report, with the traces attached
+
+A spec that opens a second browser context has both in the one `trace.zip`
+(the viewer lists each page). In CI the
+`e2e` job uploads `playwright-report/` and `test-results/` as the
+`playwright-failure` artifact when it fails: download it, unzip, and open the
+`trace.zip` the same way (or drop it on <https://trace.playwright.dev>).
+
+**Not covered.** Chromium only; a desktop viewport; the IndexedDB limits and
+eviction of a real device; a real network drop (see the offline note above).
 
 ## This repo never talks to Postgres
 

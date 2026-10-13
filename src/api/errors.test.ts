@@ -15,7 +15,7 @@ describe('classifyStatus', () => {
         [409, 'conflict'],
         [410, 'not_found'],
         [412, 'conflict'],
-        [413, 'rejected'],
+        [413, 'too_large'],
         [415, 'rejected'],
         [422, 'validation'],
         [425, 'server'],

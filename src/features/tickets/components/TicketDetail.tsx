@@ -258,7 +258,11 @@ function TicketEditor(props: TicketEditorProps) {
     const refused = createMemo(() => {
         const head = ticketHead(id())
         return head?.state === 'failed' && head.error
-            ? { entryId: head.id, ...describeFailure(head.error) }
+            ? {
+                  entryId: head.id,
+                  // What was sent, for a refusal that cannot say which field.
+                  ...describeFailure(head.error, head.kind === 'archive' ? undefined : head.payload),
+              }
             : null
     })
 
