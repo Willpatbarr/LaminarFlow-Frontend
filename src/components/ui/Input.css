@@ -50,3 +50,10 @@
     outline: 2px solid;
   }
 }
+
+/* TextArea. Grows downwards only: a sideways drag would break the column. */
+.input__control--multiline {
+  display: block;
+  min-height: calc(22px * 3 + var(--s-16));
+  resize: vertical;
+}

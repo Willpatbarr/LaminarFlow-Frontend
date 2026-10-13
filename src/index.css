@@ -195,3 +195,25 @@ code {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* A chip: the hue at --chip-alpha behind its own foreground. Shared by the
+ * status pill and (later) label chips, as in _shared.md. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-2) var(--s-6);
+  border-radius: var(--r-chip);
+  font: 400 11.5px/17px var(--sans);
+  white-space: nowrap;
+}
+
+/* For text that names something a sighted user reads from its shape. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

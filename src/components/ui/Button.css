@@ -1,27 +1,59 @@
-/* Primary skin from the Button variants specimen. The disabled fill is the
- * accent mixed 40% into the page, as read off the sheet's own BUTTON panel. */
+/* The four skins from the Button variants specimen, each value read off the
+ * sheet's own BUTTON panel. The disabled fill is the accent mixed 40% into the
+ * page, whatever the variant. */
 .button {
   padding: var(--s-8) var(--s-16);
   border: 1px solid transparent;
   border-radius: var(--r-control);
-  background: var(--accent);
-  color: var(--text-on-accent);
   /* Not .t-body: that sets a 22px line-height, which would make the button
    * taller than the sheet's. */
   font: 400 13.5px/1 var(--sans);
   cursor: pointer;
 }
 
-.button:hover:not(:disabled) {
+.button--primary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.button--primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
-.button:active:not(:disabled) {
+.button--primary:active:not(:disabled) {
   background: var(--accent-pressed);
+}
+
+/* --bg-raised, not --bg-overlay: overlay is for things that float. */
+.button--secondary {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  color: var(--text-1);
+}
+
+.button--ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+
+/* The border is rust mixed 45% into the page, not solid --rust. */
+.button--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--rust) 45%, var(--bg-base));
+  color: var(--rust-fg);
+}
+
+/* The specimen draws no hover for these three; the row wash is the system's
+ * one "pointer is here" signal, so they borrow it. */
+.button--secondary:hover:not(:disabled),
+.button--ghost:hover:not(:disabled),
+.button--danger:hover:not(:disabled) {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
 }
 
 .button:disabled {
   background: color-mix(in srgb, var(--accent) 40%, var(--bg-base));
+  border-color: transparent;
   color: color-mix(in srgb, var(--text-on-accent) 80%, transparent);
   cursor: not-allowed;
 }

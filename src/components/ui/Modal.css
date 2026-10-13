@@ -1,0 +1,62 @@
+/* The scrim is the page colour, not black: it dims in both themes without
+ * turning a light page grey-brown. */
+.modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: var(--s-16);
+  background: color-mix(in srgb, var(--bg-base) 70%, transparent);
+}
+
+/* A modal genuinely floats, so it is one of the few things with a shadow. */
+.modal {
+  width: min(340px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  background: var(--bg-overlay);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+
+.modal__body {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-16);
+}
+
+.modal__title {
+  color: var(--text-1);
+}
+
+.modal__consequence {
+  color: var(--text-2);
+}
+
+/* Room between the words and a field that follows them. */
+.modal__body > .input {
+  margin-top: var(--s-8);
+}
+
+.modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-8);
+  padding: var(--s-12) var(--s-16);
+  background: var(--bg-base);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal {
+    animation: modal-in 120ms ease-out;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

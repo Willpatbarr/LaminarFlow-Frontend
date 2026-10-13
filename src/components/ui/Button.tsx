@@ -4,26 +4,32 @@ import './Button.css'
 
 // Domain-agnostic by construction: no ticket, document, or aspect appears in
 // these props. That is the test for whether a component belongs in this folder.
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
+
 type ButtonProps = {
     children: JSX.Element
     onClick?: () => void
     /** `submit` makes the button the form's default action. */
     type?: 'button' | 'submit'
     disabled?: boolean
+    /** Defaults to `primary`. */
+    variant?: ButtonVariant
+    /** Receives the <button>, so a dialog can put focus on it. */
+    ref?: (el: HTMLButtonElement) => void
 }
 
-// There is deliberately no `variant` prop. The vault leaves the variant count
-// open (Button variants, status: open), and the only screens built so far -
-// Login and Sign Up - use the primary skin and nothing else. Adding a variant
-// later is a new optional prop, not a breaking change.
+// The four skins of the Button variants specimen. `variant` arrived with the
+// Modal (LAM-67), whose footer is a ghost cancel beside a primary or danger
+// confirm; until then every screen used primary alone.
 //
 // Props are read as `props.x`, never destructured: destructuring takes a
 // one-time snapshot and silently drops reactivity.
 export function Button(props: ButtonProps) {
     return (
         <button
+            ref={props.ref}
             type={props.type ?? 'button'}
-            class="button"
+            class={`button button--${props.variant ?? 'primary'}`}
             disabled={props.disabled}
             onClick={props.onClick}
         >
