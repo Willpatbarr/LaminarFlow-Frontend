@@ -37,6 +37,30 @@ describe('SideNav', () => {
         expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
     })
 
+    it('offers a team switcher and the projects, and collapse keeps every label', async () => {
+        const onChange = vi.fn()
+        render(() => (
+            <SideNav
+                links={[{ label: 'Tickets', href: '/' }]}
+                teams={{ options: [{ value: 't1', label: 'Core' }, { value: 't2', label: 'Ops' }], value: 't1', onChange }}
+                projects={[{ label: 'Alpha', href: '/projects/p1' }]}
+                userName="Ada Lovelace"
+                onLogout={() => {}}
+            />
+        ))
+        const user = userEvent.setup()
+
+        await user.selectOptions(screen.getByLabelText('Team'), 't2')
+        expect(onChange).toHaveBeenCalledWith('t2')
+        expect(screen.getByRole('link', { name: 'Alpha' })).toHaveAttribute('href', '/projects/p1')
+
+        await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+        expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false')
+        expect(screen.getByRole('link', { name: 'Tickets' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Alpha' })).toBeInTheDocument()
+        expect(screen.getByLabelText('Team')).toBeInTheDocument()
+    })
+
     describe('loading', () => {
         const links = [
             { label: 'Tickets', href: '/' },

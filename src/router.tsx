@@ -2,10 +2,14 @@ import { createRouter, defineRoutes, type RouterHistory } from '@solidjs/router'
 
 import { AppLayout } from '@/routes/app'
 import { HomePage } from '@/routes/index'
+import { DocumentPage, DocumentsPage } from '@/routes/documents'
 import { LoginPage } from '@/routes/login'
 import { NotFoundPage } from '@/routes/not-found'
+import { ProjectPage } from '@/routes/project'
 import { SignUpPage } from '@/routes/signup'
+import { TeamPage } from '@/routes/team'
 import { TicketPage } from '@/routes/ticket'
+import { ViewPage, ViewsPage } from '@/routes/views'
 
 // Config routes, not the file-system adapter - see "Routing" in the README.
 // `defineRoutes` keeps the path literals, and the literals are what type
@@ -23,6 +27,12 @@ const routes = defineRoutes([
         children: [
             { path: '/', component: HomePage },
             { path: '/tickets/:id', component: TicketPage },
+            { path: '/teams/:teamId', component: TeamPage },
+            { path: '/projects/:projectId', component: ProjectPage },
+            { path: '/documents', component: DocumentsPage },
+            { path: '/documents/:id', component: DocumentPage },
+            { path: '/views', component: ViewsPage },
+            { path: '/views/:id', component: ViewPage },
             // Last, so it only catches what nothing above matched.
             { path: '*', component: NotFoundPage },
         ],
