@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js'
+import { createMemo, createSignal, For, Match, onSettled, Show, Switch } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
@@ -42,7 +42,7 @@ type Group = {
 
 // Title · status · assignee · unsynced marker. Shared by every group so the
 // columns line up down the page.
-const COLUMNS = 'minmax(0, 1fr) 132px 20px 12px'
+const COLUMNS = 'minmax(0, 1fr) 132px 20px 12px 124px'
 
 // Newest change first, so the ticket just created or edited is where the eye
 // already is. The id breaks ties so the order never depends on how the
@@ -114,7 +114,7 @@ function LoadingTickets() {
                     <SkeletonBox shape="pill" width="88px" height="21px" />
                     <SkeletonLine width="2ch" height="11px" />
                 </div>
-                <Table columns={['Title', 'Status', '', '']} template={COLUMNS}>
+                <Table columns={['Title', 'Status', '', '', '']} template={COLUMNS}>
                     <For each={TITLE_WIDTHS}>
                         {(width) => <TicketRow loading titleWidth={width} />}
                     </For>
@@ -133,6 +133,27 @@ function ProjectTickets(props: ProjectTicketsProps) {
     const [creating, setCreating] = createSignal(false)
 
     const statuses = createMemo(() => statusesForProject(props.project.id))
+
+    // `C` opens the new-ticket dialog from anywhere on the list, unless the
+    // key is meant for something else: a field being typed in, a shortcut
+    // (Ctrl/Cmd/Alt + C is copy), or a dialog that is already open.
+    onSettled(() => {
+        function onKeyDown(event: KeyboardEvent) {
+            if (event.key.toLowerCase() !== 'c' || event.ctrlKey || event.metaKey || event.altKey) return
+            if (event.defaultPrevented || event.repeat || creating()) return
+            const target = event.target
+            if (
+                target instanceof HTMLElement &&
+                (target.isContentEditable || target.closest('input, textarea, select, [role="dialog"]'))
+            ) {
+                return
+            }
+            event.preventDefault()
+            setCreating(true)
+        }
+        document.addEventListener('keydown', onKeyDown)
+        return () => document.removeEventListener('keydown', onKeyDown)
+    })
 
     // One group per status, in board order, then "No status" - which also
     // takes any ticket whose status is not one of this team's (deleted since).
@@ -207,12 +228,13 @@ function ProjectTickets(props: ProjectTicketsProps) {
                                 </Show>
                                 <span class="tickets__count t-meta">{group().tickets.length}</span>
                             </h2>
-                            <Table columns={['Title', 'Status', '', '']} template={COLUMNS}>
+                            <Table columns={['Title', 'Status', '', '', '']} template={COLUMNS}>
                                 <For each={group().tickets}>
                                     {(ticket) => (
                                         <TicketRow
                                             ticket={ticket}
                                             status={group().status}
+                                            statuses={statuses()}
                                             viewer={props.viewer}
                                         />
                                     )}
@@ -226,6 +248,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
             <Show when={creating()}>
                 <NewTicketDialog
                     projectId={props.project.id}
+                    statuses={statuses()}
                     statusId={statuses()[0]?.id ?? null}
                     onClose={() => setCreating(false)}
                 />

@@ -18,7 +18,6 @@ import { SkeletonBox, SkeletonLine } from '@/components/ui/Skeleton'
 import { TextArea } from '@/components/ui/TextArea'
 import {
     archiveOnHold,
-    archiveTicket,
     discard,
     isLoading,
     keepAsNew,
@@ -35,6 +34,7 @@ import {
 import { describeFailure } from '../entryFailure'
 import { BLANK_TITLE, descriptionCount, overMessage, titleCount } from '../limits'
 import type { Viewer } from '../viewer'
+import { archiveWithUndo } from './ArchiveUndoToast'
 import { ConflictPanel } from './ConflictPanel'
 import { SyncMarker } from './SyncMarker'
 import './tickets.css'
@@ -391,10 +391,10 @@ function TicketEditor(props: TicketEditorProps) {
     function archive() {
         // Leave first: the row disappears the moment it is archived, and this
         // page would show "not found" for a frame on the way out.
-        const archiving = id()
+        const archiving = { ...props.ticket }
         setConfirmingArchive(false)
         navigate('/')
-        void archiveTicket(archiving)
+        void archiveWithUndo(archiving)
     }
 
     return (

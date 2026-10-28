@@ -317,6 +317,177 @@ describe('archive', () => {
     })
 })
 
+describe('unarchive', () => {
+    const noContent = (version: number) =>
+        new Response(null, { status: 204, headers: { ETag: `"${version}"` } })
+
+    it('after the archive was sent: the row comes back at once, and POST /unarchive carries the archived version', async () => {
+        const answer = deferred()
+        const seen: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': () => noContent(3),
+            'POST /api/v1/tickets/t-1/unarchive': (request) => {
+                seen.push(request.headers.get('If-Match'))
+                return answer.promise
+            },
+        })
+        const { engine, db } = await startEngine()
+        const before = ticket({ version: 2 })
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+        expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+
+        expect(await engine.unarchiveTicket(before)).toBe('t-1')
+        // Optimistic: back before the server has answered, with an unarchive waiting.
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1', title: 'Write the outbox' }])
+        expect((await local(db)).outbox).toMatchObject([{ kind: 'unarchive', ticket_id: 't-1' }])
+        await vi.waitFor(() => expect(seen).toEqual(['"3"']))
+
+        answer.resolve(noContent(4))
+        await engine.idle()
+        const after = await local(db)
+        expect(after.outbox).toEqual([])
+        expect(after.tickets).toMatchObject([{ id: 't-1', version: 4 }])
+    })
+
+    it('before the archive was sent: withdraws it and sends nothing', async () => {
+        const fetchMock = stubFetch(listRoutes([ticket({ version: 2 })]))
+        const { engine, db, net } = await startEngine()
+        net.goOffline()
+        await engine.archiveTicket('t-1')
+        expect((await local(db)).tickets).toEqual([])
+        const callsBefore = fetchMock.mock.calls.length
+
+        expect(await engine.unarchiveTicket(ticket({ version: 2 }))).toBe('t-1')
+        net.goOnline()
+        await engine.idle()
+
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1' }])
+        expect((await local(db)).outbox).toEqual([])
+        expect(fetchMock.mock.calls.length).toBe(callsBefore)
+    })
+
+    it('while the archive is on the wire: queues behind it and names the archived version', async () => {
+        const archiveAnswer = deferred()
+        const seen: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': () => archiveAnswer.promise,
+            'POST /api/v1/tickets/t-1/unarchive': (request) => {
+                seen.push(request.headers.get('If-Match'))
+                return noContent(4)
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.unarchiveTicket(ticket({ version: 2 }))
+        expect((await local(db)).outbox).toMatchObject([{ kind: 'archive' }, { kind: 'unarchive' }])
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1' }])
+
+        archiveAnswer.resolve(noContent(3))
+        await engine.idle()
+
+        expect(seen).toEqual(['"3"'])
+        expect(await local(db)).toMatchObject({ outbox: [], tickets: [{ id: 't-1', version: 4 }] })
+    })
+
+    it('offline: the restore waits in the outbox and is sent when the network returns', async () => {
+        const seen: string[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': () => noContent(3),
+            'POST /api/v1/tickets/t-1/unarchive': () => {
+                seen.push('unarchive')
+                return noContent(4)
+            },
+        })
+        const { engine, db, net } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+
+        net.goOffline()
+        await engine.unarchiveTicket(ticket({ version: 2 }))
+        await engine.idle()
+        expect(seen).toEqual([])
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1' }])
+
+        net.goOnline()
+        await engine.idle()
+        expect(seen).toEqual(['unarchive'])
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('a ticket whose unsent create the archive withdrew is created again', async () => {
+        stubFetch(listRoutes())
+        const { engine, db, net } = await startEngine()
+        net.goOffline()
+        const created = await engine.createTicket({ ...FIELDS, project_id: 'p-1' })
+        await engine.archiveTicket(created.id)
+        expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+
+        const id = await engine.unarchiveTicket(created)
+
+        expect(id).toBe('tmp_2')
+        expect(await local(db)).toMatchObject({
+            tickets: [{ id: 'tmp_2', title: 'New' }],
+            outbox: [{ kind: 'create', ticket_id: 'tmp_2' }],
+        })
+    })
+
+    it('does nothing for a ticket that is not archived', async () => {
+        stubFetch(listRoutes([ticket()]))
+        const { engine, db } = await startEngine()
+
+        expect(await engine.unarchiveTicket(ticket())).toBeNull()
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('adopts a 409 that is our own restore, whose answer was lost', async () => {
+        let posts = 0
+        stubFetch({
+            ...listRoutes([ticket({ version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': () => noContent(3),
+            'POST /api/v1/tickets/t-1/unarchive': () => {
+                posts += 1
+                if (posts === 1) throw new TypeError('Failed to fetch')
+                return conflictBody('ticket_conflict', ticket({ version: 4, updated_by: ME }), ME)
+            },
+        })
+        const { engine, db, clock } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+        await engine.unarchiveTicket(ticket({ version: 2 }))
+        await engine.idle()
+        clock.advance(5_000)
+        await engine.idle()
+
+        expect(posts).toBe(2)
+        expect(await local(db)).toMatchObject({ outbox: [], tickets: [{ id: 't-1', version: 4 }] })
+    })
+
+    it("parks a restore that collided with someone else's change, and discarding it leaves the ticket archived", async () => {
+        stubFetch({
+            ...listRoutes([ticket({ version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': () => noContent(3),
+            'POST /api/v1/tickets/t-1/unarchive': () =>
+                conflictBody('ticket_conflict', ticket({ version: 5, title: 'Theirs' }), 'acc-other'),
+        })
+        const { engine, db } = await startEngine()
+        await engine.archiveTicket('t-1')
+        await engine.idle()
+        await engine.unarchiveTicket(ticket({ version: 2 }))
+        await engine.idle()
+
+        const parked = (await local(db)).outbox
+        expect(parked).toMatchObject([{ kind: 'unarchive', state: 'conflict' }])
+        expect((await local(db)).tickets).toMatchObject([{ id: 't-1', title: 'Write the outbox' }])
+
+        await engine.discard(parked[0].id)
+        expect(await local(db)).toEqual({ tickets: [], outbox: [] })
+    })
+})
+
 describe('when a send fails', () => {
     it('keeps the entry and the local row on a network error, then succeeds on retry', async () => {
         let attempts = 0

@@ -65,7 +65,7 @@ describe('TicketRow', () => {
         const { container } = render(() => (
             <Table columns={['Title', 'Status', '', '']} template="1fr 132px 20px 12px">
                 <TicketRow loading />
-                <TicketRow ticket={ticket()} status={null} viewer={viewer} />
+                <TicketRow ticket={ticket()} status={null} statuses={[]} viewer={viewer} />
             </Table>
         ))
 

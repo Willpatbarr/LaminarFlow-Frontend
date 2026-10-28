@@ -350,6 +350,44 @@ describe('an archive that collided with an edit', () => {
     })
 })
 
+describe('an inline edit in the list that lost to someone else\'s', () => {
+    async function conflictedInList() {
+        await openConflicted(
+            [
+                () => conflictResponse('ticket_conflict', theirs({ description: 'Old words' })),
+                () => ok(ticket({ title: 'Mine', version: 6, updated_by: ME })),
+            ],
+            { url: '/' },
+        )
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Edit Write the outbox' }))
+        const title = screen.getByLabelText('Title')
+        await user.clear(title)
+        await user.type(title, 'Mine{Enter}')
+        return user
+    }
+
+    it('shows the same panel under the row, and locks the row until it is decided', async () => {
+        await conflictedInList()
+
+        const region = await panel()
+        expect(region).toHaveTextContent('Sarah edited this ticket 2 minutes ago.')
+        expect(screen.getByRole('button', { name: 'Edit Mine' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Archive Mine' })).toBeDisabled()
+    })
+
+    it('"Use mine" resends it on their version from the list', async () => {
+        const user = await conflictedInList()
+        const region = await panel()
+
+        await user.click(within(region).getByRole('button', { name: 'Use mine' }))
+
+        await waitFor(() => expect(screen.queryByRole('region', { name: 'This ticket needs a decision' })).not.toBeInTheDocument())
+        expect(screen.getByRole('button', { name: 'Edit Mine' })).toBeEnabled()
+        await waitFor(() => expect(sync.outbox).toEqual([]))
+    })
+})
+
 describe('the rest of the app', () => {
     it('counts conflicts in the indicator as decisions, and links to each ticket', async () => {
         await openApp('/', {

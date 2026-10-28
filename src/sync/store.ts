@@ -43,7 +43,7 @@ import type {
 ║      isLoading, loadFailed, needsSetup      which of the three "no list yet" cases this is
 ║      currentProject, selectProject          the project picker's state, remembered
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
-║      createTicket, updateTicket, archiveTicket   the only way a screen changes a ticket
+║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
 ║      retry, discard, keepAsNew, resume, rehydrate   for the error and conflict screens
 ║      resumeFor, retryNow                         after a re-login (same account only); skip the backoff
 ║      ticketHead, archiveOnHold, unsyncedCount    a ticket's queue head; whether its archive is parked; how many changes are unsent
@@ -452,6 +452,15 @@ export async function archiveTicket(id: string): Promise<boolean> {
     const found = await running().engine.archiveTicket(resolveTicketId(id))
     await caughtUp()
     return found
+}
+
+/** Undoes an archive. Pass the ticket as it was before it was archived. Resolves
+ *  with the ticket's id (new, if the archive had withdrawn an unsent create),
+ *  or null when there was nothing to undo. */
+export async function unarchiveTicket(ticket: Ticket): Promise<string | null> {
+    const id = await running().engine.unarchiveTicket({ ...ticket, id: resolveTicketId(ticket.id) })
+    await caughtUp()
+    return id
 }
 
 export async function retry(entryId: number): Promise<boolean> {

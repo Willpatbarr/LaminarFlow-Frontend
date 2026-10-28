@@ -236,6 +236,198 @@ describe('the ticket list', () => {
     })
 })
 
+describe('creating from the keyboard', () => {
+    it('opens the dialog on C, and C typed into a field does not', async () => {
+        await open('/', listRoutes([ticket({ id: 't-1', title: 'Existing' })]))
+        const user = userEvent.setup()
+        await screen.findByRole('link', { name: /Existing/ })
+
+        await user.keyboard('c')
+        const dialog = await screen.findByRole('dialog', { name: 'New ticket' })
+        // The key that opened it was not typed into the title.
+        expect(within(dialog).getByLabelText('Title')).toHaveValue('')
+
+        await user.type(within(dialog).getByLabelText('Title'), 'cc')
+        expect(within(dialog).getByLabelText('Title')).toHaveValue('cc')
+        expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    })
+
+    it('ignores C with a modifier held, and while a ticket is being edited in the list', async () => {
+        await open('/', listRoutes([ticket({ id: 't-1', title: 'Existing' })]))
+        const user = userEvent.setup()
+        await screen.findByRole('link', { name: /Existing/ })
+
+        await user.keyboard('{Control>}c{/Control}')
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Edit Existing' }))
+        await user.keyboard('c')
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('creates with the description and the status that were picked', async () => {
+        const sent: unknown[] = []
+        await open('/', {
+            ...listRoutes([]),
+            'POST /api/v1/tickets': async (request) => {
+                const body = await bodyOf(request)
+                sent.push(body)
+                return ok(ticket({ id: 't-9', ...(body as object), updated_by: ME }))
+            },
+        })
+        const user = userEvent.setup()
+        await vi.waitFor(() => expect(screen.getByRole('button', { name: 'New ticket' })).toBeEnabled())
+        await user.keyboard('c')
+
+        const dialog = await screen.findByRole('dialog', { name: 'New ticket' })
+        // The first status of the project is the default.
+        expect(within(dialog).getByLabelText('Status')).toHaveValue('s-todo')
+        await user.type(within(dialog).getByLabelText('Title'), 'Picked')
+        await user.type(within(dialog).getByLabelText('Description'), 'With words')
+        await user.selectOptions(within(dialog).getByLabelText('Status'), 'In Progress')
+        await user.click(within(dialog).getByRole('button', { name: 'Create ticket' }))
+
+        await vi.waitFor(() =>
+            expect(sent).toEqual([
+                {
+                    project_id: 'p-1',
+                    title: 'Picked',
+                    description: 'With words',
+                    status_id: 's-doing',
+                    assignee_id: null,
+                },
+            ]),
+        )
+    })
+})
+
+describe('editing in the list', () => {
+    function editable() {
+        const puts: { ifMatch: string | null; body: Record<string, unknown> }[] = []
+        const routes: Routes = {
+            ...listRoutes([ticket({ id: 't-1', title: 'Rename me', version: 3 })]),
+            'PUT /api/v1/tickets/t-1': async (request) => {
+                const body = await bodyOf(request)
+                puts.push({ ifMatch: request.headers.get('If-Match'), body })
+                return ok(ticket({ id: 't-1', ...body, version: 4, updated_by: ME }))
+            },
+        }
+        return { routes, puts }
+    }
+
+    it('changes the title and the status in place, as one full replace with If-Match', async () => {
+        const { routes, puts } = editable()
+        await open('/', routes)
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Edit Rename me' }))
+
+        const title = screen.getByLabelText('Title')
+        expect(title).toHaveValue('Rename me')
+        await user.clear(title)
+        await user.type(title, 'Renamed')
+        await user.selectOptions(screen.getByLabelText('Status'), 'Done')
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        // Optimistic: the row is under its new status before the server is heard.
+        const group = await screen.findByRole('region', { name: 'Done' })
+        expect(within(group).getByRole('link', { name: /Renamed/ })).toBeInTheDocument()
+        await vi.waitFor(() =>
+            expect(puts).toEqual([
+                {
+                    ifMatch: '"3"',
+                    body: { title: 'Renamed', description: '', status_id: 's-done', assignee_id: null },
+                },
+            ]),
+        )
+    })
+
+    it('saves on Enter, cancels on Escape, and queues nothing when nothing changed', async () => {
+        const { routes, puts } = editable()
+        await open('/', routes)
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Edit Rename me' }))
+
+        await user.type(screen.getByLabelText('Title'), ' now')
+        await user.keyboard('{Escape}')
+        expect(screen.getByRole('link', { name: /Rename me/ })).toBeInTheDocument()
+        expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Edit Rename me' }))
+        await user.keyboard('{Enter}')
+        expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+        expect(puts).toEqual([])
+
+        await user.click(screen.getByRole('button', { name: 'Edit Rename me' }))
+        await user.type(screen.getByLabelText('Title'), '!{Enter}')
+        await vi.waitFor(() => expect(puts).toHaveLength(1))
+        expect(puts[0].body.title).toBe('Rename me!')
+    })
+
+    it('does not queue a blank or over-long title, and says why at the row', async () => {
+        const { routes, puts } = editable()
+        await open('/', routes)
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Edit Rename me' }))
+
+        await user.clear(screen.getByLabelText('Title'))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+        expect(screen.getByText('A ticket needs a title.')).toBeInTheDocument()
+
+        await user.click(screen.getByLabelText('Title'))
+        await user.paste('x'.repeat(201))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+        expect(screen.getByText(/Title can be at most 200 characters/)).toBeInTheDocument()
+        expect(puts).toEqual([])
+    })
+})
+
+describe('archiving from the list, with undo', () => {
+    const noContent = (version: number) =>
+        new Response(null, { status: 204, headers: { ETag: `"${version}"` } })
+
+    it('archives at once, offers Undo, and Undo restores it through POST /unarchive', async () => {
+        const calls: string[] = []
+        await open('/', {
+            ...listRoutes([ticket({ id: 't-1', title: 'Oops', version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': (request) => {
+                calls.push(`DELETE ${request.headers.get('If-Match')}`)
+                return noContent(3)
+            },
+            'POST /api/v1/tickets/t-1/unarchive': (request) => {
+                calls.push(`POST ${request.headers.get('If-Match')}`)
+                return noContent(4)
+            },
+        })
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Archive Oops' }))
+
+        // Gone from the list, with the offer to take it back.
+        await vi.waitFor(() => expect(screen.queryByRole('link', { name: /Oops/ })).not.toBeInTheDocument())
+        const toast = await screen.findByText('Archived “Oops”')
+        expect(toast).toBeInTheDocument()
+        await vi.waitFor(() => expect(calls).toEqual(['DELETE "2"']))
+
+        await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+        expect(await screen.findByRole('link', { name: /Oops/ })).toBeInTheDocument()
+        expect(screen.queryByText('Archived “Oops”')).not.toBeInTheDocument()
+        await vi.waitFor(() => expect(calls).toEqual(['DELETE "2"', 'POST "3"']))
+    })
+
+    it('offers Undo after archiving from the ticket page too', async () => {
+        await open('/tickets/t-1', {
+            ...listRoutes([ticket({ id: 't-1', title: 'From the page', version: 2 })]),
+            'DELETE /api/v1/tickets/t-1': () => noContent(3),
+        })
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Archive ticket' }))
+        await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive' }))
+
+        expect(await screen.findByText('Archived “From the page”')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+    })
+})
+
 describe('first-run setup', () => {
     const none = () => page([])
 

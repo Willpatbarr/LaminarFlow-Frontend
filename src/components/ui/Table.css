@@ -66,3 +66,37 @@
 .table__row--loading {
   cursor: default;
 }
+
+/* Controls beside a row's link, not inside it. The row reserves their room as
+ * its last column. */
+.table__item {
+  position: relative;
+}
+
+.table__actions {
+  position: absolute;
+  inset-block: 0;
+  right: var(--s-8);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+/* A row being edited holds fields, which are taller than a read-only line. */
+.table__row--editing {
+  height: auto;
+  padding-block: var(--s-8);
+  align-items: start;
+}
+
+.table__below {
+  padding: 0 var(--s-12) var(--s-12);
+}
+
+/* Save and Cancel, after the sync-marker column. */
+.table__edit-actions {
+  display: flex;
+  gap: var(--s-4);
+  grid-column: 3 / -1;
+  justify-content: end;
+}
