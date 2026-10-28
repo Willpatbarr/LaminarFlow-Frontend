@@ -428,8 +428,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create a document
-         * @description A normal document keeps its text under `content`; an aspect document's body is keyed by the field ids of its aspect type. The body is indexed for search in the same transaction.
+         * Create a document (safe to retry with Idempotency-Key)
+         * @description A normal document keeps its text under `content`; an aspect document's body is keyed by the field ids of its aspect type. The body is indexed for search in the same transaction. Send `Idempotency-Key` to make the create safe to retry after a lost response. The first request with a key creates the document and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original document as it is now - same status, 200, as a fresh create. A replay publishes nothing on the change feed. If the original has been archived the answer is a 409 `document_conflict` carrying it. The body of a replay is ignored.
          */
         post: operations["create-document"];
         delete?: never;
@@ -3922,7 +3922,10 @@ export interface operations {
     "create-document": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account returns the document the first call created instead of creating another - the original's current state, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and never expire. A replay ignores the body it carries: send a new key for a different document. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3936,13 +3939,14 @@ export interface operations {
             200: {
                 headers: {
                     ETag?: string;
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentBody"];
                 };
             };
-            /** @description Conflict. Only when If-Match was sent: code is document_conflict, current is the server's copy (archived_at says if it was archived). Nothing was written. */
+            /** @description Conflict. Only when Idempotency-Key was sent and had already created a document that has since been archived: code is document_conflict, current is that document with archived_at set. Nothing was written, and no second document exists - restore the original or discard the local copy. */
             409: {
                 headers: {
                     [name: string]: unknown;
