@@ -79,8 +79,8 @@ describe('create', () => {
     expect(row).toMatchObject({ id: swaps[0].to, version: 1, title: 'First document', project_id: world.projectId })
     expect(await queue(rig)).toEqual([])
     expect(await serverDoc(me, row.id)).toMatchObject({ title: 'First document', version: 1, body: { content: 'Hello' } })
-    // Documents do not take an Idempotency-Key; none was sent.
-    expect(rig.requests.find((r) => r.method === 'POST' && r.path === '/api/v1/documents')?.idempotencyKey).toBeNull()
+    // The create carried the entry's Idempotency-Key (LAM-126).
+    expect(rig.requests.find((r) => r.method === 'POST' && r.path === '/api/v1/documents')?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/)
   })
 
   it('survives going offline: the edits made there are one create, sent when the network is back', async () => {
@@ -223,5 +223,57 @@ describe('hydration and the change feed', () => {
     const frames = rig.frames.filter((f) => (f.frame as { document_id?: string }).document_id === created.id)
     expect(frames.map((f) => f.frame.type)).toEqual(['document.created', 'document.updated', 'document.archived'])
     expect(await Promise.all(frames.map((f) => f.changed))).toEqual([true, true, true])
+  })
+})
+
+describe('a create whose response is lost (LAM-126)', () => {
+  const isCreate = (r: { method: string; path: string }) => r.method === 'POST' && r.path === '/api/v1/documents'
+
+  async function serverDocsIn(account: Account, projectId: string) {
+    const result = must('list documents', await account.api.POST('/api/v1/documents/list', { body: { limit: 100 } }))
+    return (result.items ?? []).filter((doc) => doc.project_id === projectId)
+  }
+
+  it('is retried under the same key and yields exactly one document', async () => {
+    const { me, world, rig } = await scene()
+    rig.loseNextResponse(isCreate)
+
+    const local = await rig.engine.createDocument(newDoc(world, 'Only once'))
+    await rig.engine.idle()
+
+    // The server has it, and the client does not know.
+    expect(await serverDocsIn(me, world.projectId)).toHaveLength(1)
+    expect(await queue(rig)).toMatchObject([{ kind: 'create', attempts: 1, state: 'pending' }])
+
+    await eventually('the retry is answered', async () => ((await queue(rig)).length === 0 ? true : undefined))
+
+    const posts = rig.requests.filter(isCreate)
+    expect(posts).toHaveLength(2)
+    expect(posts[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/)
+    expect(posts[1].idempotencyKey).toBe(posts[0].idempotencyKey)
+
+    const onServer = await serverDocsIn(me, world.projectId)
+    expect(onServer.map((d) => [d.title, d.version])).toEqual([['Only once', 1]])
+    expect(await localDoc(rig, local.id)).toBeUndefined()
+    expect(await localDoc(rig, onServer[0].id)).toMatchObject({ title: 'Only once', version: 1 })
+  })
+
+  it('is "created, then archived" when someone archived the document before the retry: nothing parked, no second document', async () => {
+    const { me, other, world, rig } = await scene()
+    rig.loseNextResponse(isCreate)
+    const local = await rig.engine.createDocument(newDoc(world, 'Short-lived'))
+    await rig.engine.idle()
+    const retry = rig.hold(isCreate)
+    await retry.reached
+
+    const [created] = await serverDocsIn(me, world.projectId)
+    await serverArchiveDoc(other, created.id, created.version)
+    retry.release()
+    await eventually('resolved', async () => ((await queue(rig)).length === 0 ? true : undefined))
+
+    expect(await localDoc(rig, local.id)).toBeUndefined()
+    expect(await localDocs(rig)).toEqual([])
+    expect(await serverDocsIn(me, world.projectId)).toEqual([])
+    expect(rig.requests.filter(isCreate)).toHaveLength(2)
   })
 })

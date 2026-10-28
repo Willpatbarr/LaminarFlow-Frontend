@@ -8,7 +8,7 @@ import { isTempId, type Doc } from '../types'
 // Documents are the second entity (LAM-125). These tests are the proof that the
 // engine is not ticket-shaped: every behaviour a ticket has under test in
 // engine.test.ts is asserted here for a document, against the same engine, and
-// the places the two differ (no Idempotency-Key, one conflict code, no author on
+// the places the two differ (one conflict code, no author on
 // a conflict) are pinned down.
 
 afterEach(() => {
@@ -78,8 +78,8 @@ describe('create', () => {
         expect(isTempId(created.id)).toBe(true)
     })
 
-    it('does not send an Idempotency-Key, because POST /documents does not take one', async () => {
-        let header: string | null = 'unset'
+    it('sends the Idempotency-Key the entry carries (LAM-126)', async () => {
+        let header: string | null = null
         stubFetch({
             ...listRoutes(),
             'POST /api/v1/documents': (request) => {
@@ -90,12 +90,13 @@ describe('create', () => {
         const { engine, db } = await startEngine()
 
         await engine.createDocument(NEW)
-        // The entry still carries a key (it is made for every create), so the
-        // day the endpoint takes one, only the call changes.
-        expect((await snapshot(db)).outbox).toMatchObject([{ kind: 'create', idempotency_key: expect.any(String) }])
+        const entry = (await snapshot(db)).outbox[0]
+        if (entry.kind !== 'create') throw new Error('expected a create')
+        const key = entry.idempotency_key
+        expect(key).toEqual(expect.any(String))
         await engine.idle()
 
-        expect(header).toBeNull()
+        expect(header).toBe(key)
     })
 
     it('survives going offline: nothing is lost, and it is sent when the network is back', async () => {

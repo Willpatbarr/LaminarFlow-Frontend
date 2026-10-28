@@ -24,9 +24,9 @@ import type { Entity } from './entity'
 //  - a 409 has one code, `document_conflict`; whether the server's copy is
 //    archived is `current.archived_at`. It names no author, so an update whose
 //    answer was lost is recognised by the copy being identical to what was sent.
-//  - `POST /documents` takes no `Idempotency-Key` (only `POST /tickets` does),
-//    so the key the engine makes for every create is not sent, and a create
-//    whose response is lost and is then retried can make a second document.
+//  - a replay of a create's `Idempotency-Key` whose document was archived since
+//    is the same `document_conflict`, so `conflictIsArchive` (the copy is
+//    archived) is what lets the engine treat the create as done (LAM-126).
 //  - the list takes no sort.
 //  - team and project are fixed at creation, so they are in the create and not
 //    in an edit.
@@ -135,8 +135,12 @@ export const documentEntity: Entity<'document'> = {
             return answer(
                 entry,
                 () => {
-                    // No Idempotency-Key: see the note at the top of this file.
-                    if (entry.kind === 'create') return api.POST('/api/v1/documents', { body: entry.payload })
+                    if (entry.kind === 'create') {
+                        return api.POST('/api/v1/documents', {
+                            params: { header: { 'Idempotency-Key': entry.idempotency_key } },
+                            body: entry.payload,
+                        })
+                    }
                     const params = { path: { id: entry.entity_id }, header: ifMatch(entry.base_version) }
                     if (entry.kind === 'update') return api.PUT('/api/v1/documents/{id}', { params, body: entry.payload })
                     if (entry.kind === 'unarchive') return api.POST('/api/v1/documents/{id}/unarchive', { params })
