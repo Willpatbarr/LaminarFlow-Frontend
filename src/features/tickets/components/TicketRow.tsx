@@ -1,13 +1,29 @@
-import { Show } from 'solid-js'
+import { createSignal, Show } from 'solid-js'
 
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonCircle, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { TableRow } from '@/components/ui/Table'
-import { archiveOnHold, ticketSyncState, type Status, type Ticket } from '@/sync'
+import {
+    archiveOnHold,
+    discard,
+    keepAsNew,
+    retry,
+    ticketHead,
+    ticketSyncState,
+    updateTicket,
+    type Status,
+    type Ticket,
+} from '@/sync'
 
+import { BLANK_TITLE, overMessage, titleCount } from '../limits'
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { AssigneeMarker } from './AssigneeMarker'
+import { archiveWithUndo } from './ArchiveUndoToast'
+import { ConflictPanel } from './ConflictPanel'
 import { SyncMarker } from './SyncMarker'
 
 type LoadedRow = {
@@ -15,6 +31,8 @@ type LoadedRow = {
     ticket: Ticket
     /** The ticket's status, or null when it has none this team knows. */
     status: Status | null
+    /** Every status of the ticket's project, for the status picker. */
+    statuses: Status[]
     viewer: Viewer
 }
 
@@ -59,12 +77,129 @@ export function TicketRow(props: TicketRowProps) {
                 </TableRow>
             }
         >
-            {(row) => (
-                <TableRow href={`/tickets/${row().ticket.id}`}>
-                    <span class="table__text t-cell">{row().ticket.title || 'Untitled'}</span>
+            {(row) => <LoadedTicketRow {...row()} />}
+        </Show>
+    )
+}
+
+// A ticket in the list. The row is a link; the buttons beside it are not part
+// of the link. "Edit" turns the title and status into fields in place; "Archive"
+// archives at once and offers Undo (see ArchiveUndoToast), so there is no
+// confirmation to click through.
+//
+// Both go through the same engine calls as the ticket page, so they are as
+// offline-proof: the row changes the moment the local store does. A collision
+// with someone else's change shows the same ConflictPanel as the page, under
+// the row.
+function LoadedTicketRow(props: LoadedRow) {
+    const [editing, setEditing] = createSignal(false)
+    const [title, setTitle] = createSignal('')
+    const [statusId, setStatusId] = createSignal('')
+    const [blankTried, setBlankTried] = createSignal(false)
+
+    const id = () => props.ticket.id
+    const name = () => props.ticket.title || 'Untitled'
+
+    // The parked change that collided with someone else's, if the head of this
+    // ticket's queue is one.
+    const conflicted = () => {
+        const head = ticketHead(id())
+        return head?.state === 'conflict' && head.conflict
+            ? {
+                  entryId: head.id,
+                  kind: head.kind === 'archive' ? ('archive' as const) : ('update' as const),
+                  conflict: head.conflict,
+              }
+            : null
+    }
+    // Read-only until the user decides, as on the page.
+    const locked = () => conflicted() !== null || archiveOnHold(id())
+
+    const tooLong = () => overMessage('Title', titleCount(title()))
+    const titleError = () => tooLong() ?? (blankTried() && title().trim() === '' ? BLANK_TITLE : undefined)
+
+    const statusOptions = () => {
+        const options = props.statuses.map((status) => ({ value: status.id, label: status.name }))
+        const current = props.ticket.status_id
+        if (current && !options.some((option) => option.value === current)) {
+            options.push({ value: current, label: 'Unknown status' })
+        }
+        return [{ value: '', label: 'No status' }, ...options]
+    }
+
+    function startEditing() {
+        setTitle(props.ticket.title)
+        setStatusId(props.ticket.status_id ?? '')
+        setBlankTried(false)
+        setEditing(true)
+    }
+
+    function save() {
+        const next = title().trim()
+        if (next === '') {
+            setBlankTried(true)
+            return
+        }
+        if (tooLong()) return
+        const patch: { title?: string; status_id?: string | null } = {}
+        if (next !== props.ticket.title) patch.title = next
+        if ((statusId() || null) !== props.ticket.status_id) patch.status_id = statusId() || null
+        setEditing(false)
+        // Nothing changed queues nothing.
+        if (Object.keys(patch).length > 0) void updateTicket(id(), patch)
+    }
+
+    const panel = () => (
+        <Show when={conflicted()}>
+            {(found) => (
+                <ConflictPanel
+                    kind={found().kind}
+                    conflict={found().conflict}
+                    mine={props.ticket}
+                    statuses={props.statuses}
+                    viewer={props.viewer}
+                    onKeepTheirs={() => discard(found().entryId)}
+                    onUseMine={() => retry(found().entryId)}
+                    onKeepAsNew={() => keepAsNew(found().entryId)}
+                />
+            )}
+        </Show>
+    )
+
+    return (
+        <Show
+            when={editing() && !locked()}
+            fallback={
+                <TableRow
+                    href={`/tickets/${props.ticket.id}`}
+                    below={panel()}
+                    actions={
+                        <>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={locked()}
+                                aria-label={`Edit ${name()}`}
+                                onClick={startEditing}
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={locked()}
+                                aria-label={`Archive ${name()}`}
+                                onClick={() => void archiveWithUndo(props.ticket)}
+                            >
+                                Archive
+                            </Button>
+                        </>
+                    }
+                >
+                    <span class="table__text t-cell">{name()}</span>
                     <span>
                         <Show
-                            when={row().status}
+                            when={props.status}
                             fallback={<StatusPill label="No status" hue="slate" />}
                         >
                             {(status) => (
@@ -76,13 +211,46 @@ export function TicketRow(props: TicketRowProps) {
                             )}
                         </Show>
                     </span>
-                    <AssigneeMarker assigneeId={row().ticket.assignee_id} viewer={row().viewer} />
+                    <AssigneeMarker assigneeId={props.ticket.assignee_id} viewer={props.viewer} />
                     <SyncMarker
-                        state={ticketSyncState(row().ticket.id)}
-                        archive={archiveOnHold(row().ticket.id)}
+                        state={ticketSyncState(props.ticket.id)}
+                        archive={archiveOnHold(props.ticket.id)}
                     />
                 </TableRow>
-            )}
+            }
+        >
+            <TableRow editing onSubmit={save} onCancel={() => setEditing(false)}>
+                <Input
+                    label="Title"
+                    hideLabel
+                    ref={(el) => {
+                        // Typing is what editing is for: start in the title.
+                        queueMicrotask(() => el.focus())
+                    }}
+                    value={title()}
+                    onInput={(value) => {
+                        setBlankTried(false)
+                        setTitle(value)
+                    }}
+                    count={titleCount(title())}
+                    error={titleError()}
+                />
+                <Select
+                    label="Status"
+                    hideLabel
+                    value={statusId()}
+                    options={statusOptions()}
+                    onChange={setStatusId}
+                />
+                <span class="table__edit-actions">
+                    <Button type="submit" size="sm">
+                        Save
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                        Cancel
+                    </Button>
+                </span>
+            </TableRow>
         </Show>
     )
 }

@@ -224,6 +224,10 @@ export function createRemote(api: SyncApi) {
                         params: { path: { id: entry.ticket_id }, header: ifMatch(entry.base_version) },
                         body: entry.payload,
                     })
+                } else if (entry.kind === 'unarchive') {
+                    result = await api.POST('/api/v1/tickets/{id}/unarchive', {
+                        params: { path: { id: entry.ticket_id }, header: ifMatch(entry.base_version) },
+                    })
                 } else {
                     result = await api.DELETE('/api/v1/tickets/{id}', {
                         params: { path: { id: entry.ticket_id }, header: ifMatch(entry.base_version) },
@@ -234,6 +238,16 @@ export function createRemote(api: SyncApi) {
             }
 
             const { response } = result
+            if (response.ok && entry.kind === 'unarchive') {
+                // 204: the restored ticket is the one the entry carries, at
+                // the version the ETag names (the archived version plus one
+                // when the header is somehow absent).
+                const etag = Number(/^(?:W\/)?"(\d+)"$/.exec(response.headers.get('ETag') ?? '')?.[1])
+                const version = Number.isInteger(etag) && etag > 0
+                    ? etag
+                    : (entry.base_version ?? entry.payload.version) + 1
+                return { type: 'ok', ticket: { ...entry.payload, version } }
+            }
             if (response.ok) {
                 return { type: 'ok', ticket: result.data ? toTicket(result.data as TicketBody) : null }
             }

@@ -5,6 +5,7 @@ import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
+import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
@@ -115,6 +116,7 @@ export function AppLayout(props: RouteSectionProps) {
                 toasts={
                     <Show when={sync.active}>
                         <SyncTroubleToast />
+                        <ArchiveUndoToast />
                     </Show>
                 }
             >

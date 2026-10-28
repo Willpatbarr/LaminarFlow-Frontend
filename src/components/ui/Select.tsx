@@ -12,6 +12,8 @@ export type SelectOption = {
 // as a string.
 type SelectProps = {
     label: string
+    /** Keeps the label for screen readers but not the screen. */
+    hideLabel?: boolean
     value: string
     options: SelectOption[]
     onChange: (value: string) => void
@@ -29,7 +31,7 @@ export function Select(props: SelectProps) {
     const errorId = `${id}-error`
     return (
         <div class="input">
-            <label class="input__label t-body" for={id}>
+            <label class={`input__label t-body${props.hideLabel ? ' visually-hidden' : ''}`} for={id}>
                 {props.label}
             </label>
             <select

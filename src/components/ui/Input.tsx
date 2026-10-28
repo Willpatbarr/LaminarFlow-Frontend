@@ -9,6 +9,9 @@ import './Input.css'
 type InputProps = {
     /** Always visible. A placeholder is a hint, not a name. */
     label: string
+    /** Keeps the label for screen readers but not the screen: for a field in a
+     *  row of a list, where the column header already names it. */
+    hideLabel?: boolean
     value: string
     onInput: (value: string) => void
     /** Focus left the control. For a field that saves when you leave it. */
@@ -40,7 +43,7 @@ export function Input(props: InputProps) {
 
     return (
         <div class="input">
-            <label class="input__label t-body" for={id}>
+            <label class={`input__label t-body${props.hideLabel ? ' visually-hidden' : ''}`} for={id}>
                 {props.label}
             </label>
             <input

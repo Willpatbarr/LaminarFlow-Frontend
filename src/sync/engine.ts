@@ -12,6 +12,7 @@ import {
 } from './remote'
 import {
     fieldsOf,
+    isTempId,
     newIdempotencyKey,
     newTempId,
     type EntryError,
@@ -140,6 +141,13 @@ export type SyncEngine = {
      *  nothing queues nothing. */
     updateTicket(id: string, patch: Partial<TicketFields>): Promise<boolean>
     archiveTicket(id: string): Promise<boolean>
+    /** Undoes an archive. `ticket` is the row as it was before it was archived.
+     *  If the archive has not reached the server it is simply withdrawn;
+     *  otherwise an unarchive is queued and the row comes back at once.
+     *  Resolves with the id the ticket has now (a ticket whose create was
+     *  withdrawn by the archive is created again, under a new temporary id),
+     *  or null when there is nothing to undo. */
+    unarchiveTicket(ticket: Ticket): Promise<string | null>
     /** Sends a parked entry again. For a conflict this means "mine wins": it is
      *  resent against the server's current version. False if there is no such
      *  entry or it is on the wire. */
@@ -288,6 +296,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                         updated_by: accountId,
                     }
                 }
+            } else if (entry.kind === 'unarchive') {
+                // The ticket is back as it was, until the server answers.
+                row = { ...entry.payload, updated_at: entry.created_at, updated_by: accountId }
             } else {
                 // An archive hides the ticket until the server has agreed. But
                 // a ticket whose queue is waiting for a person - this archive
@@ -322,7 +333,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // would be no telling the two apart.
     function canFold(entry: OutboxEntry): boolean {
         if (entry.id === inFlight) return false
-        if (entry.kind === 'archive') return false
+        if (entry.kind === 'archive' || entry.kind === 'unarchive') return false
         return entry.attempts === 0 || entry.state !== 'pending'
     }
 
@@ -424,6 +435,56 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         return found
     }
 
+    async function unarchiveTicket(snapshot: Ticket): Promise<string | null> {
+        if (!isRunning()) throw new Error('the sync engine is not running')
+        const id = snapshot.id
+        const result = await db.write(async (tx) => {
+            const entries = await tx.outbox.forTicket(id)
+            const last = entries.at(-1)
+            if (last?.kind === 'archive' && last.id !== inFlight && (last.attempts === 0 || last.state !== 'pending')) {
+                // The server has not applied it (never sent, or refused):
+                // withdrawing it is the whole undo.
+                waits.delete(last.id)
+                await tx.outbox.delete(last.id)
+                await rebuild(tx, id)
+                return id
+            }
+            const visible = await tx.tickets.get(id)
+            if (last?.kind !== 'archive' && visible) return null // not archived
+            if (!visible && entries.length === 0 && isTempId(id)) {
+                // Archiving withdrew the create, so the ticket exists nowhere:
+                // make it again, as the user had it.
+                const fresh = newId()
+                await tx.outbox.add({
+                    kind: 'create',
+                    ticket_id: fresh,
+                    payload: { ...fieldsOf(snapshot), project_id: snapshot.project_id },
+                    idempotency_key: newKey(),
+                    base_version: null,
+                    ...blank(),
+                })
+                await rebuild(tx, fresh)
+                return fresh
+            }
+            await tx.outbox.add({
+                kind: 'unarchive',
+                ticket_id: id,
+                payload: { ...snapshot },
+                // Behind another entry the answer to that one fills it in. Alone,
+                // the ticket is at the version its archive made.
+                base_version: last ? null : (buried.get(id) ?? snapshot.version + 1),
+                ...blank(),
+            })
+            await rebuild(tx, id)
+            return id
+        })
+        if (result !== null) {
+            notify()
+            kick()
+        }
+        return result
+    }
+
     // ── answers from the server ─────────────────────────────────────────────
 
     // The server has this ticket at `server` because of `entry`. Entries queued
@@ -439,6 +500,23 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         await tx.serverTickets.put(server)
         await rebuild(tx, server.id)
         return from === server.id ? {} : { swap: { from, to: server.id } }
+    }
+
+    // The server has archived this ticket, at `version` when that is known.
+    // Normally nothing is queued behind an archive and the ticket is simply
+    // forgotten. An unarchive queued behind it (an undo made while the archive
+    // was on the wire) is kept, and now names the archived version.
+    async function archived(tx: SyncTx, entry: OutboxEntry, version: number | null) {
+        const behind = (await tx.outbox.forTicket(entry.ticket_id)).filter((queued) => queued.id !== entry.id)
+        if (behind.length === 0) {
+            await forget(tx, entry.ticket_id)
+            return
+        }
+        waits.delete(entry.id)
+        await tx.outbox.delete(entry.id)
+        await tx.serverTickets.delete(entry.ticket_id)
+        await tx.outbox.put({ ...behind[0], base_version: version })
+        await rebuild(tx, entry.ticket_id)
     }
 
     async function forget(tx: SyncTx, ticketId: string) {
@@ -458,6 +536,14 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // conflict, and adopting it would silently drop this edit.
     function alreadyApplied(entry: OutboxEntry, conflict: TicketConflict): boolean {
         if (entry.kind === 'archive') return conflict.code === 'ticket_archived'
+        // A restore whose response was lost: the ticket is back, by us, as sent.
+        if (entry.kind === 'unarchive') {
+            return (
+                conflict.code === 'ticket_conflict' &&
+                conflict.changed_by?.account_id === accountId &&
+                sameFields(conflict.current, entry.payload)
+            )
+        }
         return (
             entry.kind === 'update' &&
             conflict.code === 'ticket_conflict' &&
@@ -549,7 +635,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     // Our own archive. Its echo says so; a late echo of an
                     // earlier write must not bring the ticket back before it.
                     if (entry.base_version !== null) buried.set(entry.ticket_id, entry.base_version + 1)
-                    await forget(tx, entry.ticket_id)
+                    await archived(tx, entry, entry.base_version === null ? null : entry.base_version + 1)
                     return {}
 
                 case 'network':
@@ -561,14 +647,17 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     }
                     if (alreadyApplied(entry, outcome.conflict)) {
                         if (entry.kind === 'archive') {
-                            await forget(tx, entry.ticket_id)
+                            await archived(tx, entry, outcome.conflict.current.version)
                             return {}
                         }
                         return adopt(tx, entry, outcome.conflict.current)
                     }
                     // The freshest copy of a live ticket is worth keeping: it
                     // is what a discard goes back to.
-                    if (outcome.conflict.code === 'ticket_conflict') {
+                    // Not for a restore: its 409 can equally describe a ticket
+                    // that is live again or one archived once more, and a
+                    // discard must leave an archived ticket archived.
+                    if (outcome.conflict.code === 'ticket_conflict' && entry.kind !== 'unarchive') {
                         await tx.serverTickets.put(outcome.conflict.current)
                     }
                     return park({ state: 'conflict', conflict: outcome.conflict, error: null })
@@ -913,7 +1002,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         const created = await db.write(async (tx) => {
             const entry = await tx.outbox.get(entryId)
             if (!entry || entryId === inFlight) return null
-            if (entry.kind !== 'update' || entry.state !== 'conflict') return null
+            if ((entry.kind !== 'update' && entry.kind !== 'unarchive') || entry.state !== 'conflict') return null
             // The row is the user's version: the server's copy with every
             // entry of theirs replayed on top, the ones behind the conflict
             // included. It has to be read before `dropFrom` rewrites it.
@@ -1007,6 +1096,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         createTicket,
         updateTicket,
         archiveTicket,
+        unarchiveTicket,
         retry,
         discard,
         keepAsNew,

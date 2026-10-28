@@ -18,6 +18,8 @@ type ButtonProps = {
     size?: 'md' | 'sm'
     /** The id of text that explains what the button does beyond its name. */
     describedBy?: string
+    /** Names the button when its text alone is not enough ("Edit" on every row). */
+    'aria-label'?: string
     /** Receives the <button>, so a dialog can put focus on it. */
     ref?: (el: HTMLButtonElement) => void
 }
@@ -36,6 +38,7 @@ export function Button(props: ButtonProps) {
             class={`button button--${props.variant ?? 'primary'}${props.size === 'sm' ? ' button--sm' : ''}`}
             disabled={props.disabled}
             aria-describedby={props.describedBy}
+            aria-label={props['aria-label']}
             onClick={props.onClick}
         >
             {props.children}

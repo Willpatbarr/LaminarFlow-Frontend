@@ -67,7 +67,7 @@ export type TicketConflict = {
 // failed        the server refused it for good (422 and other 4xx); see `error`
 export type EntryState = 'pending' | 'failed' | 'conflict' | 'unauthorized'
 
-export type EntryKind = 'create' | 'update' | 'archive'
+export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 type EntryBase = {
     /** Auto-incremented by IndexedDB, so id order is the order things were done. */
@@ -101,6 +101,13 @@ export type OutboxEntry = EntryBase &
           }
         | { kind: 'update'; payload: TicketFields }
         | { kind: 'archive'; payload: null }
+        | {
+              kind: 'unarchive'
+              /** The ticket as it was when it was archived. The server's copy
+               *  of an archived ticket is gone from this device, so the row
+               *  that comes back has to come from the entry. */
+              payload: Ticket
+          }
     )
 
 /** An entry before IndexedDB has numbered it. */
