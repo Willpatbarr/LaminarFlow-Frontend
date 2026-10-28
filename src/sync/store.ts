@@ -25,12 +25,17 @@ import {
     type Visibility,
 } from './socket'
 import type {
+    Doc,
+    DocFields,
+    NewDoc,
     NewTicket,
     OutboxEntry,
     Project,
     Status,
     Team,
     Ticket,
+    TicketEntry,
+    DocEntry,
     TicketFields,
     TicketSyncState,
 } from './types'
@@ -44,6 +49,8 @@ import type {
 ║      currentProject, selectProject          the project picker's state, remembered
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
+║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
+║      archiveDocument, unarchiveDocument           the same, for documents (LAM-125)
 ║      retry, discard, keepAsNew, resume, rehydrate   for the error and conflict screens
 ║      resumeFor, retryNow                         after a re-login (same account only); skip the backoff
 ║      ticketHead, archiveOnHold, unsyncedCount    a ticket's queue head; whether its archive is parked; how many changes are unsent
@@ -77,11 +84,13 @@ export type SyncState = {
     statuses: Status[]
     /** Every ticket, as the user should see it: unsent edits included. */
     tickets: Ticket[]
+    /** Every document, as the user should see it: unsent edits included. */
+    documents: Doc[]
     /** Oldest first. Empty means everything has reached the server. */
     outbox: OutboxEntry[]
     /** The project the user last picked, if it still exists. */
     projectId: string | null
-    /** Temporary id -> the id the server gave that ticket, for this session. */
+    /** Temporary id -> the id the server gave that ticket or document, for this session. */
     aliases: Record<string, string>
 }
 
@@ -98,6 +107,7 @@ function empty(): SyncState {
         projects: [],
         statuses: [],
         tickets: [],
+        documents: [],
         outbox: [],
         projectId: null,
         aliases: {},
@@ -140,7 +150,9 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
         if (change.swap) {
             const { from, to } = change.swap
             draft.aliases[from] = to
-            const row = draft.tickets.find((ticket) => ticket.id === from)
+            const row =
+                draft.tickets.find((ticket) => ticket.id === from) ??
+                draft.documents.find((document) => document.id === from)
             if (row) row.id = to
         }
     })
@@ -156,6 +168,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             reconcile(snapshot.projects, 'id')(draft.projects)
             reconcile(snapshot.statuses, 'id')(draft.statuses)
             reconcile(snapshot.tickets, 'id')(draft.tickets)
+            reconcile(snapshot.documents, 'id')(draft.documents)
             reconcile(snapshot.outbox, 'id')(draft.outbox)
         })
         flush()
@@ -369,10 +382,17 @@ export async function selectProject(projectId: string): Promise<void> {
     await current?.db.setMeta(META_PROJECT, projectId)
 }
 
-/** The id to use now for a ticket that may have been created under a
- *  temporary one. Any other id comes back unchanged. */
-export function resolveTicketId(id: string): string {
+/** The id to use now for a ticket or document that may have been created under
+ *  a temporary one. Any other id comes back unchanged. */
+export function resolveId(id: string): string {
     return state.aliases[id] ?? id
+}
+
+export const resolveTicketId = resolveId
+
+export function documentById(id: string): Doc | undefined {
+    const resolved = resolveId(id)
+    return state.documents.find((document) => document.id === resolved)
 }
 
 export function ticketById(id: string): Ticket | undefined {
@@ -389,14 +409,15 @@ export function statusesForProject(projectId: string): Status[] {
         .toSorted((a, b) => a.position - b.position || a.name.localeCompare(b.name))
 }
 
-// One pass over the outbox instead of one per row. The first entry seen for a
-// ticket is the head of its queue, and the head is the one that decides: it is
-// the only one that can be parked.
+// One pass over the outbox instead of one per row. The first entry seen for an
+// entity is the head of its queue, and the head is the one that decides: it is
+// the only one that can be parked. Ids are unique across entities, so one map
+// serves them all.
 const queueHeads = createRoot(() =>
     createMemo(() => {
         const heads = new Map<string, OutboxEntry>()
         for (const entry of state.outbox) {
-            if (!heads.has(entry.ticket_id)) heads.set(entry.ticket_id, entry)
+            if (!heads.has(entry.entity_id)) heads.set(entry.entity_id, entry)
         }
         return heads
     }),
@@ -404,21 +425,34 @@ const queueHeads = createRoot(() =>
 
 /** `synced` when nothing is waiting for this ticket, otherwise why it waits. */
 export function ticketSyncState(id: string): TicketSyncState {
-    return queueHeads().get(resolveTicketId(id))?.state ?? 'synced'
+    return ticketHead(id)?.state ?? 'synced'
 }
 
 /** The entry at the head of this ticket's queue - the one that is waiting,
  *  failing or parked - or undefined when the ticket is in sync. Its `error`
  *  says what the last attempt got; its `payload` is what the user asked for. */
-export function ticketHead(id: string): OutboxEntry | undefined {
-    return queueHeads().get(resolveTicketId(id))
+export function ticketHead(id: string): TicketEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'ticket' ? head : undefined
+}
+
+/** `synced` when nothing is waiting for this document, otherwise why it waits. */
+export function documentSyncState(id: string): TicketSyncState {
+    return documentHead(id)?.state ?? 'synced'
+}
+
+/** The entry at the head of this document's queue, or undefined when it is in
+ *  sync. As `ticketHead`. */
+export function documentHead(id: string): DocEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'document' ? head : undefined
 }
 
 /** True for a ticket whose archive the server refused or collided with. The row
  *  is kept for it (see `rebuild` in the engine) so that its page can say so;
  *  this is what tells a list that such a row is not an ordinary one. */
 export function archiveOnHold(id: string): boolean {
-    const head = queueHeads().get(resolveTicketId(id))
+    const head = ticketHead(id)
     return head?.kind === 'archive' && (head.state === 'conflict' || head.state === 'failed')
 }
 
@@ -459,6 +493,32 @@ export async function archiveTicket(id: string): Promise<boolean> {
  *  or null when there was nothing to undo. */
 export async function unarchiveTicket(ticket: Ticket): Promise<string | null> {
     const id = await running().engine.unarchiveTicket({ ...ticket, id: resolveTicketId(ticket.id) })
+    await caughtUp()
+    return id
+}
+
+export async function createDocument(document: NewDoc): Promise<Doc> {
+    const created = await running().engine.createDocument(document)
+    await caughtUp()
+    return created
+}
+
+export async function updateDocument(id: string, patch: Partial<DocFields>): Promise<boolean> {
+    const found = await running().engine.updateDocument(resolveId(id), patch)
+    await caughtUp()
+    return found
+}
+
+export async function archiveDocument(id: string): Promise<boolean> {
+    const found = await running().engine.archiveDocument(resolveId(id))
+    await caughtUp()
+    return found
+}
+
+/** Undoes an archive. Pass the document as it was before it was archived. As
+ *  `unarchiveTicket`. */
+export async function unarchiveDocument(document: Doc): Promise<string | null> {
+    const id = await running().engine.unarchiveDocument({ ...document, id: resolveId(document.id) })
     await caughtUp()
     return id
 }

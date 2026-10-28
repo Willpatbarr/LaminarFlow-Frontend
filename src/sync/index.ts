@@ -6,10 +6,16 @@ export { connectSyncToSession } from './session'
 export { isTempId } from './types'
 export type { ConnectionState } from './socket'
 export type {
+    DocConflict,
+    DocEntry,
+    DocFields,
+    Doc,
+    EntityName,
     EntryError,
     EntryKind,
     EntryState,
     FieldError,
+    NewDoc,
     NewTicket,
     OutboxEntry,
     Project,
@@ -17,6 +23,7 @@ export type {
     Team,
     Ticket,
     TicketConflict,
+    TicketEntry,
     TicketFields,
     TicketSyncState,
 } from './types'

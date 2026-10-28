@@ -9,6 +9,9 @@ import {
 
 import {
     newIdempotencyKey,
+    type Doc,
+    type EntityName,
+    type EntityRows,
     type NewOutboxEntry,
     type OutboxEntry,
     type Project,
@@ -32,7 +35,9 @@ import {
 // `tickets` is what the screen shows: the server's copy with the user's unsent
 // edits on top. `server_tickets` is the server's copy alone. Keeping both is
 // what lets a discarded edit put the row back, and lets a refresh from the
-// server land without touching a row the user is still editing.
+// server land without touching a row the user is still editing. Every entity
+// the engine carries has such a pair (`documents` / `server_documents`, ...),
+// named in `ENTITY_STORES`; the outbox is one table for all of them.
 interface Schema extends DBSchema {
     meta: { key: string; value: unknown }
     teams: { key: string; value: Team }
@@ -40,8 +45,16 @@ interface Schema extends DBSchema {
     statuses: { key: string; value: Status }
     tickets: { key: string; value: Ticket }
     server_tickets: { key: string; value: Ticket }
-    outbox: { key: number; value: OutboxEntry; indexes: { ticket_id: string } }
+    documents: { key: string; value: Doc }
+    server_documents: { key: string; value: Doc }
+    outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
+
+/** The two tables each entity keeps: what the screen shows, and the server's copy. */
+const ENTITY_STORES = {
+    ticket: { rows: 'tickets', server: 'server_tickets' },
+    document: { rows: 'documents', server: 'server_documents' },
+} as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
     'meta',
@@ -50,12 +63,21 @@ const STORES = [
     'statuses',
     'tickets',
     'server_tickets',
+    'documents',
+    'server_documents',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
 type WriteTx = IDBPTransaction<Schema, typeof STORES, 'readwrite'>
 
-type RowStore = 'teams' | 'projects' | 'statuses' | 'tickets' | 'server_tickets'
+type RowStore =
+    | 'teams'
+    | 'projects'
+    | 'statuses'
+    | 'tickets'
+    | 'server_tickets'
+    | 'documents'
+    | 'server_documents'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -69,8 +91,9 @@ export type OutboxTable = {
     get(id: number): Promise<OutboxEntry | undefined>
     /** Every entry, oldest first. */
     all(): Promise<OutboxEntry[]>
-    /** One ticket's entries, oldest first. */
-    forTicket(ticketId: string): Promise<OutboxEntry[]>
+    /** One entity's entries, oldest first. Ids are unique across entities, so
+     *  the id alone names the queue. */
+    forEntity(entityId: string): Promise<OutboxEntry[]>
     add(entry: NewOutboxEntry): Promise<OutboxEntry>
     put(entry: OutboxEntry): Promise<void>
     delete(id: number): Promise<void>
@@ -82,7 +105,18 @@ export type SyncTx = {
     statuses: Table<Status>
     tickets: Table<Ticket>
     serverTickets: Table<Ticket>
+    documents: Table<Doc>
+    serverDocuments: Table<Doc>
+    /** The pair of tables of one entity, for code that works on any of them. */
+    entity<N extends EntityName>(name: N): EntityTables<EntityRows[N]>
     outbox: OutboxTable
+}
+
+export type EntityTables<Row> = {
+    /** What the screen shows: the server's copy with unsent changes on top. */
+    rows: Table<Row>
+    /** The server's copy alone. */
+    server: Table<Row>
 }
 
 export type Snapshot = {
@@ -90,6 +124,7 @@ export type Snapshot = {
     projects: Project[]
     statuses: Status[]
     tickets: Ticket[]
+    documents: Doc[]
     outbox: OutboxEntry[]
 }
 
@@ -113,7 +148,9 @@ export const DB_NAME = 'laminarflow'
 
 // 1  the first schema.
 // 2  a `create` entry carries the `idempotency_key` every attempt sends (LAM-76).
-export const DB_VERSION = 2
+// 3  any entity goes through the outbox (LAM-125): an entry names its `entity`
+//    and its `entity_id` (was `ticket_id`), and documents get their tables.
+export const DB_VERSION = 3
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -133,15 +170,26 @@ function table<Name extends RowStore>(tx: WriteTx, name: Name): Table<Schema[Nam
     }
 }
 
-async function migrateKeys(
-    store: IDBPObjectStore<Schema, StoreNames<Schema>[], 'outbox', 'versionchange'>,
-    newKey: () => string,
-) {
+type OldStore = IDBPObjectStore<Schema, StoreNames<Schema>[], 'outbox', 'versionchange'>
+
+// Entries are read and rewritten as they were stored, which is not the shape
+// the rest of this file types them as: that is the point of a migration.
+type Stored = Record<string, unknown>
+
+async function migrateKeys(store: OldStore, newKey: () => string) {
     for (let cursor = await store.openCursor(); cursor; cursor = await cursor.continue()) {
-        const entry = cursor.value as OutboxEntry
+        const entry = cursor.value as unknown as Stored
         if (entry.kind === 'create' && !entry.idempotency_key) {
-            await cursor.update({ ...entry, idempotency_key: newKey() })
+            await cursor.update({ ...entry, idempotency_key: newKey() } as unknown as OutboxEntry)
         }
+    }
+}
+
+async function migrateEntities(store: OldStore) {
+    for (let cursor = await store.openCursor(); cursor; cursor = await cursor.continue()) {
+        const { ticket_id, ...rest } = cursor.value as unknown as Stored
+        if (ticket_id === undefined) continue
+        await cursor.update({ ...rest, entity: 'ticket', entity_id: ticket_id } as unknown as OutboxEntry)
     }
 }
 
@@ -152,7 +200,7 @@ function outboxTable(tx: WriteTx): OutboxTable {
         // Keys are auto-incremented numbers and getAll returns in key order, so
         // both lists come back oldest first without sorting.
         all: () => store.getAll(),
-        forTicket: (ticketId) => store.index('ticket_id').getAll(ticketId),
+        forEntity: (entityId) => store.index('entity_id').getAll(entityId),
         add: async (entry) => {
             // The key path is `id` and the store auto-increments, so the entry
             // is stored with the id IndexedDB hands back.
@@ -182,31 +230,52 @@ export async function openSyncDb(
                 upgrading.createObjectStore('server_tickets', { keyPath: 'id' })
                 upgrading
                     .createObjectStore('outbox', { keyPath: 'id', autoIncrement: true })
-                    .createIndex('ticket_id', 'ticket_id')
+                    .createIndex('ticket_id' as 'entity_id', 'ticket_id')
             }
+            if (oldVersion < 3) {
+                upgrading.createObjectStore('documents', { keyPath: 'id' })
+                upgrading.createObjectStore('server_documents', { keyPath: 'id' })
+                // The queue is keyed by entity now. Every entry already stored
+                // is a ticket's. The index is replaced before the entries are
+                // rewritten, and rewriting them is what puts them in it.
+                const outbox = transaction.objectStore('outbox')
+                outbox.deleteIndex('ticket_id' as 'entity_id')
+                outbox.createIndex('entity_id', 'entity_id')
+            }
+            // One chain, one step after another: each step is a cursor over the
+            // same store and they must not interleave.
+            const steps: ((store: OldStore) => Promise<void>)[] = []
             if (oldVersion >= 1 && oldVersion < 2) {
                 // Creates queued before keys existed get one here, in the
                 // upgrade transaction, so no entry is ever read without one.
                 // One that had already been sent and lost its answer cannot be
                 // deduplicated against that earlier attempt (it carried no
                 // key); that is the one duplicate this cannot prevent.
-                migrateKeys(transaction.objectStore('outbox'), newKey).catch(() => transaction.abort())
+                steps.push((store) => migrateKeys(store, newKey))
+            }
+            if (oldVersion >= 1 && oldVersion < 3) steps.push(migrateEntities)
+            if (steps.length > 0) {
+                const store = transaction.objectStore('outbox')
+                steps
+                    .reduce((done, step) => done.then(() => step(store)), Promise.resolve())
+                    .catch(() => transaction.abort())
             }
         },
     })
 
     return {
         async snapshot() {
-            const tx = db.transaction(['teams', 'projects', 'statuses', 'tickets', 'outbox'])
-            const [teams, projects, statuses, tickets, outbox] = await Promise.all([
+            const tx = db.transaction(['teams', 'projects', 'statuses', 'tickets', 'documents', 'outbox'])
+            const [teams, projects, statuses, tickets, documents, outbox] = await Promise.all([
                 tx.objectStore('teams').getAll(),
                 tx.objectStore('projects').getAll(),
                 tx.objectStore('statuses').getAll(),
                 tx.objectStore('tickets').getAll(),
+                tx.objectStore('documents').getAll(),
                 tx.objectStore('outbox').getAll(),
             ])
             await tx.done
-            return { teams, projects, statuses, tickets, outbox }
+            return { teams, projects, statuses, tickets, documents, outbox }
         },
 
         async write(fn) {
@@ -218,6 +287,12 @@ export async function openSyncDb(
                     statuses: table(tx, 'statuses'),
                     tickets: table(tx, 'tickets'),
                     serverTickets: table(tx, 'server_tickets'),
+                    documents: table(tx, 'documents'),
+                    serverDocuments: table(tx, 'server_documents'),
+                    entity: (name) => {
+                        const stores = ENTITY_STORES[name]
+                        return { rows: table(tx, stores.rows), server: table(tx, stores.server) } as never
+                    },
                     outbox: outboxTable(tx),
                 })
                 await tx.done

@@ -2,12 +2,13 @@ import { openDB } from 'idb'
 import { describe, expect, it } from 'vitest'
 
 import { openSyncDb } from './db'
-import { freshDb, ticket } from './testing/harness'
+import { doc, freshDb, ticket } from './testing/harness'
 import type { NewOutboxEntry } from './types'
 
 const entry = (ticketId: string): NewOutboxEntry => ({
     kind: 'archive',
-    ticket_id: ticketId,
+    entity: 'ticket',
+    entity_id: ticketId,
     payload: null,
     base_version: 1,
     state: 'pending',
@@ -28,9 +29,41 @@ describe('the sync database', () => {
         ])
 
         expect(added.map((e) => e.id)).toEqual([1, 2, 3])
-        expect((await db.snapshot()).outbox.map((e) => e.ticket_id)).toEqual(['t-2', 't-1', 't-2'])
-        const forTicket = await db.write((tx) => tx.outbox.forTicket('t-2'))
-        expect(forTicket.map((e) => e.id)).toEqual([1, 3])
+        expect((await db.snapshot()).outbox.map((e) => e.entity_id)).toEqual(['t-2', 't-1', 't-2'])
+        const forEntity = await db.write((tx) => tx.outbox.forEntity('t-2'))
+        expect(forEntity.map((e) => e.id)).toEqual([1, 3])
+    })
+
+    it('keeps every entity in its own pair of tables, behind one lookup, and clears them with the rest', async () => {
+        const db = await freshDb()
+        await db.write(async (tx) => {
+            await tx.entity('ticket').rows.put(ticket({ id: 'x-1' }))
+            await tx.entity('document').rows.put(doc({ id: 'x-1', title: 'Local' }))
+            await tx.entity('document').server.put(doc({ id: 'x-1', title: 'Server' }))
+            await tx.outbox.add({
+                kind: 'archive',
+                entity: 'document',
+                entity_id: 'x-1',
+                payload: null,
+                base_version: 1,
+                state: 'pending',
+                attempts: 0,
+                error: null,
+                conflict: null,
+                created_at: '2026-01-01T00:00:00Z',
+            })
+        })
+
+        const snapshot = await db.snapshot()
+        expect(snapshot.tickets).toMatchObject([{ id: 'x-1', title: 'Write the outbox' }])
+        expect(snapshot.documents).toMatchObject([{ id: 'x-1', title: 'Local' }])
+        expect(await db.write((tx) => tx.serverTickets.all())).toEqual([])
+        expect(await db.write((tx) => tx.serverDocuments.all())).toMatchObject([{ title: 'Server' }])
+        expect(snapshot.outbox).toMatchObject([{ entity: 'document', entity_id: 'x-1' }])
+
+        await db.clear()
+        expect(await db.write((tx) => tx.entity('document').server.all())).toEqual([])
+        expect((await db.snapshot()).documents).toEqual([])
     })
 
     it('commits a write transaction as a whole, or not at all', async () => {
@@ -78,6 +111,7 @@ describe('the sync database', () => {
             projects: [],
             statuses: [],
             tickets: [],
+            documents: [],
             outbox: [],
         })
         expect(await db.getMeta('account_id')).toBeUndefined()
@@ -85,7 +119,42 @@ describe('the sync database', () => {
     })
 })
 
-describe('the upgrade from version 1 (LAM-76)', () => {
+describe('the upgrade from version 2 (LAM-125)', () => {
+    it('names every queued entry\'s entity and opens the document tables', async () => {
+        const name = `upgrade2-${Math.random().toString(36).slice(2)}`
+        const old = await openDB(name, 2, {
+            upgrade(db) {
+                db.createObjectStore('meta')
+                for (const store of ['teams', 'projects', 'statuses', 'tickets', 'server_tickets']) {
+                    db.createObjectStore(store, { keyPath: 'id' })
+                }
+                db.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true }).createIndex('ticket_id', 'ticket_id')
+            },
+        })
+        const common = { state: 'pending', attempts: 0, error: null, conflict: null, created_at: '2026-01-01T00:00:00Z' }
+        await old.add('outbox', { ...common, kind: 'create', ticket_id: 'tmp_a', base_version: null, idempotency_key: 'k1', payload: { title: 'A', project_id: 'p-1' } })
+        await old.add('outbox', { ...common, kind: 'update', ticket_id: 'tmp_a', base_version: null, payload: { title: 'B' } })
+        await old.add('outbox', { ...common, kind: 'archive', ticket_id: 't-2', base_version: 1, payload: null })
+        old.close()
+
+        const db = await openSyncDb(name)
+
+        const { outbox, documents } = await db.snapshot()
+        expect(outbox).toMatchObject([
+            { id: 1, entity: 'ticket', entity_id: 'tmp_a', idempotency_key: 'k1' },
+            { id: 2, entity: 'ticket', entity_id: 'tmp_a' },
+            { id: 3, entity: 'ticket', entity_id: 't-2' },
+        ])
+        expect(outbox.some((e) => 'ticket_id' in e)).toBe(false)
+        expect((await db.write((tx) => tx.outbox.forEntity('tmp_a'))).map((e) => e.id)).toEqual([1, 2])
+        expect(documents).toEqual([])
+        await db.write((tx) => tx.entity('document').rows.put(doc()))
+        expect((await db.snapshot()).documents).toMatchObject([{ id: 'd-1' }])
+        db.close()
+    })
+})
+
+describe('the upgrade from version 1 (LAM-76, LAM-125)', () => {
     // A database exactly as the previous release left it: version 1, creates
     // without a key.
     async function version1(name: string) {
@@ -111,7 +180,7 @@ describe('the upgrade from version 1 (LAM-76)', () => {
         old.close()
     }
 
-    it('gives every create that has no key one, and touches nothing else', async () => {
+    it('gives every create that has no key one, names the entity of every entry, and touches nothing else', async () => {
         const name = `upgrade-${Math.random().toString(36).slice(2)}`
         await version1(name)
         let made = 0
@@ -126,7 +195,10 @@ describe('the upgrade from version 1 (LAM-76)', () => {
             [4, 'archive', undefined],
         ])
         // Everything else, as it was.
-        expect(outbox[2]).toMatchObject({ ticket_id: 'tmp_b', attempts: 2, payload: { title: 'B' } })
+        expect(outbox[2]).toMatchObject({ entity: 'ticket', entity_id: 'tmp_b', attempts: 2, payload: { title: 'B' } })
+        expect(outbox.every((entry) => entry.entity === 'ticket' && !('ticket_id' in entry))).toBe(true)
+        // Still found by the queue lookup, which is what the index is for.
+        expect((await db.write((tx) => tx.outbox.forEntity('t-1'))).map((entry) => entry.id)).toEqual([2])
         expect(tickets).toMatchObject([{ id: 'tmp_a' }])
         expect(await db.getMeta('account_id')).toBe('acc-me')
         db.close()
@@ -150,7 +222,8 @@ describe('the upgrade from version 1 (LAM-76)', () => {
         await db.write(async (tx) => {
             await tx.outbox.add({
                 kind: 'create',
-                ticket_id: 'tmp_1',
+                entity: 'ticket',
+                entity_id: 'tmp_1',
                 payload: { title: 'A', description: '', status_id: null, assignee_id: null, project_id: 'p-1' },
                 idempotency_key: 'k',
                 base_version: null,

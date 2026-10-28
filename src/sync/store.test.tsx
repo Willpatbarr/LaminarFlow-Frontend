@@ -8,8 +8,13 @@ import { ok, problem, stubFetch } from '@/testing/fetch'
 import { openSyncDb } from './db'
 import { connectSyncToSession } from './session'
 import {
+    archiveDocument,
+    createDocument,
     createTicket,
     discard,
+    documentById,
+    documentSyncState,
+    updateDocument,
     isLoading,
     needsSetup,
     parkedEntries,
@@ -21,7 +26,7 @@ import {
     updateTicket,
     wipeLocalData,
 } from './store'
-import { deferred, listRoutes, manualConnectivity, ME, ticket } from './testing/harness'
+import { deferred, doc, docBody, listRoutes, manualConnectivity, ME, ticket } from './testing/harness'
 
 let names = 0
 const freshName = () => `store-test-${++names}-${Math.random().toString(36).slice(2)}`
@@ -72,6 +77,7 @@ describe('the reactive store', () => {
             'POST /api/v1/teams/list': () => ok({ items: [], next_cursor: null, has_more: false }),
             'POST /api/v1/projects/list': () => ok({ items: null, next_cursor: null, has_more: false }),
             'POST /api/v1/tickets/list': () => ok({ items: [], next_cursor: null, has_more: false }),
+            'POST /api/v1/documents/list': () => ok({ items: [], next_cursor: null, has_more: false }),
         })
         await startSync(ME, { dbName: freshName() })
         await settled(() => expect(needsSetup()).toBe(true))
@@ -138,13 +144,49 @@ describe('the reactive store', () => {
         await updateTicket('t-1', { title: '' })
         await settled(() => expect(ticketSyncState('t-1')).toBe('failed'))
         expect(parkedEntries()).toMatchObject([
-            { ticket_id: 't-1', state: 'failed', error: { status: 422 } },
+            { entity_id: 't-1', state: 'failed', error: { status: 422 } },
         ])
 
         await discard(parkedEntries()[0].id)
 
         expect(parkedEntries()).toEqual([])
         expect(ticketById('t-1')?.title).toBe('Write the outbox')
+    })
+
+    it('carries documents through the same store: mirrored, edited, synced, archived', async () => {
+        const answer = deferred()
+        stubFetch({
+            ...listRoutes([ticket()], [doc()]),
+            'POST /api/v1/documents': () => answer.promise,
+            'PUT /api/v1/documents/d-1': () => ok(docBody({ title: 'Renamed', version: 2 })),
+            'DELETE /api/v1/documents/d-1': () => new Response(null, { status: 204, headers: { ETag: '"3"' } }),
+        })
+        await startSync(ME, { dbName: freshName() })
+        await settled(() => expect(sync.documents).toEqual([doc()]))
+
+        await updateDocument('d-1', { title: 'Renamed' })
+        expect(documentById('d-1')?.title).toBe('Renamed')
+        await settled(() => expect(documentSyncState('d-1')).toBe('synced'))
+        expect(documentById('d-1')).toMatchObject({ title: 'Renamed', version: 2 })
+
+        const created = await createDocument({
+            title: 'Fresh',
+            type: 'normal',
+            aspect_type_id: null,
+            body: {},
+            team_id: null,
+            project_id: 'p-1',
+        })
+        expect(documentSyncState(created.id)).toBe('pending')
+        answer.resolve(ok(docBody({ id: 'd-9', title: 'Fresh', version: 1 })))
+        await settled(() => expect(sync.outbox).toEqual([]))
+        // The temporary id still finds it, and the ticket list is untouched.
+        expect(documentById(created.id)?.id).toBe('d-9')
+        expect(sync.tickets).toEqual([ticket()])
+
+        expect(await archiveDocument('d-1')).toBe(true)
+        await settled(() => expect(sync.outbox).toEqual([]))
+        expect(sync.documents.map((d) => d.id)).toEqual(['d-9'])
     })
 
     it('retries when the browser comes back online', async () => {
@@ -208,6 +250,7 @@ describe('data is per account', () => {
                 projects: [],
                 statuses: [],
                 tickets: [],
+                documents: [],
                 outbox: [],
             })
             expect(await db.getMeta('account_id')).toBeUndefined()

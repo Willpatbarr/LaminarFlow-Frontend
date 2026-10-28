@@ -109,7 +109,7 @@ describe('what the server accepts and refuses', () => {
     const [refused] = await outbox(rig)
     expect(refused.state).toBe('failed')
 
-    await rig.engine.updateTicket(refused.ticket_id, { title: 'Corrected' })
+    await rig.engine.updateTicket(refused.entity_id, { title: 'Corrected' })
     await eventually('sent again', async () => ((await outbox(rig)).length === 0 ? true : undefined))
 
     const posts = rig.requests.filter((r) => r.method === 'POST' && r.path === '/api/v1/tickets')

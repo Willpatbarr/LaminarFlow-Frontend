@@ -46,7 +46,7 @@ describe('a stale edit', () => {
     await rig.engine.idle()
 
     const [entry] = await outbox(rig)
-    expect(entry).toMatchObject({ kind: 'update', state: 'conflict', ticket_id: ticket.id, base_version: 1 })
+    expect(entry).toMatchObject({ kind: 'update', state: 'conflict', entity_id: ticket.id, base_version: 1 })
     expect(entry.error).toBeNull()
     expect(entry.conflict).toMatchObject({
       code: 'ticket_conflict',

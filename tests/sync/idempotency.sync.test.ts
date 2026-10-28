@@ -159,7 +159,7 @@ describe('a create whose response is lost', () => {
 
       expect(parked).toMatchObject({
         kind: 'update',
-        ticket_id: created.id,
+        entity_id: created.id,
         conflict: { code: 'ticket_archived', changed_by: { account_id: other.accountId } },
       })
       expect(await localTicket(rig, created.id)).toMatchObject({ title: 'Mine, typed after' })

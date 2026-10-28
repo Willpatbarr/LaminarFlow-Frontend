@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "AddColumnInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/AddColumnInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "status_ids": {
+            "description": "Statuses of the board's team for the new column to hold. Optional; none by default.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "AddFieldInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -90,28 +123,103 @@
         ],
         "type": "object"
       },
-      "ColumnBody": {
+      "BoardBody": {
         "additionalProperties": false,
         "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/BoardBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "columns": {
+            "description": "In position order.",
+            "items": {
+              "$ref": "#/components/schemas/ColumnBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "group_by": {
+            "description": "How tickets are grouped into columns. status is the only value.",
+            "enum": [
+              "status"
+            ],
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "position": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "status_id": {
+          "project_id": {
             "type": "string"
           }
         },
         "required": [
           "id",
+          "project_id",
+          "name",
+          "group_by",
+          "columns"
+        ],
+        "type": "object"
+      },
+      "ColumnBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ColumnBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "board_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_visible": {
+            "description": "Whether the board shows the column. Stored per board, because a column belongs to one board.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "The column's own label. Not a status name: one column may hold several statuses.",
+            "type": "string"
+          },
+          "position": {
+            "description": "An ordering hint, not a slot. Duplicates are legal; ties read in id order.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "status_ids": {
+            "description": "The statuses whose tickets this column shows. A status is in at most one column of a board.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "board_id",
           "name",
           "position",
-          "status_id"
+          "is_visible",
+          "status_ids"
         ],
         "type": "object"
       },
@@ -134,6 +242,40 @@
           "field",
           "op"
         ],
+        "type": "object"
+      },
+      "Config": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "description": "The visible columns, in order, by ticket field name. Each at most once.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "filter": {
+            "$ref": "#/components/schemas/Group",
+            "description": "The filter language of POST /tickets/list, over the ticket vocabulary. Omit for none."
+          },
+          "group": {
+            "description": "A ticket filter field to group by. Multi-valued fields (label, sprint) cannot be grouped. Omit for ungrouped.",
+            "type": "string"
+          },
+          "sort": {
+            "description": "Sort keys, most significant first, over the ticket vocabulary.",
+            "items": {
+              "$ref": "#/components/schemas/Order"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
         "type": "object"
       },
       "CreateAspectTypeInputBody": {
@@ -159,6 +301,206 @@
         },
         "required": [
           "team_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateBoardInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateBoardInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "group_by": {
+            "default": "status",
+            "description": "Only status is legal. Optional.",
+            "enum": [
+              "status"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateDocumentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateDocumentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "aspect_type_id": {
+            "description": "Required when type is aspect, forbidden otherwise (422 at body.aspect_type_id). An aspect type that is absent or another workspace's is a 404 aspect_type_not_found.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Field id to Markdown string. For an aspect document every key must be a field id of its type, or the answer is a 422 document_field_unknown at body.\u003ckey\u003e. A normal document keeps its text under content.",
+            "type": "object"
+          },
+          "project_id": {
+            "description": "File the document under a project. Not the caller's: 422 project_not_found at body.project_id.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "description": "File the document under a team. At most one of team_id and project_id; neither is a workspace-level document. Fixed at creation. Not the caller's: 422 team_not_found at body.team_id.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "description": "Up to 200 characters (not bytes). Omit for an untitled document.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "type": {
+            "default": "normal",
+            "enum": [
+              "normal",
+              "aspect"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CreateEpicInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateEpicInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "description": {
+            "description": "Up to 50,000 characters (not bytes). Omit for none.",
+            "maxLength": 50000,
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateLabelInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateLabelInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "color": {
+            "description": "Any string up to 32 characters; nothing reads it but the client.",
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace. Unique within the team, or 409 label_name_taken.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "team_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "color"
+        ],
+        "type": "object"
+      },
+      "CreateMilestoneInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateMilestoneInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "description": {
+            "description": "Up to 50,000 characters (not bytes). Omit for none.",
+            "maxLength": 50000,
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "target_date": {
+            "description": "YYYY-MM-DD. Omit, or null, for none.",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
           "name"
         ],
         "type": "object"
@@ -194,6 +536,145 @@
         "required": [
           "team_id",
           "name"
+        ],
+        "type": "object"
+      },
+      "CreateSavedViewInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateSavedViewInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "board_id": {
+            "description": "Required when layout is board, and refused when it is list. A board of the team, and of the project when one is given.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/Config",
+            "description": "Omit for an empty config."
+          },
+          "is_shared": {
+            "description": "Default false: private to you.",
+            "type": "boolean"
+          },
+          "layout": {
+            "enum": [
+              "list",
+              "board"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project_id": {
+            "description": "Scope the view to one project of the team. Omit for the whole team.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "team_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "layout"
+        ],
+        "type": "object"
+      },
+      "CreateSprintInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateSprintInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "end_date": {
+            "description": "YYYY-MM-DD. Before start_date is a 422 at body.end_date. Omit, or null, for none.",
+            "format": "date",
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "start_date": {
+            "description": "YYYY-MM-DD. Omit, or null, for none.",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateStatusInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateStatusInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "not_started",
+              "in_progress",
+              "done"
+            ],
+            "type": "string"
+          },
+          "color": {
+            "description": "Any string up to 32 characters; nothing reads it but the client.",
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters, and not only whitespace.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "position": {
+            "description": "An ordering hint; duplicates are legal. Omitted means last.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "category"
         ],
         "type": "object"
       },
@@ -256,6 +737,32 @@
             "maxLength": 50000,
             "type": "string"
           },
+          "epic_id": {
+            "description": "Must be an epic of the ticket's project, or a 422 epic_not_found. Omit, or null, for none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label_ids": {
+            "description": "Labels of the project's team. An id that is not one is a 422 label_not_found at body.label_ids[i]. Omit for none.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "milestone_id": {
+            "description": "Must be a milestone of the ticket's project, or a 422 milestone_not_found. Omit, or null, for none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "project_id": {
             "format": "uuid",
             "type": "string"
@@ -278,6 +785,105 @@
         "required": [
           "project_id",
           "title"
+        ],
+        "type": "object"
+      },
+      "CreateTokenInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateTokenInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "Must be in the future. Null or omitted never expires.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "description": "Shown in the token list. 1 to 100 characters, and not only whitespace.",
+            "examples": [
+              "CI deploy key"
+            ],
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scopes": {
+            "description": "Permission names, as in the permissions of GET /auth/me. An unknown name is 422 unknown_scope. An empty list makes a token that can do nothing.",
+            "examples": [
+              [
+                "ticket:read"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "scopes"
+        ],
+        "type": "object"
+      },
+      "CreatedTokenBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreatedTokenBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "Null never expires.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "token": {
+            "description": "The credential, for the Authorization: Bearer header. Shown here and nowhere else; it cannot be recovered.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "scopes",
+          "created_at",
+          "expires_at",
+          "token"
         ],
         "type": "object"
       },
@@ -307,6 +913,329 @@
         "required": [
           "private_views_deleted",
           "shared_views_kept"
+        ],
+        "type": "object"
+      },
+      "DocumentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/DocumentBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "archived_at": {
+            "description": "Null while live. Set on an archived document, which only a 409's current and a document.archived event ever show.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aspect_type_id": {
+            "description": "Set exactly when type is aspect; null otherwise.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "additionalProperties": {},
+            "description": "Keyed by aspect type field id; each value is a Markdown string (docs/adr/0006). A normal document keeps its text under the key content. A field with no value is an absent key.",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "description": "The project the document is filed under. Null for a team's or a workspace-level document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "description": "The team the document is filed under. Null for a project's or a workspace-level document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "normal",
+              "aspect"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "When the document last changed - an edit, an archive or a restore. For display; to compare versions use version.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Starts at 1 and rises by exactly 1 on every update, archive and unarchive. Send it back as If-Match to make a write conditional; also in the ETag header.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type",
+          "aspect_type_id",
+          "team_id",
+          "project_id",
+          "body",
+          "version",
+          "created_at",
+          "updated_at",
+          "archived_at"
+        ],
+        "type": "object"
+      },
+      "DocumentConflict": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/DocumentConflict.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "changed_at": {
+            "description": "When the copy last changed: current.updated_at.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "code": {
+            "description": "The document was edited or archived since the version you sent; current.archived_at says which.",
+            "enum": [
+              "document_conflict"
+            ],
+            "examples": [
+              "document_conflict"
+            ],
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/DocumentBody",
+            "description": "The server's copy of the document right now, in the shape of GET /documents/{id} - including when it is archived, which GET never returns."
+          },
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence of the problem.",
+            "examples": [
+              "Property foo is required but is missing."
+            ],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Optional list of individual error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "instance": {
+            "description": "A URI reference that identifies the specific occurrence of the problem.",
+            "examples": [
+              "https://example.com/error-log/abc123"
+            ],
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP status code",
+            "examples": [
+              400
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem type. This value should not change between occurrences of the error.",
+            "examples": [
+              "Bad Request"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "description": "A URI reference to human-readable documentation for the error.",
+            "examples": [
+              "https://example.com/errors/example"
+            ],
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "current",
+          "changed_at"
+        ],
+        "type": "object"
+      },
+      "DocumentDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/DocumentDetailBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "archived_at": {
+            "description": "Null while live. Set on an archived document, which only a 409's current and a document.archived event ever show.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aspect_type_id": {
+            "description": "Set exactly when type is aspect; null otherwise.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "additionalProperties": {},
+            "description": "Keyed by aspect type field id; each value is a Markdown string (docs/adr/0006). A normal document keeps its text under the key content. A field with no value is an absent key.",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "description": "The project the document is filed under. Null for a team's or a workspace-level document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "description": "The team the document is filed under. Null for a project's or a workspace-level document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tickets": {
+            "description": "The tickets linked to this document, oldest link first, archived ones included. Never null; empty for none.",
+            "items": {
+              "$ref": "#/components/schemas/LinkedTicketBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "normal",
+              "aspect"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "When the document last changed - an edit, an archive or a restore. For display; to compare versions use version.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Starts at 1 and rises by exactly 1 on every update, archive and unarchive. Send it back as If-Match to make a write conditional; also in the ETag header.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tickets",
+          "id",
+          "title",
+          "type",
+          "aspect_type_id",
+          "team_id",
+          "project_id",
+          "body",
+          "version",
+          "created_at",
+          "updated_at",
+          "archived_at"
+        ],
+        "type": "object"
+      },
+      "EpicBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/EpicBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "description": "Never null; empty when unset.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "name",
+          "description",
+          "created_at",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -433,6 +1362,29 @@
         ],
         "type": "object"
       },
+      "FieldUsageOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/FieldUsageOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "document_count": {
+            "description": "Documents of this type that hold a value under the field's id, archived ones included. Zero means removing the field loses nothing.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_count"
+        ],
+        "type": "object"
+      },
       "Group": {
         "additionalProperties": false,
         "properties": {
@@ -464,6 +1416,419 @@
         ],
         "type": "object"
       },
+      "LabelBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/LabelBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "color": {
+            "description": "Any string up to 32 characters; nothing reads it but the client.",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "description": "Unique within the team.",
+            "type": "string"
+          },
+          "team_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "team_id",
+          "name",
+          "color",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "LinkDocumentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/LinkDocumentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "document_id": {
+            "description": "The document to link. Unknown, or in another workspace than the ticket: 404 not_found. Archived is fine.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id"
+        ],
+        "type": "object"
+      },
+      "LinkedDocumentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "archived_at": {
+            "description": "Null while live. A link survives an archive, so an archived document is listed with this set.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aspect_type_id": {
+            "description": "Set exactly when type is aspect; null otherwise.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "normal",
+              "aspect"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type",
+          "aspect_type_id",
+          "archived_at"
+        ],
+        "type": "object"
+      },
+      "LinkedTicketBody": {
+        "additionalProperties": false,
+        "properties": {
+          "archived_at": {
+            "description": "Null while live. A link survives an archive, so an archived ticket is listed with this set.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "archived_at"
+        ],
+        "type": "object"
+      },
+      "ListBoardsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListBoardsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "ListDocumentsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListDocumentsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "archived": {
+            "description": "List archived documents instead of live ones. Default false.",
+            "type": "boolean"
+          },
+          "aspect_type_id": {
+            "description": "Only documents of this aspect type.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cursor": {
+            "description": "next_cursor from the previous page. Opaque - do not construct or parse it.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Rows per page. Omitted means 50. Over the maximum is rejected, not clamped.",
+            "format": "int64",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "project_id": {
+            "description": "Only documents filed under this project.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "description": "Only documents filed under this team.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "description": "Only documents of this type.",
+            "enum": [
+              "normal",
+              "aspect"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ListEnvelopeBoardBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeBoardBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BoardBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeDocumentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeDocumentBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeEpicBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeEpicBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EpicBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeLabelBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeLabelBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LabelBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeMilestoneBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeMilestoneBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MilestoneBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
       "ListEnvelopeProjectBody": {
         "additionalProperties": false,
         "properties": {
@@ -482,6 +1847,84 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/ProjectBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeSavedViewBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeSavedViewBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedViewBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeSprintBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeSprintBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SprintBody"
             },
             "type": [
               "array",
@@ -581,6 +2024,72 @@
         ],
         "type": "object"
       },
+      "ListEpicsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEpicsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "ListLabelsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListLabelsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "team_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id"
+        ],
+        "type": "object"
+      },
+      "ListMilestonesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListMilestonesInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
       "ListRequest": {
         "additionalProperties": false,
         "properties": {
@@ -619,6 +2128,91 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "ListSavedViewsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListSavedViewsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "cursor": {
+            "description": "next_cursor from the previous page. Opaque - do not construct or parse it.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Rows per page. Omitted means 50. Over the maximum is rejected, not clamped.",
+            "format": "int64",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "project_id": {
+            "description": "With it, that project's views plus the team-wide ones. Omit for every view of the team.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "team_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id"
+        ],
+        "type": "object"
+      },
+      "ListSprintsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListSprintsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "ListTokensOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListTokensOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "tokens": {
+            "description": "Active tokens only, newest first. Never the token itself.",
+            "items": {
+              "$ref": "#/components/schemas/TokenBody"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tokens"
+        ],
         "type": "object"
       },
       "LoginInputBody": {
@@ -696,7 +2290,7 @@
             "type": "string"
           },
           "permissions": {
-            "description": "Everything this credential may do, as resource:action. Gate UI on membership in this list, not on its length: there is no authority model yet, so today every credential holds the full set, and roles will narrow it without changing its shape.",
+            "description": "Everything this credential may do, as resource:action. For a token, exactly its scopes; for a session, the full set today (roles will narrow it without changing its shape). Gate UI on membership in this list, not on its length.",
             "examples": [
               [
                 "ticket:write"
@@ -706,6 +2300,21 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "scopes": {
+            "description": "What a token was issued with. Null for a session.",
+            "examples": [
+              [
+                "ticket:read"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "via": {
             "description": "Which credential authenticated this request.",
@@ -728,7 +2337,100 @@
           "email",
           "display_name",
           "workspace_id",
-          "permissions"
+          "permissions",
+          "scopes"
+        ],
+        "type": "object"
+      },
+      "MilestoneBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/MilestoneBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "description": "Never null; empty when unset.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "target_date": {
+            "description": "YYYY-MM-DD. Null when the milestone has no date. A release is a milestone (LAM-82).",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "name",
+          "description",
+          "target_date",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "MoveTicketInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/MoveTicketInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "after_id": {
+            "description": "Land just below this ticket, which must be a live ticket in the target column.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "before_id": {
+            "description": "Land just above this ticket, which must be a live ticket in the target column.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "position": {
+            "description": "Written as given. Prefer before_id or after_id, which pick a position between neighbours.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status_id": {
+            "description": "The column the ticket lands in, as its status. Must be a status of the ticket's project's team, or status_not_found.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status_id"
         ],
         "type": "object"
       },
@@ -803,7 +2505,7 @@
           "columns": {
             "description": "One per status the team had. Empty when bare.",
             "items": {
-              "$ref": "#/components/schemas/ColumnBody"
+              "$ref": "#/components/schemas/ProjectColumnBody"
             },
             "type": [
               "array",
@@ -826,6 +2528,31 @@
           "name",
           "board_id",
           "columns"
+        ],
+        "type": "object"
+      },
+      "ProjectColumnBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position",
+          "status_id"
         ],
         "type": "object"
       },
@@ -924,6 +2651,29 @@
         ],
         "type": "object"
       },
+      "RenameBoardInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/RenameBoardInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "RenameFieldInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -943,6 +2693,34 @@
         },
         "required": [
           "label"
+        ],
+        "type": "object"
+      },
+      "ReorderColumnsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ReorderColumnsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "column_ids": {
+            "description": "Every column of this board, exactly once, in the order wanted.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "column_ids"
         ],
         "type": "object"
       },
@@ -972,6 +2750,276 @@
         },
         "required": [
           "field_ids"
+        ],
+        "type": "object"
+      },
+      "ReorderStatusesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ReorderStatusesInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "status_ids": {
+            "description": "Every status of this team, exactly once, in the order wanted.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "status_ids"
+        ],
+        "type": "object"
+      },
+      "SavedViewBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/SavedViewBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "board_id": {
+            "description": "Set exactly when layout is board.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "config": {
+            "$ref": "#/components/schemas/Config"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_shared": {
+            "description": "false is private to the owner; true is visible to the whole team.",
+            "type": "boolean"
+          },
+          "layout": {
+            "enum": [
+              "list",
+              "board"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_account_id": {
+            "description": "Null for a team's own view: the one team creation seeds, or a shared view whose owner's account was deleted. Any member who can reach the team may edit or delete such a view.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_id": {
+            "description": "Null for a view of the whole team.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "team_id",
+          "project_id",
+          "board_id",
+          "owner_account_id",
+          "name",
+          "layout",
+          "config",
+          "is_shared",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "SearchInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/SearchInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "limit": {
+            "description": "How many results. Omitted means 20. Over the maximum is rejected, not clamped.",
+            "format": "int64",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "q": {
+            "description": "What to look for: 1 to 200 characters (not bytes), and not only whitespace. Words are stemmed and all must match; \"quoted phrases\", or, and -minus work as in a web search.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Only results of this kind. Omit for all.",
+            "enum": [
+              "ticket",
+              "document",
+              "comment",
+              "project"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "type": "object"
+      },
+      "SearchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "field_label": {
+            "description": "The label of the aspect field that matched. Null except for a document result.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "The ticket, document, comment or project the result is.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "parent_id": {
+            "description": "The ticket or document a comment result is on, so it can be linked. Null except for a comment result.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_type": {
+            "description": "ticket or document: what a comment result is on. Null except for a comment result.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "score": {
+            "description": "Higher is better. For ordering only: the number itself means nothing and can change.",
+            "format": "double",
+            "type": "number"
+          },
+          "snippet": {
+            "description": "HTML-safe: the matched text is escaped, then \u003cmark\u003e is put around the matches. Safe to render as HTML as it is.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Plain text - escape it when rendering as HTML. A comment shows its first 120 characters.",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "ticket",
+              "document",
+              "comment",
+              "project"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "title",
+          "snippet",
+          "field_label",
+          "parent_type",
+          "parent_id",
+          "score"
+        ],
+        "type": "object"
+      },
+      "SearchOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/SearchOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "items": {
+            "description": "Best first. One entry per ticket, document, comment or project, however many of its fields matched.",
+            "items": {
+              "$ref": "#/components/schemas/SearchItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "SetColumnStatusesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/SetColumnStatusesInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "status_ids": {
+            "description": "The full set this column holds. Empty unmaps every status.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "status_ids"
         ],
         "type": "object"
       },
@@ -1042,9 +3090,98 @@
         ],
         "type": "object"
       },
+      "SprintBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/SprintBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "end_date": {
+            "description": "YYYY-MM-DD, never before start_date. Null until the sprint is dated.",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "start_date": {
+            "description": "YYYY-MM-DD. Null until the sprint is dated.",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "name",
+          "start_date",
+          "end_date",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "SprintTicketInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/SprintTicketInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "ticket_id": {
+            "description": "A live ticket of the sprint's project, or a 422 ticket_not_found.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "type": "object"
+      },
       "StatusBody": {
         "additionalProperties": false,
         "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/StatusBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
           "category": {
             "description": "not_started, in_progress or done. Reporting depends on it, and it survives a rename.",
             "type": "string"
@@ -1145,8 +3282,37 @@
           "description": {
             "type": "string"
           },
+          "epic_id": {
+            "description": "The ticket's epic. Null is normal - the hierarchy is flexible and a ticket needs no parent.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "string"
+          },
+          "label_ids": {
+            "description": "The ticket's labels, in id order. Never null; empty for none.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "milestone_id": {
+            "description": "The ticket's milestone. Null is normal.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "description": "Order within a board column: sort by position, then id. A hint, not a slot - duplicates are legal. Written by POST /tickets/{id}/move; a new ticket goes to the end of its project.",
+            "format": "int64",
+            "type": "integer"
           },
           "project_id": {
             "type": "string"
@@ -1187,8 +3353,12 @@
           "description",
           "status_id",
           "assignee_id",
+          "epic_id",
+          "milestone_id",
+          "label_ids",
           "updated_at",
           "updated_by",
+          "position",
           "version"
         ],
         "type": "object"
@@ -1304,6 +3474,420 @@
         ],
         "type": "object"
       },
+      "TicketDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/TicketDetailBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "assignee_id": {
+            "description": "Null is normal - an unassigned ticket.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "documents": {
+            "description": "The documents linked to this ticket, oldest link first, archived ones included. Never null; empty for none.",
+            "items": {
+              "$ref": "#/components/schemas/LinkedDocumentBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "epic_id": {
+            "description": "The ticket's epic. Null is normal - the hierarchy is flexible and a ticket needs no parent.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "label_ids": {
+            "description": "The ticket's labels, in id order. Never null; empty for none.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "milestone_id": {
+            "description": "The ticket's milestone. Null is normal.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "description": "Order within a board column: sort by position, then id. A hint, not a slot - duplicates are legal. Written by POST /tickets/{id}/move; a new ticket goes to the end of its project.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "status_id": {
+            "description": "Null is normal - no status is sacred, so a ticket may have none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "When the ticket last changed - an edit, an archive or a restore. For display; to compare versions use version.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_by": {
+            "description": "The account that made the last change. Null when it was not recorded (tickets from before this field existed) or that account has since been deleted - show it as someone.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "Starts at 1 and rises by exactly 1 on every update, archive and restore. Send it back as If-Match to make a write conditional; also in the ETag header. See the If-Match parameter.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documents",
+          "id",
+          "project_id",
+          "title",
+          "description",
+          "status_id",
+          "assignee_id",
+          "epic_id",
+          "milestone_id",
+          "label_ids",
+          "updated_at",
+          "updated_by",
+          "position",
+          "version"
+        ],
+        "type": "object"
+      },
+      "TokenBody": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "Null never expires.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "last_used_at": {
+            "description": "Null until first used. Updated at most once a minute, so it can trail the real last use.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scopes": {
+            "description": "Permission names, as resource:action.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "scopes",
+          "created_at",
+          "expires_at",
+          "last_used_at"
+        ],
+        "type": "object"
+      },
+      "UpdateColumnInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateColumnInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "is_visible": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateDocumentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateDocumentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "aspect_type_id": {
+            "description": "As on create. Turning a normal document into an aspect one sets both type and this.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The complete body: it replaces the stored one. When a normal document becomes an aspect one, its text (content, from here if sent, else the stored body) moves into the type's first field - by position, then label - unless this body fills that field itself; a type with no fields is a 422 aspect_type_has_no_fields at body.aspect_type_id.",
+            "type": "object"
+          },
+          "title": {
+            "description": "Up to 200 characters (not bytes).",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "type": {
+            "default": "normal",
+            "enum": [
+              "normal",
+              "aspect"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "UpdateEpicInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateEpicInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 50000,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateLabelInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateLabelInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "color": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateMilestoneInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateMilestoneInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 50000,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "target_date": {
+            "description": "YYYY-MM-DD. Omit to leave it, null to clear it.",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "UpdateSavedViewInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateSavedViewInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/Config",
+            "description": "Replaces the whole config; it is not merged."
+          },
+          "is_shared": {
+            "type": "boolean"
+          },
+          "layout": {
+            "enum": [
+              "list",
+              "board"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateSprintInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateSprintInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "end_date": {
+            "description": "YYYY-MM-DD. Omit to leave it, null to clear it. Before start_date is a 422 at body.end_date.",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "start_date": {
+            "description": "YYYY-MM-DD. Omit to leave it, null to clear it.",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "UpdateStatusInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateStatusInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "not_started",
+              "in_progress",
+              "done"
+            ],
+            "type": "string"
+          },
+          "color": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "UpdateTicketInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1328,6 +3912,32 @@
             "description": "Up to 50,000 characters (not bytes).",
             "maxLength": 50000,
             "type": "string"
+          },
+          "epic_id": {
+            "description": "Must be an epic of the ticket's project, or a 422 epic_not_found. Omit to leave it, null to clear it.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label_ids": {
+            "description": "The complete set of labels, all of them labels of the ticket's project's team; an id that is not one is a 422 label_not_found at body.label_ids[i]. Omit to leave the labels alone; [] clears them.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "milestone_id": {
+            "description": "Must be a milestone of the ticket's project, or a 422 milestone_not_found. Omit to leave it, null to clear it.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status_id": {
             "description": "Must be a status of the ticket's project's team, or status_not_found. Null clears it.",
@@ -1709,6 +4319,55 @@
         "summary": "Rename a field"
       }
     },
+    "/api/v1/aspect-types/{id}/fields/{field_id}/usage": {
+      "get": {
+        "description": "For the warning before a field is removed: removing it leaves the values in every body, unrendered, so this says how many there are. A field of another type, or one already removed, is `aspect_type_not_found` like the type itself.",
+        "operationId": "get-aspect-type-field-usage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldUsageOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Count the documents that hold a value in a field"
+      }
+    },
     "/api/v1/aspect-types/{id}/reorder": {
       "post": {
         "description": "Send the complete list, in the order wanted. Idempotent, and the result is exactly what was sent - a partial list is rejected, because it would renumber some fields and leave others.",
@@ -1915,6 +4574,1458 @@
         "summary": "Create an account and log in as it"
       }
     },
+    "/api/v1/auth/tokens": {
+      "post": {
+        "description": "Session only: a token caller gets 403 `insufficient_scope`, so a leaked token cannot mint more. The response carries the credential in `token`; it is returned this once and only a hash is kept.\n\nA token may do only what its `scopes` name. An unknown scope is 422 `unknown_scope` and nothing is created.",
+        "operationId": "create-api-token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTokenBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create an API token"
+      }
+    },
+    "/api/v1/auth/tokens/list": {
+      "post": {
+        "description": "Session only. Revoked and expired tokens are left out. Never returns a token or its hash.",
+        "operationId": "list-api-tokens",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTokensOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List your active API tokens"
+      }
+    },
+    "/api/v1/auth/tokens/{id}": {
+      "delete": {
+        "description": "Session only. The token stops authenticating at once. 404 `token_not_found` for a token that is absent, another account's, or already revoked.",
+        "operationId": "revoke-api-token",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Revoke an API token"
+      }
+    },
+    "/api/v1/boards/list": {
+      "post": {
+        "description": "Oldest first. Always one page: `next_cursor` is null and `has_more` false.",
+        "operationId": "list-boards",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListBoardsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeBoardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List a project's boards, columns included (a read - POST for the body)"
+      }
+    },
+    "/api/v1/boards/{id}": {
+      "delete": {
+        "description": "Its columns, their mappings and the saved views that point at it go with it. Tickets are not touched. A project's last board may be deleted; a project with no board is legal. Announced as `board.deleted`.",
+        "operationId": "delete-board",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a board"
+      },
+      "get": {
+        "operationId": "get-board",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one board with its columns"
+      },
+      "put": {
+        "description": "Announced as `board.updated`.",
+        "operationId": "rename-board",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameBoardInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename a board"
+      }
+    },
+    "/api/v1/boards/{id}/columns": {
+      "post": {
+        "description": "Appended after the last column. `status_ids` is optional; a status outside the board's team is a 422 `status_not_found` and one another column of this board holds is a 422 `status_already_mapped`, both at `body.status_ids[i]`. Announced as `board.column.updated`.",
+        "operationId": "add-column",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddColumnInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add a column to a board"
+      }
+    },
+    "/api/v1/boards/{id}/columns/reorder": {
+      "post": {
+        "description": "Send the complete list, in the order wanted; positions become 1..n. A partial, duplicated or foreign list is a 422 `column_set_mismatch` at `body.column_ids`. Announced as `board.updated`.",
+        "operationId": "reorder-columns",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderColumnsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set the order of every column"
+      }
+    },
+    "/api/v1/boards/{id}/columns/{column_id}": {
+      "delete": {
+        "description": "Its statuses are unmapped. Tickets are not touched. Announced as `board.updated`, carrying the board without the column.",
+        "operationId": "delete-column",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "column_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a column"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone. `is_visible` is stored on the column, which belongs to one board, so hiding it affects that board only. Announced as `board.column.updated`.",
+        "operationId": "update-column",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "column_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateColumnInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename a column or show or hide it"
+      }
+    },
+    "/api/v1/boards/{id}/columns/{column_id}/statuses": {
+      "put": {
+        "description": "The full set for this column; an empty list unmaps every status. A status outside the board's team is a 422 `status_not_found`; one another column of this board holds is a 422 `status_already_mapped`, both at `body.status_ids`. Announced as `board.column.updated`.",
+        "operationId": "set-column-statuses",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "column_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetColumnStatusesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set the statuses a column holds"
+      }
+    },
+    "/api/v1/documents": {
+      "post": {
+        "description": "A normal document keeps its text under `content`; an aspect document's body is keyed by the field ids of its aspect type. The body is indexed for search in the same transaction.",
+        "operationId": "create-document",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocumentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The document's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is document_conflict, current is the server's copy (archived_at says if it was archived). Nothing was written."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a document"
+      }
+    },
+    "/api/v1/documents/list": {
+      "post": {
+        "description": "Reads a page, most recently updated first. POST for the reason `list-tickets` is; nothing is written. Filters are the optional members `project_id`, `team_id`, `type` and `aspect_type_id`, all of which must match. Live documents only unless `archived` is true, which lists archived ones only.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filters it was minted under; changing one restarts from the first page.",
+        "operationId": "list-documents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListDocumentsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeDocumentBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List documents (a read - see the description for why it is a POST)"
+      }
+    },
+    "/api/v1/documents/{id}": {
+      "delete": {
+        "description": "Takes `If-Match` like the update does. The archived document drops out of reads, lists and search. An already-archived document answers `document_conflict` when `If-Match` is sent and `document_not_found` when it is not. The new version is in the `ETag` header.",
+        "operationId": "archive-document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Make the write conditional on the document still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the document has moved on - edited, or archived - the write is refused with a 409 document_conflict carrying the current copy, and nothing changes. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the document still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the document has moved on - edited, or archived - the write is refused with a 409 document_conflict carrying the current copy, and nothing changes. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The document's new version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is document_conflict, current is the server's copy (archived_at says if it was archived). Nothing was written."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Archive a document (soft delete - the row survives)"
+      },
+      "get": {
+        "operationId": "get-document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The document's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one document"
+      },
+      "put": {
+        "description": "PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. The team or project a document is filed under is fixed at creation and not part of this request. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.",
+        "operationId": "update-document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Make the write conditional on the document still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the document has moved on - edited, or archived - the write is refused with a 409 document_conflict carrying the current copy, and nothing changes. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the document still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the document has moved on - edited, or archived - the write is refused with a 409 document_conflict carrying the current copy, and nothing changes. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDocumentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The document's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is document_conflict, current is the server's copy (archived_at says if it was archived). Nothing was written."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Replace a document's title, type and body"
+      }
+    },
+    "/api/v1/documents/{id}/unarchive": {
+      "post": {
+        "description": "Takes `If-Match`: the version of the archived document you last saw. Restoring a document that is not archived is `document_not_found`. It is indexed for search again. The new version is in the `ETag` header.",
+        "operationId": "unarchive-document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Make the write conditional on the document still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the document has moved on - edited, or archived - the write is refused with a 409 document_conflict carrying the current copy, and nothing changes. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the document still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the document has moved on - edited, or archived - the write is refused with a 409 document_conflict carrying the current copy, and nothing changes. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The document's new version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is document_conflict, current is the server's copy (archived_at says if it was archived). Nothing was written."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Restore an archived document"
+      }
+    },
+    "/api/v1/epics": {
+      "post": {
+        "description": "Announced as `epic.created`.",
+        "operationId": "create-epic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEpicInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpicBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create an epic in a project"
+      }
+    },
+    "/api/v1/epics/list": {
+      "post": {
+        "description": "Oldest first. Always one page: `next_cursor` is null and `has_more` false.",
+        "operationId": "list-epics",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListEpicsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeEpicBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List a project's epics (a read - POST for the body)"
+      }
+    },
+    "/api/v1/epics/{id}": {
+      "delete": {
+        "description": "Sets `epic_id` to null on the epic's tickets (SET NULL, not cascade). Those tickets' rows are not rewritten, so their `version` does not move and no `ticket.updated` is sent: `epic.deleted` is the announcement, and a client clears `epic_id` on the tickets it holds for that epic.",
+        "operationId": "delete-epic",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete an epic; its tickets stay and lose the epic"
+      },
+      "get": {
+        "operationId": "get-epic",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpicBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one epic"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone. Announced as `epic.updated`.",
+        "operationId": "update-epic",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEpicInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpicBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename an epic or change its description"
+      }
+    },
+    "/api/v1/labels": {
+      "post": {
+        "description": "A name already used in the team is a 409 `label_name_taken`. Announced as `label.created`.",
+        "operationId": "create-label",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabelInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a label in a team"
+      }
+    },
+    "/api/v1/labels/list": {
+      "post": {
+        "description": "By name. Always one page: `next_cursor` is null and `has_more` false.",
+        "operationId": "list-labels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListLabelsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeLabelBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List a team's labels (a read - POST for the body)"
+      }
+    },
+    "/api/v1/labels/{id}": {
+      "delete": {
+        "description": "Removes the label from every ticket that carried it (cascade). Those tickets' rows are not rewritten, so their `version` does not move and no `ticket.updated` is sent: `label.deleted` is the announcement, and a client drops the id from `label_ids` on the tickets it holds.",
+        "operationId": "delete-label",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a label; its tickets stay and lose the label"
+      },
+      "get": {
+        "operationId": "get-label",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one label"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone. A name already used in the team is a 409 `label_name_taken`. The id never changes, so tickets keep the label. Announced as `label.updated`.",
+        "operationId": "update-label",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLabelInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename or recolour a label"
+      }
+    },
+    "/api/v1/milestones": {
+      "post": {
+        "description": "Announced as `milestone.created`.",
+        "operationId": "create-milestone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMilestoneInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MilestoneBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a milestone in a project"
+      }
+    },
+    "/api/v1/milestones/list": {
+      "post": {
+        "description": "Dated milestones soonest first, then undated ones, oldest first. Always one page: `next_cursor` is null and `has_more` false.",
+        "operationId": "list-milestones",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListMilestonesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeMilestoneBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List a project's milestones (a read - POST for the body)"
+      }
+    },
+    "/api/v1/milestones/{id}": {
+      "delete": {
+        "description": "Sets `milestone_id` to null on the milestone's tickets (SET NULL, not cascade). Those tickets' rows are not rewritten, so their `version` does not move and no `ticket.updated` is sent: `milestone.deleted` is the announcement, and a client clears `milestone_id` on the tickets it holds for that milestone.",
+        "operationId": "delete-milestone",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a milestone; its tickets stay and lose the milestone"
+      },
+      "get": {
+        "operationId": "get-milestone",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MilestoneBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one milestone"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone; `target_date: null` clears the date. Announced as `milestone.updated`.",
+        "operationId": "update-milestone",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMilestoneInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MilestoneBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename a milestone, change its description or move its date"
+      }
+    },
     "/api/v1/ping": {
       "get": {
         "operationId": "ping",
@@ -2058,6 +6169,294 @@
           }
         },
         "summary": "Fetch one project"
+      }
+    },
+    "/api/v1/projects/{id}/boards": {
+      "post": {
+        "description": "Starts with one column per status the team has, each mapped to its status, like the board a project is created with. Many boards per project; none is privileged. Announced as `board.created`.",
+        "operationId": "create-board",
+        "parameters": [
+          {
+            "description": "The project.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The project.",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a board on a project"
+      }
+    },
+    "/api/v1/saved-views": {
+      "post": {
+        "description": "Owned by the caller; private unless `is_shared`. `config` holds `filter` (the language of the ticket list), `group`, `sort` and `columns`, all over the ticket vocabulary, and is checked the way a ticket list request would be: a config that would not run is a 422 `filter_invalid` whose `errors[].location` is `body.config...`. A board view needs `board_id`; a list view must not have one.",
+        "operationId": "create-saved-view",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSavedViewInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Save a list or board setup"
+      }
+    },
+    "/api/v1/saved-views/list": {
+      "post": {
+        "description": "The caller's own private views plus every shared view of the team, by name. With `project_id`, that project's views and the team-wide ones; without it, every view of the team. Keyset pagination as the other lists: pass `next_cursor` back as `cursor`.",
+        "operationId": "list-saved-views",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListSavedViewsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeSavedViewBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the views the caller can open (a read - POST for the body)"
+      }
+    },
+    "/api/v1/saved-views/{id}": {
+      "delete": {
+        "description": "Owner only, with the same exception for a team's own view as update-saved-view. Nothing else is touched: a view holds no tickets.",
+        "operationId": "delete-saved-view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a saved view"
+      },
+      "get": {
+        "description": "`saved_view_not_found` for an absent view, one outside your workspace, and another person's private view alike.",
+        "operationId": "get-saved-view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one saved view"
+      },
+      "put": {
+        "description": "Owner only: a shared view the caller does not own is 403 `saved_view_not_owner`. A view with no owner (`owner_account_id` null) is the team's own, and any member may edit it, but it cannot be made private. Each member is optional; an omitted one is left alone, and a `config` replaces the old one whole. `layout: list` on a board view clears its `board_id`; `layout: board` on a list view is refused, since this body cannot name a board. A config that does not compile is 422 `filter_invalid` located at `body.config...`.",
+        "operationId": "update-saved-view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSavedViewInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename a view, change its config, or share or unshare it"
+      }
+    },
+    "/api/v1/search/list": {
+      "post": {
+        "description": "The best matches for `q` across every workspace you belong to, best first. A title match ranks above a match in the text. A document is searched by title and by each aspect field's value, and a result names the field that matched in `field_label`. Archived tickets and documents are not searched. Returns the top `limit` results: there is no cursor. A `q` that is empty or only whitespace is a 422 at `body.q`.",
+        "operationId": "search",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Search tickets, projects, documents and comments (a read - POST for the body)"
       }
     },
     "/api/v1/settings": {
@@ -2228,6 +6627,287 @@
         "summary": "Write one setting"
       }
     },
+    "/api/v1/sprints": {
+      "post": {
+        "description": "Both dates are optional. An `end_date` before `start_date` is a 422 at `body.end_date`. Announced as `sprint.created`.",
+        "operationId": "create-sprint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSprintInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a sprint in a project"
+      }
+    },
+    "/api/v1/sprints/list": {
+      "post": {
+        "description": "Soonest start first, undated ones last. Always one page: `next_cursor` is null and `has_more` false. Which tickets are in a sprint is read through `POST /tickets/list` with a `sprint` filter.",
+        "operationId": "list-sprints",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListSprintsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeSprintBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List a project's sprints (a read - POST for the body)"
+      }
+    },
+    "/api/v1/sprints/{id}": {
+      "delete": {
+        "description": "The sprint's memberships go with it. The tickets' rows are not rewritten, so their `version` does not move and no `ticket.updated` is sent: `sprint.deleted` is the announcement.",
+        "operationId": "delete-sprint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a sprint; its tickets stay"
+      },
+      "get": {
+        "operationId": "get-sprint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one sprint"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone; a date set to null is cleared. The result is checked, so moving only `start_date` past the stored `end_date` is a 422 at `body.end_date`. Announced as `sprint.updated`.",
+        "operationId": "update-sprint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSprintInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename a sprint or move its dates"
+      }
+    },
+    "/api/v1/sprints/{id}/tickets": {
+      "post": {
+        "description": "The ticket must be a live ticket of the sprint's project, or a 422 `ticket_not_found` at `body.ticket_id`. A ticket can be in a sprint and an epic at once, and in several sprints. Joining is a change to the ticket: its `version` rises by one and it is announced as `ticket.updated`. A ticket that is already in the sprint is a success that writes and announces nothing.",
+        "operationId": "add-ticket-to-sprint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SprintTicketInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Put a ticket in a sprint"
+      }
+    },
+    "/api/v1/sprints/{id}/tickets/{ticket_id}": {
+      "delete": {
+        "description": "A ticket that is not in the sprint is a success that writes and announces nothing. Leaving is a change to the ticket: its `version` rises by one and it is announced as `ticket.updated` (an archived ticket is taken out without either).",
+        "operationId": "remove-ticket-from-sprint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Take a ticket out of a sprint"
+      }
+    },
     "/api/v1/teams": {
       "post": {
         "description": "Seeds three statuses, five starter aspect types and one shared saved view, in the same transaction that creates the team - so a team is never observable half-configured. Everything seeded is an ordinary row: rename it, delete it, replace it. Nothing is privileged, and no default labels are seeded, because a label vocabulary is a team's own.",
@@ -2345,6 +7025,216 @@
         "summary": "Fetch one team with its statuses"
       }
     },
+    "/api/v1/teams/{id}/statuses": {
+      "post": {
+        "description": "No status is sacred, so there is no special case and no 409: name and position are not unique.",
+        "operationId": "create-status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStatusInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add a status to a team"
+      }
+    },
+    "/api/v1/teams/{id}/statuses/reorder": {
+      "post": {
+        "description": "Send the complete list, in the order wanted; positions become 1..n. A partial, duplicated or foreign list is a 422 at body.status_ids. Each status whose position changed is announced as `status.updated`.",
+        "operationId": "reorder-statuses",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderStatusesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set the order of every status"
+      }
+    },
+    "/api/v1/teams/{id}/statuses/{status_id}": {
+      "delete": {
+        "description": "Tickets that use the status need a `move_to` status, or the answer is a 422 `status_in_use` at `query.move_to` naming how many. Deleting a team's last status is allowed only while the team has no tickets. Tickets that move are written like any edit (version + 1) and each is announced as `ticket.updated`. Board columns mapped to the deleted status are mapped to `move_to` instead when tickets move, and unmapped otherwise.",
+        "operationId": "delete-status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "status_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Another status of this team to move the tickets to. Required when tickets use this one.",
+            "explode": false,
+            "in": "query",
+            "name": "move_to",
+            "schema": {
+              "description": "Another status of this team to move the tickets to. Required when tickets use this one.",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a status, moving its tickets"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone. The id never changes, so tickets keep their status.",
+        "operationId": "update-status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "status_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStatusInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename, recolour or recategorise a status"
+      }
+    },
     "/api/v1/tickets": {
       "post": {
         "description": "Send `Idempotency-Key` to make the create safe to retry after a lost response. The first request with a key creates the ticket and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original ticket as it is now - same status, 200, as a fresh create. A replay publishes nothing on the change feed. If the original has been archived the answer is a 409 `ticket_archived` carrying it. The body of a replay is ignored.",
@@ -2430,7 +7320,7 @@
     },
     "/api/v1/tickets/list": {
       "post": {
-        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `assignee` (uuid)\n- `created_at` (time)\n- `description` (text)\n- `epic` (uuid)\n- `label` (uuid_set)\n- `project` (uuid)\n- `sprint` (uuid_set)\n- `status` (uuid)\n- `title` (text)\n- `updated_at` (time)\n- `version` (number)\n\nPage size defaults to 50 and may not exceed 200.",
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `assignee` (uuid)\n- `created_at` (time)\n- `description` (text)\n- `epic` (uuid)\n- `label` (uuid_set)\n- `milestone` (uuid)\n- `position` (number)\n- `project` (uuid)\n- `sprint` (uuid_set)\n- `status` (uuid)\n- `title` (text)\n- `updated_at` (time)\n- `version` (number)\n\nPage size defaults to 50 and may not exceed 200.",
         "operationId": "list-tickets",
         "requestBody": {
           "content": {
@@ -2548,7 +7438,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TicketBody"
+                  "$ref": "#/components/schemas/TicketDetailBody"
                 }
               }
             },
@@ -2653,6 +7543,172 @@
           }
         },
         "summary": "Replace a ticket's writable fields"
+      }
+    },
+    "/api/v1/tickets/{id}/documents": {
+      "post": {
+        "description": "Idempotent: linking a pair that is already linked is a 204 and changes nothing. An archived ticket or document links like a live one, and archiving either later does not remove the link. Both must be in a workspace the caller belongs to, and the same one; otherwise `not_found`, which does not say which was missing. Publishes `ticket.document_linked` when a link was made.",
+        "operationId": "link-ticket-document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkDocumentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Link a document to a ticket"
+      }
+    },
+    "/api/v1/tickets/{id}/documents/{document_id}": {
+      "delete": {
+        "description": "Idempotent: unlinking a pair that is not linked is a 204. Only an unknown ticket, or one outside the caller's workspaces, is `not_found`. Publishes `ticket.document_unlinked` when a link was removed.",
+        "operationId": "unlink-ticket-document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Unlink a document from a ticket"
+      }
+    },
+    "/api/v1/tickets/{id}/move": {
+      "post": {
+        "description": "One write per drop: sets `status_id` and `position` together. Send at most one of `position`, `before_id` and `after_id` (more is a 422); none puts the ticket at the end of the column. `before_id`/`after_id` name a live ticket in the target column, or the answer is a 422 `neighbour_not_found` at that member. Written like any edit: version + 1, announced as `ticket.updated`, and `If-Match` makes it conditional. When there is no room between two neighbours the target column's other tickets are renumbered; each of those is written like an edit (version + 1) and announced as `ticket.updated`, before the moved ticket's own event.",
+        "operationId": "move-ticket",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Make the write conditional on the ticket still being at the version you last saw, written as the ETag is: the number in double quotes, for example \"4\". If the ticket has moved on the write is refused with a 409 and nothing changes: ticket_conflict if it was edited, ticket_archived if it was archived - each carrying the current copy, who changed it and when. Omit it for a plain last-write-wins write.",
+              "examples": [
+                "\"4\""
+              ],
+              "pattern": "^\"[1-9][0-9]{0,8}\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveTicketInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The ticket's version in quotes, as If-Match takes it back.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketConflict"
+                }
+              }
+            },
+            "description": "Conflict. Only when If-Match was sent: code is ticket_conflict if the ticket was edited since that version, ticket_archived if it was archived. Nothing was written."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Drop a ticket into a board column, at a place in it"
       }
     },
     "/api/v1/tickets/{id}/unarchive": {

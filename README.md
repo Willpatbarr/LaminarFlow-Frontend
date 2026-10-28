@@ -118,7 +118,21 @@ calls it once: sync starts when the session becomes authenticated, stops when it
 is not, and the database is **emptied on logout**. A database found on disk that
 belongs to a different account is emptied at start.
 
-**The model.** Two ticket tables: `server_tickets` is the server's copy, and
+**Any entity (LAM-125).** The engine carries every kind of thing through the
+same path - tickets and documents today. An outbox entry names its `entity` and
+its `entity_id`; order is kept per `entity_id`, so a parked document never holds
+up a ticket. What differs per entity lives in one file in
+`src/sync/entities/` that exports an `Entity`: its `rules` (which fields the
+user edits, the row an unsent create shows, how to read a 409, the temporary-id
+prefix) and its `remote` (list, send, read a change-feed frame). To add one
+(comments, labels, epics, ...): add its row, fields, create and conflict types to
+the maps in `types.ts`; a store pair in `db.ts` (and bump `DB_VERSION`); a file
+in `entities/`; one line in `entities/index.ts`; and the `store.ts` wrappers its
+screens call. The engine, the outbox, hydration and the change feed need no
+change. Read the note at the top of `entities/document.ts` for what a new
+endpoint has to give the client (an `Idempotency-Key`, a conflict body).
+
+**The model.** Two ticket tables (and the same pair for every other entity): `server_tickets` is the server's copy, and
 `tickets` is what the screen shows - always *the server's copy with that
 ticket's outbox entries replayed on top*. A user action appends to (or amends)
 the outbox and rebuilds the row; an answer from the server replaces the server's

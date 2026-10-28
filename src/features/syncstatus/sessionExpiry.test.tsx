@@ -180,6 +180,7 @@ describe('the session ending mid-action', () => {
             'POST /api/v1/teams/list': none,
             'POST /api/v1/projects/list': none,
             'POST /api/v1/tickets/list': none,
+            'POST /api/v1/documents/list': none,
             'POST /api/v1/teams': () => (signedIn ? ok(TEAM) : problem(401, 'unauthorized')),
         })
         signedIn = false
