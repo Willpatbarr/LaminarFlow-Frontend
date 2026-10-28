@@ -8,7 +8,7 @@ import { ok } from '@/testing/fetch'
 import { openSyncDb, type SyncDb } from '../db'
 import { createSyncEngine, type Connectivity, type EngineDeps, type Timer } from '../engine'
 import type { Visibility } from '../socket'
-import type { Ticket } from '../types'
+import type { Doc, Ticket } from '../types'
 
 // Shared by the engine and store tests. Importing this file installs
 // fake-indexeddb as the global `indexedDB`.
@@ -115,6 +115,27 @@ export function ticket(overrides: Partial<Ticket> = {}): Ticket {
     }
 }
 
+export function doc(overrides: Partial<Doc> = {}): Doc {
+    return {
+        id: 'd-1',
+        title: 'Design notes',
+        type: 'normal',
+        aspect_type_id: null,
+        team_id: null,
+        project_id: 'p-1',
+        body: { content: 'Hello' },
+        version: 1,
+        created_at: '2025-12-30T00:00:00Z',
+        updated_at: '2025-12-31T00:00:00Z',
+        ...overrides,
+    }
+}
+
+/** A document as the server sends it: `Doc` plus `archived_at`. */
+export function docBody(overrides: Partial<Doc> & { archived_at?: string | null } = {}) {
+    return { archived_at: null, ...doc(overrides), ...overrides }
+}
+
 export const TEAM = {
     id: 'team-1',
     workspace_id: 'ws-1',
@@ -133,12 +154,13 @@ export function page(items: unknown[], next_cursor: string | null = null) {
     return ok({ items, next_cursor, has_more: next_cursor !== null })
 }
 
-/** The three list routes, answering with one team, one project and `tickets`. */
-export function listRoutes(tickets: Ticket[] = []) {
+/** The list routes, answering with one team, one project, `tickets` and `documents`. */
+export function listRoutes(tickets: Ticket[] = [], documents: Doc[] = []) {
     return {
         'POST /api/v1/teams/list': () => page([TEAM]),
         'POST /api/v1/projects/list': () => page([PROJECT]),
         'POST /api/v1/tickets/list': () => page(tickets),
+        'POST /api/v1/documents/list': () => page(documents.map((d) => docBody(d))),
     }
 }
 

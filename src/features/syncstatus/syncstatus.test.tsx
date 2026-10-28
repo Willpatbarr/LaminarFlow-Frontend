@@ -140,6 +140,7 @@ describe('a server that is failing', () => {
             },
             'POST /api/v1/projects/list': () => page([]),
             'POST /api/v1/tickets/list': () => page([]),
+            'POST /api/v1/documents/list': () => page([]),
         })
 
         expect(await screen.findByText("Can't reach the server")).toBeInTheDocument()

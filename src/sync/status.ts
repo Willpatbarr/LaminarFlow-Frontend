@@ -3,7 +3,7 @@ import { createMemo, createRoot } from 'solid-js'
 import { classify } from '@/api/errors'
 
 import { sync } from './store'
-import type { EntryState, OutboxEntry } from './types'
+import type { EntryState, TicketEntry } from './types'
 
 /*
 ┌─ sync ──────────────────────────────────────────
@@ -11,6 +11,7 @@ import type { EntryState, OutboxEntry } from './types'
 ├─ out ───────────────────────────────────────────
 │      syncTrouble   null, or 'network' / 'server' while changes or lists keep failing to reach the server
 │      pendingSummary   null when everything is synced; else a count, the dominant reason, the tickets
+│                       (counts cover every entity; the list of tickets, tickets only)
 ├─ example ───────────────────────────────────────
 │      3 entries, one failed with a 422  →  { reason: 'attention', count: 1, decisions: 0, … }
 │      3 entries, one in conflict        →  { reason: 'decision', count: 1, decisions: 1, … }
@@ -62,7 +63,7 @@ export type PendingTicket = {
     /** Entries queued for this ticket. */
     changes: number
     /** The head entry, for a panel that offers to act on it. */
-    head: OutboxEntry
+    head: TicketEntry
 }
 
 export type PendingSummary = {
@@ -86,11 +87,14 @@ const summary = createRoot(() =>
     createMemo<PendingSummary | null>(() => {
         if (sync.outbox.length === 0) return null
 
-        const byTicket = new Map<string, OutboxEntry[]>()
+        // Only tickets are listed: the list links to ticket pages. What is
+        // waiting for another entity still counts in the totals below.
+        const byTicket = new Map<string, TicketEntry[]>()
         for (const entry of sync.outbox) {
-            const queue = byTicket.get(entry.ticket_id)
+            if (entry.entity !== 'ticket') continue
+            const queue = byTicket.get(entry.entity_id)
             if (queue) queue.push(entry)
-            else byTicket.set(entry.ticket_id, [entry])
+            else byTicket.set(entry.entity_id, [entry])
         }
 
         const tickets: PendingTicket[] = [...byTicket].map(([ticketId, queue]) => {

@@ -237,6 +237,7 @@ describe('first-run setup', () => {
             'POST /api/v1/teams/list': none,
             'POST /api/v1/projects/list': none,
             'POST /api/v1/tickets/list': none,
+            'POST /api/v1/documents/list': none,
         })
     }
 
@@ -270,6 +271,7 @@ describe('first-run setup', () => {
             'POST /api/v1/teams/list': none,
             'POST /api/v1/projects/list': none,
             'POST /api/v1/tickets/list': none,
+            'POST /api/v1/documents/list': none,
             'POST /api/v1/teams': () => {
                 teams += 1
                 return problem(422, 'unprocessable_entity', [
@@ -299,6 +301,7 @@ describe('first-run setup', () => {
             'POST /api/v1/teams/list': none,
             'POST /api/v1/projects/list': none,
             'POST /api/v1/tickets/list': none,
+            'POST /api/v1/documents/list': none,
             'POST /api/v1/teams': () => ok(TEAM),
             'POST /api/v1/projects': () =>
                 problem(422, 'unprocessable_entity', [{ location: 'body.name', message: 'expected length <= 100' }]),

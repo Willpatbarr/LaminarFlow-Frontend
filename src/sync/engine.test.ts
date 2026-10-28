@@ -49,7 +49,7 @@ describe('create', () => {
         // The request is on the wire and unanswered; the row is already there.
         expect(created).toMatchObject({ id: 'tmp_1', title: 'New', version: 0, updated_by: ME })
         expect((await local(db)).tickets).toEqual([created])
-        expect((await local(db)).outbox).toMatchObject([{ kind: 'create', ticket_id: 'tmp_1' }])
+        expect((await local(db)).outbox).toMatchObject([{ kind: 'create', entity_id: 'tmp_1' }])
 
         answer.resolve(ok(ticket({ id: 't-9', title: 'New', version: 1, updated_by: ME })))
         await engine.idle()
@@ -341,7 +341,7 @@ describe('unarchive', () => {
         expect(await engine.unarchiveTicket(before)).toBe('t-1')
         // Optimistic: back before the server has answered, with an unarchive waiting.
         expect((await local(db)).tickets).toMatchObject([{ id: 't-1', title: 'Write the outbox' }])
-        expect((await local(db)).outbox).toMatchObject([{ kind: 'unarchive', ticket_id: 't-1' }])
+        expect((await local(db)).outbox).toMatchObject([{ kind: 'unarchive', entity_id: 't-1' }])
         await vi.waitFor(() => expect(seen).toEqual(['"3"']))
 
         answer.resolve(noContent(4))
@@ -431,7 +431,7 @@ describe('unarchive', () => {
         expect(id).toBe('tmp_2')
         expect(await local(db)).toMatchObject({
             tickets: [{ id: 'tmp_2', title: 'New' }],
-            outbox: [{ kind: 'create', ticket_id: 'tmp_2' }],
+            outbox: [{ kind: 'create', entity_id: 'tmp_2' }],
         })
     })
 
@@ -583,7 +583,7 @@ describe('when a send fails', () => {
         await engine.idle()
 
         expect((await local(db)).outbox).toMatchObject([
-            { ticket_id: 't-1', state: 'pending', attempts: 1, error: { status: 503 } },
+            { entity_id: 't-1', state: 'pending', attempts: 1, error: { status: 503 } },
         ])
 
         clock.advance(1_000)
@@ -653,8 +653,8 @@ describe('401', () => {
         expect(engine.status().paused).toBe(true)
         let now = await local(db)
         expect(now.outbox).toMatchObject([
-            { ticket_id: 't-1', state: 'unauthorized' },
-            { ticket_id: 't-2', state: 'pending' },
+            { entity_id: 't-1', state: 'unauthorized' },
+            { entity_id: 't-2', state: 'pending' },
         ])
         expect(now.tickets.map((t) => t.title).sort()).toEqual(['A', 'B'])
         // No timer is waiting to try again behind the user's back.
@@ -693,7 +693,7 @@ describe('409', () => {
         const now = await local(db)
         expect(now.outbox).toMatchObject([
             {
-                ticket_id: 't-1',
+                entity_id: 't-1',
                 state: 'conflict',
                 conflict: {
                     code: 'ticket_conflict',
@@ -1506,7 +1506,7 @@ describe('resolving a conflict', () => {
                 version: 0,
             })
             expect(now.outbox).toMatchObject([
-                { kind: 'create', ticket_id: 'tmp_1', state: 'pending', payload: { title: 'Mine', project_id: 'p-1' } },
+                { kind: 'create', entity_id: 'tmp_1', state: 'pending', payload: { title: 'Mine', project_id: 'p-1' } },
             ])
             // The original is resolved as discard would: back to theirs, or gone.
             if (code === 'ticket_conflict') {
@@ -1558,7 +1558,7 @@ describe('resolving a conflict', () => {
             description: 'Written later',
             assignee_id: ME,
         })
-        expect(now.outbox).toMatchObject([{ kind: 'create', ticket_id: id }])
+        expect(now.outbox).toMatchObject([{ kind: 'create', entity_id: id }])
         expect(now.tickets.find((t) => t.id === 't-1')).toEqual(theirs())
     })
 
@@ -1979,7 +1979,7 @@ describe('an idempotent create (LAM-76)', () => {
             expect(now.outbox).toMatchObject([
                 {
                     kind: 'update',
-                    ticket_id: 't-9',
+                    entity_id: 't-9',
                     state: 'conflict',
                     base_version: 3,
                     conflict: { code: 'ticket_archived', current: { id: 't-9', version: 3 } },

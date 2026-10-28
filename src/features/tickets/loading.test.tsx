@@ -222,6 +222,7 @@ describe('a warm database', () => {
             'POST /api/v1/teams/list': silent,
             'POST /api/v1/projects/list': silent,
             'POST /api/v1/tickets/list': silent,
+            'POST /api/v1/documents/list': silent,
         })
 
         expect(await screen.findByRole('link', { name: /Write the outbox/ })).toBeInTheDocument()
@@ -249,6 +250,7 @@ describe('a warm database', () => {
             'POST /api/v1/teams/list': silent,
             'POST /api/v1/projects/list': silent,
             'POST /api/v1/tickets/list': silent,
+            'POST /api/v1/documents/list': silent,
         })
 
         expect(await screen.findByLabelText('Title')).toHaveValue('Write the outbox')
