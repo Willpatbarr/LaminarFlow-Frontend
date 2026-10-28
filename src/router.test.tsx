@@ -143,15 +143,38 @@ describe('login screens when already signed in', () => {
 describe('app shell', () => {
     beforeEach(startSignedIn)
 
-    it('shows the signed-in user and a link to the one screen that exists', async () => {
+    it('shows the signed-in user and a link to every section', async () => {
         mount('/')
 
         await screen.findByRole('heading', { name: 'Tickets' })
         const nav = screen.getByRole('navigation', { name: 'Main' })
         expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
-        expect(nav.querySelectorAll('a')).toHaveLength(1)
+        expect(nav.querySelectorAll('a')).toHaveLength(3)
+        expect(screen.getByRole('link', { name: 'Documents' })).toHaveAttribute('href', '/documents')
+        expect(screen.getByRole('link', { name: 'Views' })).toHaveAttribute('href', '/views')
         expect(screen.getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/')
         expect(screen.getByRole('link', { name: 'Tickets' })).toHaveAttribute('aria-current', 'page')
+    })
+})
+
+describe('section routes', () => {
+    beforeEach(startSignedIn)
+
+    it.each([
+        ['/documents', 'Documents'],
+        ['/documents/d1', 'Document'],
+        ['/views', 'Views'],
+        ['/views/v1', 'View'],
+    ])('%s is reachable by URL', async (url, heading) => {
+        mount(url)
+
+        expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+
+    it('says the placeholder pages are placeholders', async () => {
+        mount('/views')
+
+        expect(await screen.findByText(/Placeholder/)).toBeInTheDocument()
     })
 })
 

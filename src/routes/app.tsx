@@ -1,17 +1,21 @@
-import { useNavigate, type RouteSectionProps } from '@solidjs/router'
-import { createSignal, Show } from 'solid-js'
+import { useLocation, useNavigate, type RouteSectionProps } from '@solidjs/router'
+import { createMemo, createSignal, Show } from 'solid-js'
 
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
-import { SideNav, type SideNavLink } from '@/components/ui/SideNav'
+import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
-import { sync, unsyncedCount } from '@/sync'
+import { currentProject, sync, unsyncedCount } from '@/sync'
 
 // Only destinations that exist. Each new screen adds its line here.
-const LINKS: SideNavLink[] = [{ label: 'Tickets', href: '/' }]
+const LINKS: SideNavLink[] = [
+    { label: 'Tickets', href: '/', icon: ICONS.list },
+    { label: 'Documents', href: '/documents', icon: ICONS.document },
+    { label: 'Views', href: '/views', icon: ICONS.views },
+]
 
 // The layout every signed-in route renders inside; login and sign-up are
 // outside it. The guard wraps the whole shell so an anonymous user sees none
@@ -27,12 +31,32 @@ const LINKS: SideNavLink[] = [{ label: 'Tickets', href: '/' }]
 // in where they are.
 export function AppLayout(props: RouteSectionProps) {
     const navigate = useNavigate()
+    const location = useLocation()
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
     // The first /auth/me got no usable answer: nothing more to wait for, and
     // the content area says so instead of showing a placeholder for ever.
     const unreachable = () => session.status === 'unknown' && session.loadFailure !== null
     // The first /auth/me is still on its way.
     const stillAsking = () => session.status === 'unknown' && session.loadFailure === null
+
+    // The team in view comes from the URL, so a link to a team or a project
+    // always shows the right sidebar: /teams/:id names it, /projects/:id names
+    // a project and so its team, and anywhere else it is the picked project's.
+    const activeTeamId = createMemo(() => {
+        const path = location.pathname
+        const team = /^\/teams\/([^/]+)/.exec(path)
+        if (team) return decodeURIComponent(team[1])
+        const project = /^\/projects\/([^/]+)/.exec(path)
+        const projectId = project ? decodeURIComponent(project[1]) : undefined
+        const found = projectId ? sync.projects.find((p) => p.id === projectId) : currentProject()
+        return found?.team_id ?? currentProject()?.team_id ?? sync.teams[0]?.id
+    })
+    const teams = createMemo(() => sync.teams.toSorted((a, b) => a.name.localeCompare(b.name)))
+    const projectLinks = () =>
+        sync.projects
+            .filter((project) => project.team_id === activeTeamId())
+            .toSorted((a, b) => a.name.localeCompare(b.name))
+            .map((project) => ({ label: project.name, href: `/projects/${project.id}` }))
 
     // `logout` does not reject: the store is cleared even if the request
     // failed, so landing on /login is unconditional. The guard has already
@@ -57,6 +81,16 @@ export function AppLayout(props: RouteSectionProps) {
                 nav={
                     <SideNav
                         links={LINKS}
+                        teams={
+                            teams().length > 0 && activeTeamId()
+                                ? {
+                                      options: teams().map((t) => ({ value: t.id, label: t.name })),
+                                      value: activeTeamId()!,
+                                      onChange: (id) => navigate(`/teams/${id}`),
+                                  }
+                                : undefined
+                        }
+                        projects={teams().length > 0 ? projectLinks() : undefined}
                         userName={session.me?.display_name}
                         loading={stillAsking()}
                         status={

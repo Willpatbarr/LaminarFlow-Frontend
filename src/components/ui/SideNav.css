@@ -110,3 +110,58 @@
     transition: none;
   }
 }
+
+.side-nav__heading {
+  margin: var(--s-8) 0 0;
+  padding: 0 var(--s-8);
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.side-nav__empty {
+  padding: 0 var(--s-8);
+  color: var(--text-2);
+}
+
+.side-nav__collapse {
+  margin-left: auto;
+  padding: var(--s-2) var(--s-8);
+  border: none;
+  border-radius: var(--r-card);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.side-nav__collapse:hover {
+  color: var(--accent);
+}
+
+/* Collapsed is narrower, not emptier: labels move off-screen for sighted users
+ * but stay readable to assistive tech (and as title tooltips), and the team
+ * switcher stays usable. */
+.side-nav--collapsed {
+  width: 72px;
+}
+
+.side-nav--collapsed .side-nav__name,
+.side-nav--collapsed .side-nav__label,
+.side-nav--collapsed .side-nav__heading,
+.side-nav--collapsed .side-nav__empty,
+.side-nav--collapsed .side-nav__teams .input__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.side-nav--collapsed .side-nav__profile {
+  flex-direction: column;
+  height: auto;
+}
+
+.side-nav--collapsed .side-nav__collapse {
+  margin-left: 0;
+}
