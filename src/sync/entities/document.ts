@@ -28,8 +28,9 @@ import type { Entity } from './entity'
 //    is the same `document_conflict`, so `conflictIsArchive` (the copy is
 //    archived) is what lets the engine treat the create as done (LAM-126).
 //  - the list takes no sort.
-//  - team and project are fixed at creation, so they are in the create and not
-//    in an edit.
+//  - the team is fixed at creation. The project can be changed (LAM-138, `null`
+//    is "team-wide"), but the server leaves it alone when a PUT omits it, so an
+//    update names it only when this edit changed it: `was` has the key.
 
 type DocumentBody = components['schemas']['DocumentBody']
 
@@ -49,7 +50,7 @@ export function toDoc(body: DocumentBody): Doc {
 }
 
 export function docFieldsOf(doc: DocFields): DocFields {
-    return { title: doc.title, type: doc.type, aspect_type_id: doc.aspect_type_id, body: doc.body }
+    return { title: doc.title, type: doc.type, aspect_type_id: doc.aspect_type_id, project_id: doc.project_id, body: doc.body }
 }
 
 function sameBody(a: Record<string, string>, b: Record<string, string>): boolean {
@@ -62,6 +63,7 @@ function sameFields(a: DocFields, b: DocFields): boolean {
         a.title === b.title &&
         a.type === b.type &&
         a.aspect_type_id === b.aspect_type_id &&
+        a.project_id === b.project_id &&
         sameBody(a.body, b.body)
     )
 }
@@ -80,6 +82,7 @@ function clash(current: Doc, was: Record<string, unknown>): string[] {
     if ('title' in was && was.title !== current.title) found.push('title')
     if ('type' in was && was.type !== current.type) found.push('type')
     if ('aspect_type_id' in was && was.aspect_type_id !== current.aspect_type_id) found.push('aspect_type_id')
+    if ('project_id' in was && was.project_id !== current.project_id) found.push('project_id')
     const body = textsOf(was.body)
     for (const key of Object.keys(body)) {
         if ((current.body[key] ?? '') !== (body[key] ?? '')) found.push(`body.${key}`)
@@ -102,6 +105,7 @@ function merge(mine: DocFields, current: Doc, was: Record<string, unknown>): Doc
         title: 'title' in was ? mine.title : current.title,
         type: 'type' in was ? mine.type : current.type,
         aspect_type_id: 'aspect_type_id' in was ? mine.aspect_type_id : current.aspect_type_id,
+        project_id: 'project_id' in was ? mine.project_id : current.project_id,
         body,
     }
 }
@@ -204,7 +208,13 @@ export const documentEntity: Entity<'document'> = {
                         })
                     }
                     const params = { path: { id: entry.entity_id }, header: ifMatch(entry.base_version) }
-                    if (entry.kind === 'update') return api.PUT('/api/v1/documents/{id}', { params, body: entry.payload })
+                    if (entry.kind === 'update') {
+                        // The project only when this edit changed it: an edit of the text must not
+                        // put back a project somebody else has since changed.
+                        const { project_id, ...rest } = entry.payload
+                        const moved = entry.was !== undefined && 'project_id' in entry.was
+                        return api.PUT('/api/v1/documents/{id}', { params, body: moved ? { ...rest, project_id } : rest })
+                    }
                     if (entry.kind === 'unarchive') return api.POST('/api/v1/documents/{id}/unarchive', { params })
                     return api.DELETE('/api/v1/documents/{id}', { params })
                 },

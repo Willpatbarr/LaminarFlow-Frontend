@@ -75,10 +75,11 @@ export type Doc = {
     updated_at: string
 }
 
-/** What `PUT /documents/{id}` replaces, so an outbox payload carries all four. */
-export type DocFields = Pick<Doc, 'title' | 'type' | 'aspect_type_id' | 'body'>
+/** What `PUT /documents/{id}` replaces, so an outbox payload carries all four, and the project
+ *  (LAM-138). The project goes to the server only when the edit changed it (see `documentEntity.send`). */
+export type DocFields = Pick<Doc, 'title' | 'type' | 'aspect_type_id' | 'body' | 'project_id'>
 
-export type NewDoc = DocFields & Pick<Doc, 'team_id' | 'project_id'>
+export type NewDoc = DocFields & Pick<Doc, 'team_id'>
 
 export type Team = { id: string; workspace_id: string; name: string }
 

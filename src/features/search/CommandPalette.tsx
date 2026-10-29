@@ -14,7 +14,7 @@ import './search.css'
 ┌─ search ────────────────────────────────────────
 │  CommandPalette: Cmd/Ctrl+K opens a search over tickets, documents and projects (LAM-115)
 ├─ out ───────────────────────────────────────────
-│      CommandPalette   <CommandPalette onNewTicket? />   mounted once, in the app shell
+│      CommandPalette   <CommandPalette onNewTicket? documentTarget? />   mounted once, in the app shell
 ├─ example ───────────────────────────────────────
 │      Ctrl+K, type "outbox", ArrowDown, Enter   →   /tickets/<id>
 */
@@ -121,6 +121,8 @@ function Pieces(props: { pieces: Piece[] }) {
 type PaletteProps = {
     /** Offered as a command when the app can make a ticket here. */
     onNewTicket?: () => void
+    /** Where "New document" files it: the project in view, else team-wide. Absent: team-wide. */
+    documentTarget?: () => { projectId: string | null }
 }
 
 export function CommandPalette(props: PaletteProps) {
@@ -132,7 +134,7 @@ export function CommandPalette(props: PaletteProps) {
 
     return (
         <Show when={open()}>
-            <Palette onNewTicket={props.onNewTicket} onClose={() => setOpen(false)} />
+            <Palette onNewTicket={props.onNewTicket} documentTarget={props.documentTarget} onClose={() => setOpen(false)} />
         </Show>
     )
 }
@@ -187,7 +189,7 @@ function Palette(props: PaletteProps & { onClose: () => void }) {
             out.push({
                 key: 'command:new-document',
                 kind: 'command',
-                run: () => void makeDocument(navigate),
+                run: () => void makeDocument(navigate, props.documentTarget?.()),
                 label: [{ text: 'New document', mark: false }],
                 detail: [],
             })

@@ -709,7 +709,7 @@ export interface paths {
         get: operations["get-document"];
         /**
          * Replace a document's title, type and body
-         * @description PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. The team or project a document is filed under is fixed at creation and not part of this request. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.
+         * @description PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. A document's team is fixed at creation; its project can be changed with `project_id` (a uuid, or null for a team-wide document with no project), and is left alone when `project_id` is omitted. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.
          */
         put: operations["update-document"];
         post?: never;
@@ -3734,6 +3734,11 @@ export interface components {
             body?: {
                 [key: string]: string;
             };
+            /**
+             * Format: uuid
+             * @description Move the document to this project, or send null to make it team-wide (no project). Omit to leave it where it is. Filing under a project clears a team_id; null files it under the team of the project it leaves. Not the caller's: 422 project_not_found at body.project_id.
+             */
+            project_id?: string | null;
             /** @description Up to 200 characters (not bytes). */
             title: string;
             /**

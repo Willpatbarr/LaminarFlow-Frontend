@@ -280,6 +280,23 @@ function DocumentEditor(props: DocumentEditorProps) {
                 }}
                 error={titleError()}
             />
+            <Select
+                label="Project"
+                value={props.doc.project_id ?? ''}
+                disabled={locked()}
+                onChange={(value) => {
+                    const next = value === '' ? null : value
+                    if (next !== props.doc.project_id) {
+                        void updateDocument(id(), { project_id: next }, { base: props.doc.version, was: { project_id: props.doc.project_id } })
+                    }
+                }}
+                options={[
+                    { value: '', label: 'No project (team-wide)' },
+                    ...sync.projects
+                        .toSorted((a, b) => a.name.localeCompare(b.name))
+                        .map((project) => ({ value: project.id, label: project.name })),
+                ]}
+            />
             <Show when={isAspect()}>
                 <p class="t-meta">
                     Aspect: {feed.type()?.name ?? 'loading its fields…'}

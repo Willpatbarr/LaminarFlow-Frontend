@@ -105,7 +105,7 @@ export function DocumentList(props: DocumentListProps) {
                             ...sync.projects
                                 .toSorted((a, b) => a.name.localeCompare(b.name))
                                 .map((candidate) => ({ value: candidate.id, label: candidate.name })),
-                            { value: NONE, label: 'Not in a project' },
+                            { value: NONE, label: 'Team-wide (no project)' },
                         ]}
                     />
                 </Show>
@@ -165,7 +165,7 @@ export function DocumentList(props: DocumentListProps) {
                                     </a>
                                     <span class="doclist__meta t-meta">
                                         <Show when={props.projectId === undefined}>
-                                            <span>{projectName(document().project_id) ?? 'No project'}</span>
+                                            <span>{projectName(document().project_id) ?? 'Team-wide'}</span>
                                         </Show>
                                         <span>
                                             {document().type === 'aspect'

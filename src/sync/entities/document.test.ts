@@ -704,3 +704,84 @@ describe('update from the version an edit began on (LAM-166)', () => {
         expect((await db.snapshot()).outbox).toMatchObject([{ state: 'conflict', clashing: ['body.content'] }])
     })
 })
+
+describe('moving a document between projects (LAM-138)', () => {
+    const live = (row: Doc) => ({
+        type: 'document.updated',
+        document_id: row.id,
+        version: row.version,
+        actor_id: 'acc-other',
+        at: row.updated_at,
+        document: docBody(row),
+    })
+
+    it('sends project_id only when the edit changed it; null is team-wide', async () => {
+        const bodies: Record<string, unknown>[] = []
+        let server = doc({ version: 2 })
+        stubFetch({
+            ...listRoutes([], [server]),
+            'PUT /api/v1/documents/d-1': async (request) => {
+                const sent = (await request.clone().json()) as Record<string, unknown>
+                bodies.push(sent)
+                server = { ...server, ...sent, version: server.version + 1 } as Doc
+                return ok(docBody(server))
+            },
+        })
+        const { engine, db } = await startEngine()
+
+        await engine.updateDocument('d-1', { project_id: null }, { was: { project_id: 'p-1' } })
+        await engine.idle()
+        await engine.updateDocument('d-1', { title: 'Renamed' })
+        await engine.idle()
+
+        expect(bodies[0]).toMatchObject({ project_id: null, title: 'Design notes' })
+        expect('project_id' in bodies[1]).toBe(false)
+        expect((await db.snapshot()).documents).toMatchObject([{ project_id: null, title: 'Renamed' }])
+    })
+
+    it('a project change alone is a change, not "unchanged"', async () => {
+        stubFetch(listRoutes([], [doc()]))
+        const { engine } = await startEngine()
+        expect(await engine.updateDocument('d-1', { project_id: 'p-2' }, { was: { project_id: 'p-1' } })).toBe(true)
+    })
+
+    it('both people moved it: parked as a clash on project_id', async () => {
+        const theirs = doc({ version: 4, project_id: 'p-3' })
+        stubFetch({
+            ...listRoutes([], [doc({ version: 3 })]),
+            'PUT /api/v1/documents/d-1': () => conflict(theirs),
+        })
+        const { engine, db } = await startEngine()
+        await engine.applyRemote(live(theirs))
+
+        await engine.updateDocument('d-1', { project_id: 'p-2' }, { base: 3, was: { project_id: 'p-1' } })
+        await engine.idle()
+
+        expect((await db.snapshot()).outbox).toMatchObject([
+            { state: 'conflict', clashing: ['project_id'], payload: { project_id: 'p-2' } },
+        ])
+    })
+
+    it('someone moved it while we edit the text: no false conflict, their project is kept', async () => {
+        const theirs = doc({ version: 4, project_id: null })
+        const bodies: Record<string, unknown>[] = []
+        stubFetch({
+            ...listRoutes([], [doc({ version: 3 })]),
+            'PUT /api/v1/documents/d-1': async (request) => {
+                const sent = (await request.clone().json()) as Record<string, unknown>
+                bodies.push(sent)
+                return request.headers.get('If-Match') === '"3"' ? conflict(theirs) : ok(docBody({ ...theirs, ...sent, version: 5 } as Doc))
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.applyRemote(live(theirs))
+
+        await engine.updateDocument('d-1', { body: { content: 'Mine' } }, { base: 3, was: { body: { content: 'Hello' } } })
+        await engine.idle()
+
+        expect(bodies.every((sent) => !('project_id' in sent))).toBe(true)
+        const now = await db.snapshot()
+        expect(now.outbox).toEqual([])
+        expect(now.documents).toMatchObject([{ project_id: null, body: { content: 'Mine' }, version: 5 }])
+    })
+})
