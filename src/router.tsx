@@ -12,6 +12,7 @@ import { ProjectDocumentsPage, ProjectPage } from '@/routes/project'
 import { SignUpPage } from '@/routes/signup'
 import { TeamPage } from '@/routes/team'
 import { TeamSettingsPage } from '@/routes/team-settings'
+import { TokensPage } from '@/routes/tokens'
 import { TicketPage } from '@/routes/ticket'
 import { ViewPage, ViewsPage } from '@/routes/views'
 
@@ -48,6 +49,7 @@ const routes = defineRoutes([
             { path: '/documents/:id', component: DocumentPage },
             { path: '/views', component: ViewsPage },
             { path: '/views/:id', component: ViewPage },
+            { path: '/settings/tokens', component: TokensPage },
             // Last, so it only catches what nothing above matched.
             { path: '*', component: NotFoundPage },
         ],

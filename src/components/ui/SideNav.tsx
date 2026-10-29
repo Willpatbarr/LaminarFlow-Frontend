@@ -18,6 +18,7 @@ export const ICONS = {
     epic: 'M13 3 5 13h6l-1 8 8-10h-6z',
     sprint: 'M12 8v4l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
     milestone: 'M6 21V4M6 5h12l-2 4 2 4H6',
+    key: 'M15 7a4 4 0 1 1-3.9 4.9L4 19v-3h3v-2h2l2.1-2.1A4 4 0 0 1 15 7zM16 10h.01',
     project: 'M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z',
 } as const
 

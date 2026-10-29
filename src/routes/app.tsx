@@ -24,6 +24,7 @@ const LINKS: SideNavLink[] = [
     { label: 'Milestones', href: '/milestones', icon: ICONS.milestone },
     { label: 'Documents', href: '/documents', icon: ICONS.document },
     { label: 'Views', href: '/views', icon: ICONS.views },
+    { label: 'API tokens', href: '/settings/tokens', icon: ICONS.key },
 ]
 
 // The layout every signed-in route renders inside; login and sign-up are
