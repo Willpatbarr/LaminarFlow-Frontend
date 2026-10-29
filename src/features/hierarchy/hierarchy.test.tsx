@@ -203,15 +203,17 @@ describe('sprints', () => {
     })
 
     it('replaces the temporary id in the address with the real one once the server answers (LAM-133)', async () => {
-        let answer: (response: Response) => void = () => {}
+        // `answer` stays a no-op until the outbox actually sends the POST, which
+        // happens asynchronously after the optimistic create. Answering before
+        // then would be lost, so the test waits for the request first.
+        let answer: ((response: Response) => void) | null = null
         const history = await open(
             '/sprints',
             everything({
                 'POST /api/v1/sprints': async (request) => {
-                    const body = await bodyOf(request)
+                    await bodyOf(request)
                     return new Promise<Response>((resolve) => {
-                        answer = (r) => resolve(r)
-                        void body
+                        answer = resolve
                     })
                 },
             }),
@@ -225,7 +227,8 @@ describe('sprints', () => {
         await vi.waitFor(() => expect(history.get()).toMatch(/^\/sprints\/tmp_sprint_/))
         expect(await screen.findByRole('heading', { name: 'Sprint 3' })).toBeInTheDocument()
 
-        answer(ok({ id: 'sp-new', project_id: 'p-1', name: 'Sprint 3', start_date: null, end_date: null, ...stamp }))
+        await vi.waitFor(() => expect(answer).not.toBeNull())
+        answer!(ok({ id: 'sp-new', project_id: 'p-1', name: 'Sprint 3', start_date: null, end_date: null, ...stamp }))
         await vi.waitFor(() => expect(history.get()).toBe('/sprints/sp-new'))
         expect(screen.getByRole('heading', { name: 'Sprint 3' })).toBeInTheDocument()
     })

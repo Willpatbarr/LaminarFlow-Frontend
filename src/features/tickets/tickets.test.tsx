@@ -618,23 +618,34 @@ describe('the ticket page', () => {
         await open('/tickets/t-1', routes)
         const user = userEvent.setup()
 
+        // Each change is waited out until the server's answer is applied and the
+        // outbox is empty, not merely until the request arrived: the next change
+        // then always starts from the version the previous answer set, rather
+        // than from however far that round trip happened to get. The member
+        // options come from a separate request, so they are waited for too.
+        const saved = (count: number) =>
+            vi.waitFor(() => {
+                expect(puts).toHaveLength(count)
+                expect(sync.outbox).toEqual([])
+            })
+        const assignee = await screen.findByLabelText('Assignee')
+        await within(assignee).findByRole('option', { name: 'Sam Ortiz' })
+        expect(assignee).toHaveValue('')
+
         await user.selectOptions(await screen.findByLabelText('Status'), 'In Progress')
-        await vi.waitFor(() => expect(puts).toHaveLength(1))
+        await saved(1)
         expect(puts[0].body.status_id).toBe('s-doing')
 
-        const assignee = screen.getByLabelText('Assignee')
-        expect(assignee).toHaveValue('')
         await user.selectOptions(assignee, 'Ada Lovelace (you)')
-        await vi.waitFor(() => expect(puts).toHaveLength(2))
+        await saved(2)
         expect(puts[1]).toMatchObject({ ifMatch: '"4"', body: { assignee_id: ME, status_id: 's-doing' } })
 
-        await within(assignee).findByRole('option', { name: 'Sam Ortiz' })
         await user.selectOptions(assignee, 'Sam Ortiz')
-        await vi.waitFor(() => expect(puts).toHaveLength(3))
+        await saved(3)
         expect(puts[2].body.assignee_id).toBe('acc-sam')
 
         await user.selectOptions(assignee, 'Unassigned')
-        await vi.waitFor(() => expect(puts).toHaveLength(4))
+        await saved(4)
         expect(puts[3].body.assignee_id).toBeNull()
     })
 
