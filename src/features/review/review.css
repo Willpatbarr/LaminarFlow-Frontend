@@ -147,3 +147,41 @@
 .review__stale {
   color: var(--text-2);
 }
+
+/* A decided request (LAM-132): folded to a summary line, never removed. Neutral colours:
+   the outcome is said in words, not in red or green. */
+.reviewable[data-decided='true'] {
+  padding-left: var(--s-12);
+  border-left: 4px solid var(--border-strong);
+}
+
+.reviewable__margin--decided {
+  color: var(--text-2);
+}
+
+.review__card[data-status='approved'],
+.review__card[data-status='changes_requested'] {
+  border-left-color: var(--border-strong);
+}
+
+.review__decided {
+  display: grid;
+  gap: var(--s-8);
+}
+
+.review__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: baseline;
+  cursor: pointer;
+}
+
+.review__outcome {
+  font-weight: 600;
+}
+
+.review__decision-note {
+  margin: 0;
+  white-space: pre-wrap;
+}

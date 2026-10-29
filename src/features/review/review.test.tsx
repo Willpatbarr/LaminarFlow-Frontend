@@ -65,10 +65,27 @@ describe('open requests on a document', () => {
         expect(screen.getByRole('note')).toHaveTextContent('1 open review request')
     })
 
-    it('shows nothing for a request that is no longer pending', async () => {
-        await openApp('/documents/d-1', withRequest(request({ review_status: 'approved' })))
-        await screen.findByRole('textbox', { name: 'Text' })
+    it('keeps a decided request visible: the outcome, who decided, the note, and a margin mark', async () => {
+        const decided = request({ review_status: 'changes_requested', decided_by: 'acc-bo', decision_note: 'Shorter, please.', reviewers: [{ account_id: 'acc-bo' }] })
+        await openApp('/documents/d-1', withRequest(decided))
+        expect((await screen.findAllByText('Bo Lin requested changes')).length).toBeGreaterThan(0)
+        expect(await screen.findByTestId('decision-note')).toHaveTextContent('Shorter, please.')
+        expect(screen.getByRole('note')).toHaveTextContent('Bo Lin requested changes')
+        // Nothing is "open", and nothing is hidden.
         expect(screen.queryByRole('button', { name: /open review request/ })).toBeNull()
+        expect(screen.getByText('Hello', { selector: 'blockquote' })).toBeInTheDocument()
+    })
+
+    it('says "A reviewer" when the decider is not known, and "You" for the signed-in account', async () => {
+        await openApp('/documents/d-1', withRequest(request({ review_status: 'approved', decided_by: null })))
+        expect((await screen.findAllByText('A reviewer approved')).length).toBeGreaterThan(0)
+    })
+
+    it('the requester sees the outcome too', async () => {
+        const decided = request({ review_status: 'approved', decided_by: 'acc-bo', author_id: ME, reviewers: [{ account_id: 'acc-bo' }] })
+        await openApp('/documents/d-1', withRequest(decided))
+        expect((await screen.findAllByText('Bo Lin approved')).length).toBeGreaterThan(0)
+        expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull()
     })
 
     it('says so, neutrally, when the quoted words are no longer at the range', async () => {
@@ -102,16 +119,66 @@ describe('what a reviewer can do', () => {
         await waitFor(() => expect(puts).toEqual([{ review_status: 'approved' }]))
     })
 
-    it('Request changes is a PUT of changes_requested', async () => {
+    it('Request changes asks for a note first, and the note may be left empty', async () => {
         const puts: unknown[] = []
         await openApp(
             '/documents/d-1',
             withRequest(request(), {
-                'PUT /api/v1/review-requests/rr-1': async (r: Request) => (puts.push(await bodyOf(r)), ok(request({ review_status: 'changes_requested' }))),
+                'PUT /api/v1/review-requests/rr-1': async (r: Request) => (puts.push(await bodyOf(r)), ok(request({ review_status: 'changes_requested', decided_by: ME, updated_at: '2026-01-02T00:00:00Z' }))),
             }),
         )
-        await userEvent.setup().click(await screen.findByRole('button', { name: 'Request changes' }))
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Request changes' }))
+        expect(puts).toEqual([])
+        const form = (await screen.findByRole('textbox', { name: /What would help/ })).closest('form')!
+        await user.click(within(form).getByRole('button', { name: 'Request changes' }))
         await waitFor(() => expect(puts).toEqual([{ review_status: 'changes_requested' }]))
+        expect((await screen.findAllByText('You requested changes')).length).toBeGreaterThan(0)
+    })
+
+    it('Request changes sends the note it was given', async () => {
+        const puts: unknown[] = []
+        await openApp(
+            '/documents/d-1',
+            withRequest(request(), {
+                'PUT /api/v1/review-requests/rr-1': async (r: Request) => (
+                    puts.push(await bodyOf(r)),
+                    ok(request({ review_status: 'changes_requested', decided_by: ME, decision_note: 'Shorter, please.', updated_at: '2026-01-02T00:00:00Z' }))
+                ),
+            }),
+        )
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Request changes' }))
+        const box = await screen.findByRole('textbox', { name: /What would help/ })
+        await user.type(box, 'Shorter, please.')
+        await user.click(within(box.closest('form')!).getByRole('button', { name: 'Request changes' }))
+        await waitFor(() => expect(puts).toEqual([{ review_status: 'changes_requested', decision_note: 'Shorter, please.' }]))
+        expect(await screen.findByTestId('decision-note')).toHaveTextContent('Shorter, please.')
+    })
+
+    it('Cancel on the note sends nothing', async () => {
+        const puts: unknown[] = []
+        await openApp(
+            '/documents/d-1',
+            withRequest(request(), { 'PUT /api/v1/review-requests/rr-1': async (r: Request) => (puts.push(await bodyOf(r)), ok(request())) }),
+        )
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Request changes' }))
+        await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+        expect(screen.queryByRole('textbox', { name: /What would help/ })).toBeNull()
+        expect(puts).toEqual([])
+    })
+
+    it('a decided request can be reopened by a reviewer', async () => {
+        const puts: unknown[] = []
+        await openApp(
+            '/documents/d-1',
+            withRequest(request({ review_status: 'approved', decided_by: ME }), {
+                'PUT /api/v1/review-requests/rr-1': async (r: Request) => (puts.push(await bodyOf(r)), ok(request({ decided_by: ME, updated_at: '2026-01-02T00:00:00Z' }))),
+            }),
+        )
+        await userEvent.setup().click(await screen.findByRole('button', { name: 'Reopen' }))
+        await waitFor(() => expect(puts).toEqual([{ review_status: 'pending' }]))
     })
 
     it('Comment posts a plain comment on the document, not a PUT', async () => {
@@ -149,6 +216,28 @@ describe('what a reviewer can do', () => {
         await waitFor(() => expect(screen.getByText(/Asked: Bo Lin/)).toBeInTheDocument())
         expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
         expect(screen.queryByRole('button', { name: 'Request changes' })).toBeNull()
+    })
+})
+
+describe('asking for a document\'s requests', () => {
+    it('names every status, since the server lists only pending ones otherwise', async () => {
+        const asked: { filter: { conditions: { field: string; value: unknown }[] } }[] = []
+        await openApp(
+            '/documents/d-1',
+            withRequest(request({ reviewers: [{ account_id: 'acc-bo' }] }), {
+                'POST /api/v1/review-requests/list': async (r: Request) => {
+                    const body = (await bodyOf(r)) as { filter: { conditions: { field: string; value: unknown }[] } }
+                    asked.push(body)
+                    const forDocument = body.filter.conditions.some((c) => c.field === 'document_id')
+                    return ok({ items: forDocument ? [request({ reviewers: [{ account_id: 'acc-bo' }] })] : [], has_more: false, next_cursor: null })
+                },
+            }),
+        )
+        await screen.findByText('Review requested by Sam Ortiz')
+        await waitFor(() => expect(asked.some((a) => a.filter.conditions.some((c) => c.field === 'document_id'))).toBe(true))
+        const forDocument = asked.find((a) => a.filter.conditions.some((c) => c.field === 'document_id'))!
+        const status = forDocument.filter.conditions.find((c) => c.field === 'review_status')
+        expect(JSON.stringify(status?.value)).toBe(JSON.stringify(['pending', 'approved', 'changes_requested']))
     })
 })
 

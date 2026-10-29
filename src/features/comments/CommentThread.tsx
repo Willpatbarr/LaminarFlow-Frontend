@@ -169,7 +169,8 @@ function CommentItem(props: CommentItemProps) {
         return found.attempts > 0 ? 'Saved on this device. Not synced yet' : 'Sending…'
     }
     const author = () => (props.mine ? 'You' : props.comment.author_id === null ? 'Deleted account' : (memberName(props.comment.author_id) ?? 'Someone else'))
-    const edited = () => props.comment.updated_at !== props.comment.created_at
+    // A body edit only (LAM-132): a review status change moves updated_at, not edited_at.
+    const edited = () => !!props.comment.edited_at
 
     function startEdit() {
         setText(props.comment.body)

@@ -53,6 +53,20 @@ describe('limits', () => {
 })
 
 describe('the thread on the ticket page', () => {
+    it('marks "(edited)" from edited_at, not from updated_at (a review status change moves only updated_at)', async () => {
+        await openApp('/tickets/t-1', {
+            ...listRoutes([ticket({ id: 't-1' })], [], [], {
+                comments: [
+                    comment({ id: 'c-1', updated_at: '2026-01-05T00:00:00Z', edited_at: null }),
+                    comment({ id: 'c-2', body: 'Reworded', created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-06T00:00:00Z', edited_at: '2026-01-06T00:00:00Z' }),
+                ],
+            }),
+        })
+        const items = await within(await thread()).findAllByRole('listitem')
+        expect(within(items[0]).queryByText('(edited)')).toBeNull()
+        expect(within(items[1]).getByText('(edited)')).toBeInTheDocument()
+    })
+
     it('lists comments oldest first and offers Edit and Delete on the viewer\'s own only', async () => {
         await openApp('/tickets/t-1', {
             ...listRoutes([ticket({ id: 't-1' })], [], [], {

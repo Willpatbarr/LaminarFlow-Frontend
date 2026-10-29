@@ -29,7 +29,7 @@ import { AttachmentList } from '@/features/attachments/AttachmentList'
 import { imageUploader } from '@/features/attachments/upload'
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
-import { openRequestsFor } from '@/features/review/feed'
+import { decidedRequestsFor, openRequestsFor } from '@/features/review/feed'
 import { OpenRequestsCount, ReviewPanel } from '@/features/review/ReviewPanel'
 import { ReviewableField, type ReviewContext } from '@/features/review/ReviewableField'
 
@@ -189,6 +189,7 @@ function DocumentEditor(props: DocumentEditorProps) {
     const synced = () =>
         !title.dirty() && !content.dirty() && fieldDrafts() === 0 && documentSyncState(id()) === 'synced' && !locked()
     const openOn = (fieldId: string | null) => openRequestsFor(props.routeId).filter((r) => (r.field_id ?? null) === fieldId)
+    const decidedOn = (fieldId: string | null) => decidedRequestsFor(props.routeId).filter((r) => (r.field_id ?? null) === fieldId)
     const storedText = (fieldId: string | null) => props.doc.body[fieldId ?? CONTENT_KEY] ?? ''
 
     async function keepTheirs() {
@@ -302,6 +303,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                                 accountId: props.accountId,
                                 canRequest: synced(),
                                 open: openOn(field().id),
+                                decided: decidedOn(field().id),
                                 onAsked: props.announce,
                             }}
                         />
@@ -326,6 +328,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                     canRequest={synced()}
                     accountId={props.accountId}
                     open={openOn(null)}
+                    decided={decidedOn(null)}
                     onAsked={props.announce}
                 />
                 <MakeAspect
@@ -397,6 +400,7 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
             accountId={props.review.accountId}
             canRequest={props.review.canRequest}
             open={props.review.open}
+            decided={props.review.decided}
             onAsked={props.review.onAsked}
             label={props.field.label}
             images={imageUploader(() => ({ documentId: props.review.documentId }))}
