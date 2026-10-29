@@ -32,6 +32,21 @@ const me = {
 
 type Routes = Parameters<typeof stubFetch>[0]
 
+const person = (account_id: string, display_name: string) => ({
+    account_id,
+    display_name,
+    email: `${account_id}@example.com`,
+    role: 'member',
+})
+const MEMBERS = {
+    'POST /api/v1/members/list': () =>
+        ok({
+            items: [person(ME, 'Ada Lovelace'), person('acc-sam', 'Sam Ortiz')],
+            has_more: false,
+            next_cursor: null,
+        }),
+}
+
 let disconnect = () => {}
 
 // Signs in, lets sync start, and mounts the app at `url`.
@@ -532,6 +547,7 @@ describe('the ticket page', () => {
         const puts: { ifMatch: string | null; body: Record<string, unknown> }[] = []
         const routes: Routes = {
             ...listRoutes([ticket({ version: 3, description: 'Before' })]),
+            ...MEMBERS,
             'PUT /api/v1/tickets/t-1': async (request) => {
                 const body = await bodyOf(request)
                 puts.push({ ifMatch: request.headers.get('If-Match'), body })
@@ -605,24 +621,36 @@ describe('the ticket page', () => {
         await vi.waitFor(() => expect(puts).toHaveLength(1))
         expect(puts[0].body.status_id).toBe('s-doing')
 
-        const assignee = screen.getByRole('group', { name: 'Assignee' })
-        expect(within(assignee).getByText('Unassigned')).toBeInTheDocument()
-        await user.click(within(assignee).getByRole('button', { name: 'Assign to me' }))
+        const assignee = screen.getByLabelText('Assignee')
+        expect(assignee).toHaveValue('')
+        await user.selectOptions(assignee, 'Ada Lovelace (you)')
         await vi.waitFor(() => expect(puts).toHaveLength(2))
         expect(puts[1]).toMatchObject({ ifMatch: '"4"', body: { assignee_id: ME, status_id: 's-doing' } })
-        expect(within(assignee).getByText('You')).toBeInTheDocument()
 
-        await user.click(within(assignee).getByRole('button', { name: 'Unassign' }))
+        await within(assignee).findByRole('option', { name: 'Sam Ortiz' })
+        await user.selectOptions(assignee, 'Sam Ortiz')
         await vi.waitFor(() => expect(puts).toHaveLength(3))
-        expect(puts[2].body.assignee_id).toBeNull()
+        expect(puts[2].body.assignee_id).toBe('acc-sam')
+
+        await user.selectOptions(assignee, 'Unassigned')
+        await vi.waitFor(() => expect(puts).toHaveLength(4))
+        expect(puts[3].body.assignee_id).toBeNull()
     })
 
-    it('shows another assignee read-only', async () => {
+    it('names another assignee from the members list', async () => {
+        await open('/tickets/t-1', { ...listRoutes([ticket({ assignee_id: 'acc-sam' })]), ...MEMBERS })
+
+        const assignee = await screen.findByLabelText('Assignee')
+        await vi.waitFor(() => expect(assignee).toHaveValue('acc-sam'))
+        expect(within(assignee).getByRole('option', { name: 'Sam Ortiz' })).toBeInTheDocument()
+    })
+
+    it('shows an assignee who is not a member as someone else', async () => {
         await open('/tickets/t-1', listRoutes([ticket({ assignee_id: 'acc-other' })]))
 
-        const assignee = await screen.findByRole('group', { name: 'Assignee' })
-        expect(within(assignee).getByText('Someone else')).toBeInTheDocument()
-        expect(within(assignee).queryByRole('button')).not.toBeInTheDocument()
+        const assignee = await screen.findByLabelText('Assignee')
+        expect(assignee).toHaveValue('acc-other')
+        expect(within(assignee).getByRole('option', { name: 'Someone else' })).toBeInTheDocument()
     })
 
     it('archives after confirming, and goes back to the list', async () => {

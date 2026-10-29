@@ -397,8 +397,8 @@ describe("the server's refusal, when the client check never ran", () => {
         await updateTicket('t-1', { assignee_id: 'acc-gone' })
 
         const message = 'That assignee is no longer available. Pick another.'
-        const group = await screen.findByRole('group', { name: 'Assignee' })
+        const select = await screen.findByLabelText('Assignee')
         expect(await screen.findByText(message)).toBeInTheDocument()
-        expect(group.parentElement).toHaveTextContent(message)
+        expect(select).toHaveAttribute('aria-invalid', 'true')
     })
 })

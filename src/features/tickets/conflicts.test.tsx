@@ -117,7 +117,7 @@ describe('an edit that lost to someone else\'s', () => {
         expect(screen.getByLabelText('Title')).toHaveAttribute('readonly')
         expect(screen.getByRole('textbox', { name: 'Description' })).toHaveAttribute('aria-readonly', 'true')
         expect(screen.getByLabelText('Status')).toBeDisabled()
-        expect(screen.getByRole('button', { name: 'Assign to me' })).toBeDisabled()
+        expect(screen.getByLabelText('Assignee')).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Archive ticket' })).toBeDisabled()
 
         // Typing does nothing.

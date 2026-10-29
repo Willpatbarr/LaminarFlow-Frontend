@@ -3,9 +3,9 @@ import {
     createEffect,
     createMemo,
     createSignal,
-    createUniqueId,
     For,
     Match,
+    onSettled,
     Show,
     Switch,
     untrack,
@@ -13,6 +13,7 @@ import {
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
+import { ensureMembers, members } from '@/features/members/members'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
@@ -318,7 +319,7 @@ function TicketEditor(props: TicketEditorProps) {
     // The epic, sprint or milestone being made from this page (LAM-105): made
     // here, it is given to this ticket in the same step.
     const [makingParent, setMakingParent] = createSignal<Kind | null>(null)
-    const assigneeLabelId = createUniqueId()
+    onSettled(() => void ensureMembers())
 
     const id = () => props.ticket.id
     const statuses = createMemo(() => statusesForProject(props.ticket.project_id))
@@ -520,8 +521,21 @@ function TicketEditor(props: TicketEditorProps) {
         )
     }
 
-    const assignedToMe = () => props.ticket.assignee_id === props.viewer.accountId
-    const assignedElsewhere = () => props.ticket.assignee_id !== null && !assignedToMe()
+    // Every workspace member (LAM-128), the viewer marked as "you". The viewer
+    // and the current assignee are listed even before the members list answers
+    // (or if the assignee has since left it), so the select never shows a
+    // value it has no option for.
+    const assigneeOptions = createMemo(() => {
+        const me = props.viewer.accountId
+        const current = props.ticket.assignee_id
+        const people = new Map<string, string>([[me, `${props.viewer.displayName} (you)`]])
+        for (const m of members()) if (m.account_id !== me) people.set(m.account_id, m.display_name)
+        if (current !== null && !people.has(current)) people.set(current, 'Someone else')
+        return [
+            { value: '', label: 'Unassigned' },
+            ...[...people].map(([value, label]) => ({ value, label })),
+        ]
+    })
 
     function archive() {
         // Leave first: the row disappears the moment it is archived, and this
@@ -624,33 +638,14 @@ function TicketEditor(props: TicketEditorProps) {
                     error={refused()?.fields.status}
                 />
 
-                <div class="input">
-                    <span class="input__label t-body" id={assigneeLabelId}>
-                        Assignee
-                    </span>
-                    <div class="ticket__assignee" role="group" aria-labelledby={assigneeLabelId}>
-                        <Show
-                            when={!assignedElsewhere()}
-                            fallback={<span class="t-body">Someone else</span>}
-                        >
-                            <span class="t-body">{assignedToMe() ? 'You' : 'Unassigned'}</span>
-                            <Button
-                                variant="secondary"
-                                disabled={locked()}
-                                onClick={() =>
-                                    void updateTicket(id(), {
-                                        assignee_id: assignedToMe() ? null : props.viewer.accountId,
-                                    })
-                                }
-                            >
-                                {assignedToMe() ? 'Unassign' : 'Assign to me'}
-                            </Button>
-                        </Show>
-                    </div>
-                    <Show when={refused()?.fields.assignee}>
-                        <span class="input__error t-meta">{refused()?.fields.assignee}</span>
-                    </Show>
-                </div>
+                <Select
+                    label="Assignee"
+                    value={props.ticket.assignee_id ?? ''}
+                    options={assigneeOptions()}
+                    disabled={locked()}
+                    onChange={(value) => void updateTicket(id(), { assignee_id: value || null })}
+                    error={refused()?.fields.assignee}
+                />
             </div>
 
             <div class="ticket__row">

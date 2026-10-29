@@ -1,5 +1,7 @@
 import type { Status, Ticket } from '@/sync'
 
+import { memberName } from '@/features/members/members'
+
 import type { Lookups } from './evaluate'
 
 /*
@@ -51,7 +53,7 @@ export function buildGroups(
                 if (id === null) return { key: 'none', title: 'Unassigned', status: null, order: 0, none: true }
                 return id === viewerId
                     ? { key: id, title: 'You', status: null, order: '' }
-                    : { key: id, title: 'Someone else', status: null, order: id }
+                    : { key: id, title: memberName(id) ?? 'Someone else', status: null, order: memberName(id)?.toLowerCase() ?? '\uffff' + id }
             }
             case 'epic':
             case 'milestone': {
