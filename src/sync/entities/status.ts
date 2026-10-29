@@ -174,7 +174,9 @@ export const statusEntity: Entity<'status'> = {
                 )
                 if (latest.type !== 'ok' || !moved) return latest
             }
-            if (!moved) return latest ?? { type: 'http', error: { status: 404, code: 'status_not_found', errors: [] } }
+            // Nothing differs from the server's copy (the feed already brought
+            // it to where this entry wanted it): done, nothing to send.
+            if (!moved) return latest ?? { type: 'ok', row: was }
 
             // Statuses this client has not created yet are not the server's to
             // order; their own create carries the position.
