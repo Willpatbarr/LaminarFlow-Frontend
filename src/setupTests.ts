@@ -15,6 +15,13 @@ afterEach(cleanup)
 // navigation; without this each one prints a "not implemented" warning.
 window.scrollTo = () => {}
 
+// Nor does it lay anything out, and ProseMirror asks a Range for its rectangles
+// when it scrolls the cursor into view after an edit. Empty ones are enough.
+const noRects = { length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] } as unknown as DOMRectList
+Range.prototype.getClientRects = () => noRects
+Range.prototype.getBoundingClientRect = () => new DOMRect()
+document.elementFromPoint = () => null
+
 // jsdom ships a real WebSocket, and the sync store opens one the moment a test
 // signs in. Left alone it would dial localhost for real; this one never
 // connects, which is what every test that does not care about the feed wants.
