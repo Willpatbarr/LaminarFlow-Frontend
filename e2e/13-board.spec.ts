@@ -126,7 +126,7 @@ test('the column menu renames, hides and shows a column, and the board survives 
     }
 
     // Rename.
-    await page.getByLabel(`Options for column ${todoName}`).click()
+    await page.getByLabel(`Column options for ${todoName}`).click()
     const name = page.getByLabel(`Name of column ${todoName}`)
     await name.fill('Backlog')
     await name.press('Enter')
@@ -138,7 +138,7 @@ test('the column menu renames, hides and shows a column, and the board survives 
     await expect.poll(async () => (await serverColumns()).map((c) => c.name)).toEqual([doingName, 'Backlog', doneName])
 
     // Hide, then show.
-    await page.getByLabel(`Options for column ${doneName}`).click()
+    await page.getByLabel(`Column options for ${doneName}`).click()
     await page.getByRole('button', { name: `Hide column ${doneName}` }).click()
     await expect(column(page, doneName)).toHaveCount(0)
     await expect.poll(async () => (await serverColumns()).find((c) => c.name === doneName)?.is_visible).toBe(false)
@@ -151,7 +151,56 @@ test('the column menu renames, hides and shows a column, and the board survives 
     await expect.poll(async () => (await serverColumns()).find((c) => c.name === doneName)?.is_visible).toBe(true)
 
     // The status editor opens from the menu.
-    await page.getByLabel(`Options for column ${doingName}`).click()
+    await page.getByLabel(`Column options for ${doingName}`).click()
     await page.getByRole('button', { name: 'Edit statuses…' }).click()
     await expect(page.getByRole('dialog', { name: 'Statuses' })).toBeVisible()
+})
+
+// LAM-142 (QA finding P4): the column menu is a popover in a portal, so the
+// column's scroll area cannot clip it.
+test('the column menu is not clipped, closes on Escape and outside click, and only one is open', async ({ page, context, baseURL }) => {
+    const alice = await newAccount('popover')
+    const world = await projectOf(alice)
+    const [todoName, doingName] = world.statusNames
+    const board = await boardOf(alice, world)
+
+    await signedInAs(context, alice, baseURL!)
+    await page.goto(`/boards/${board.id}`)
+    await expect(column(page, todoName)).toBeVisible()
+
+    const first = page.getByRole('button', { name: `Column options for ${todoName}` })
+    const second = page.getByRole('button', { name: `Column options for ${doingName}` })
+    const panel = (name: string) => page.getByRole('dialog', { name: `Column ${name}` })
+
+    // Open: fully inside the viewport, outside the column, with no scrollbar of its own.
+    await first.click()
+    await expect(first).toHaveAttribute('aria-expanded', 'true')
+    await expect(panel(todoName)).toBeVisible()
+    const inside = await panel(todoName).evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const column = el.closest('[role="region"]')
+        return {
+            fits: r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight,
+            noScroll: el.scrollHeight <= el.clientHeight,
+            inColumn: column !== null,
+        }
+    })
+    expect(inside).toEqual({ fits: true, noScroll: true, inColumn: false })
+
+    // Escape closes it and focus goes back to the button.
+    await page.keyboard.press('Escape')
+    await expect(panel(todoName)).toHaveCount(0)
+    await expect(first).toBeFocused()
+    await expect(first).toHaveAttribute('aria-expanded', 'false')
+
+    // Opening another closes the first.
+    await first.click()
+    await expect(panel(todoName)).toBeVisible()
+    await second.click()
+    await expect(panel(doingName)).toBeVisible()
+    await expect(panel(todoName)).toHaveCount(0)
+
+    // An outside click closes it.
+    await page.getByRole('heading', { name: board.name }).click()
+    await expect(panel(doingName)).toHaveCount(0)
 })
