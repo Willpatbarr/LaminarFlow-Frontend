@@ -8,6 +8,7 @@ import { NotFoundPage } from '@/routes/not-found'
 import { ProjectPage } from '@/routes/project'
 import { SignUpPage } from '@/routes/signup'
 import { TeamPage } from '@/routes/team'
+import { TeamSettingsPage } from '@/routes/team-settings'
 import { TicketPage } from '@/routes/ticket'
 import { ViewPage, ViewsPage } from '@/routes/views'
 
@@ -28,6 +29,7 @@ const routes = defineRoutes([
             { path: '/', component: HomePage },
             { path: '/tickets/:id', component: TicketPage },
             { path: '/teams/:teamId', component: TeamPage },
+            { path: '/teams/:teamId/settings', component: TeamSettingsPage },
             { path: '/projects/:projectId', component: ProjectPage },
             { path: '/documents', component: DocumentsPage },
             { path: '/documents/:id', component: DocumentPage },

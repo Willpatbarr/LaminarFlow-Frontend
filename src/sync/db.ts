@@ -47,6 +47,7 @@ interface Schema extends DBSchema {
     server_tickets: { key: string; value: Ticket }
     documents: { key: string; value: Doc }
     server_documents: { key: string; value: Doc }
+    server_statuses: { key: string; value: Status }
     outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
 
@@ -54,6 +55,7 @@ interface Schema extends DBSchema {
 const ENTITY_STORES = {
     ticket: { rows: 'tickets', server: 'server_tickets' },
     document: { rows: 'documents', server: 'server_documents' },
+    status: { rows: 'statuses', server: 'server_statuses' },
 } as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
@@ -65,6 +67,7 @@ const STORES = [
     'server_tickets',
     'documents',
     'server_documents',
+    'server_statuses',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
@@ -78,6 +81,7 @@ type RowStore =
     | 'server_tickets'
     | 'documents'
     | 'server_documents'
+    | 'server_statuses'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -103,6 +107,7 @@ export type SyncTx = {
     teams: Table<Team>
     projects: Table<Project>
     statuses: Table<Status>
+    serverStatuses: Table<Status>
     tickets: Table<Ticket>
     serverTickets: Table<Ticket>
     documents: Table<Doc>
@@ -150,7 +155,10 @@ export const DB_NAME = 'laminarflow'
 // 2  a `create` entry carries the `idempotency_key` every attempt sends (LAM-76).
 // 3  any entity goes through the outbox (LAM-125): an entry names its `entity`
 //    and its `entity_id` (was `ticket_id`), and documents get their tables.
-export const DB_VERSION = 3
+// 4  statuses are an entity too (LAM-95): `statuses` is what the screen shows
+//    and `server_statuses` the server's copy. Rows already in `statuses` have
+//    no `version`; the next hydration rewrites every one.
+export const DB_VERSION = 4
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -242,6 +250,7 @@ export async function openSyncDb(
                 outbox.deleteIndex('ticket_id' as 'entity_id')
                 outbox.createIndex('entity_id', 'entity_id')
             }
+            if (oldVersion < 4) upgrading.createObjectStore('server_statuses', { keyPath: 'id' })
             // One chain, one step after another: each step is a cursor over the
             // same store and they must not interleave.
             const steps: ((store: OldStore) => Promise<void>)[] = []
@@ -285,6 +294,7 @@ export async function openSyncDb(
                     teams: table(tx, 'teams'),
                     projects: table(tx, 'projects'),
                     statuses: table(tx, 'statuses'),
+                    serverStatuses: table(tx, 'server_statuses'),
                     tickets: table(tx, 'tickets'),
                     serverTickets: table(tx, 'server_tickets'),
                     documents: table(tx, 'documents'),

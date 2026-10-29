@@ -34,6 +34,7 @@ describe('isStarted', () => {
         color: '#000000',
         position: 1,
         category,
+        version: 1,
     })
 
     it('is a ring only for not_started', () => {

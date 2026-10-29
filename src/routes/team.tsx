@@ -35,6 +35,9 @@ export function TeamPage() {
                     {(found) => (
                         <>
                             <h1 class="t-screen-title">{found().name}</h1>
+                            <p class="t-body">
+                                <a href={`/teams/${found().id}/settings`}>Team settings</a>
+                            </p>
                             <h2 class="t-body">Projects</h2>
                             <ul>
                                 <For

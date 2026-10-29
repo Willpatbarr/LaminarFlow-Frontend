@@ -1,0 +1,52 @@
+import { useParams } from '@solidjs/router'
+import { Show } from 'solid-js'
+
+import { session } from '@/features/auth'
+import { StatusEditor } from '@/features/tickets/components/StatusEditor'
+import { isLoading, sync } from '@/sync'
+
+// /teams/:teamId/settings. For now the team's statuses (LAM-95); the board's
+// column menu opens the same editor (LAM-107).
+export function TeamSettingsPage() {
+    const params = useParams<{ teamId: string }>()
+    const team = () => sync.teams.find((candidate) => candidate.id === params.teamId)
+    const busy = () => session.status === 'unknown' || isLoading()
+    return (
+        <section aria-busy={busy() ? 'true' : undefined}>
+            <Show
+                when={!busy()}
+                fallback={
+                    <p class="visually-hidden" role="status">
+                        Loading team settings…
+                    </p>
+                }
+            >
+                <Show
+                    when={team()}
+                    fallback={
+                        <>
+                            <h1 class="t-screen-title">Team not found</h1>
+                            <p class="t-body">
+                                This account has no such team. <a href="/">Back to tickets</a>
+                            </p>
+                        </>
+                    }
+                >
+                    {(found) => (
+                        <>
+                            <p class="t-body">
+                                <a href={`/teams/${found().id}`}>← {found().name}</a>
+                            </p>
+                            <h1 class="t-screen-title">Team settings</h1>
+                            <h2 class="t-section">Statuses</h2>
+                            <p class="t-meta">
+                                Rename, reorder, add or delete. No status is special: even the first three can go.
+                            </p>
+                            <StatusEditor teamId={found().id} />
+                        </>
+                    )}
+                </Show>
+            </Show>
+        </section>
+    )
+}
