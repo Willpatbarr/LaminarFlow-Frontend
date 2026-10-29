@@ -24,8 +24,14 @@ import {
     type EntityName,
     type EntityRows,
     type EntryError,
+    type Epic,
+    type EpicFields,
     type Label,
     type LabelFields,
+    type Milestone,
+    type MilestoneFields,
+    type Sprint,
+    type SprintFields,
     type NewDoc,
     type NewStatus,
     type Status,
@@ -185,6 +191,19 @@ export type SyncEngine = {
     updateLabel(id: string, patch: Partial<LabelFields>): Promise<boolean>
     /** Deletes a label; it leaves every ticket that has it. */
     deleteLabel(id: string): Promise<boolean>
+
+    createEpic(epic: EntityCreates['epic']): Promise<Epic>
+    updateEpic(id: string, patch: Partial<EpicFields>): Promise<boolean>
+    /** Deletes an epic; its tickets stay, with no epic. */
+    deleteEpic(id: string): Promise<boolean>
+    createSprint(sprint: EntityCreates['sprint']): Promise<Sprint>
+    updateSprint(id: string, patch: Partial<SprintFields>): Promise<boolean>
+    /** Deletes a sprint; its tickets stay, out of it. */
+    deleteSprint(id: string): Promise<boolean>
+    createMilestone(milestone: EntityCreates['milestone']): Promise<Milestone>
+    updateMilestone(id: string, patch: Partial<MilestoneFields>): Promise<boolean>
+    /** Deletes a milestone; its tickets stay, with no milestone. */
+    deleteMilestone(id: string): Promise<boolean>
 
     createStatus(status: NewStatus): Promise<Status>
     updateStatus(id: string, patch: Partial<StatusFields>): Promise<boolean>
@@ -572,7 +591,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         }
         if (from !== server.id) await rows.delete(from)
         await copies.put(server)
-        if (entry.entity === 'label' && from !== server.id) await renameLabel(tx, from, server.id)
+        if (entry.entity in RELEASES && from !== server.id) await renameFiled(tx, entry.entity as keyof typeof RELEASES, from, server.id)
         await rebuild(tx, entry.entity, server.id)
         return from === server.id ? {} : { swap: { from, to: server.id } }
     }
@@ -851,16 +870,25 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         await rewriteFiled(tx, RELEASES[resource], gone)
     }
 
-    // A label made here is named by a temporary id until the server answers; the
-    // tickets that were given it, and what is queued for them, name it too.
-    // Swapping it for the real id keeps the label on them.
-    async function renameLabel(tx: SyncTx, from: string, to: string) {
+    // A label, epic, sprint or milestone made here is named by a temporary id
+    // until the server answers; the tickets that were given it, and what is
+    // queued for them, name it too. Swapping it for the real id keeps it on them.
+    async function renameFiled(tx: SyncTx, resource: keyof typeof RELEASES, from: string, to: string) {
+        const swap = (id: string) => (id === from ? to : id)
         await rewriteFiled(
             tx,
-            (ticket) =>
-                ticket.label_ids?.includes(from)
-                    ? { ...ticket, label_ids: ticket.label_ids.map((id) => (id === from ? to : id)) }
-                    : ticket,
+            (ticket) => {
+                switch (resource) {
+                    case 'epic':
+                        return ticket.epic_id === from ? { ...ticket, epic_id: to } : ticket
+                    case 'milestone':
+                        return ticket.milestone_id === from ? { ...ticket, milestone_id: to } : ticket
+                    case 'label':
+                        return ticket.label_ids?.includes(from) ? { ...ticket, label_ids: ticket.label_ids.map(swap) } : ticket
+                    case 'sprint':
+                        return ticket.sprint_ids?.includes(from) ? { ...ticket, sprint_ids: ticket.sprint_ids.map(swap) } : ticket
+                }
+            },
             from,
         )
     }
@@ -963,10 +991,19 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 headSeen.add(head.entity_id)
                 if (head.state !== 'pending') continue
                 if ((waits.get(head.id) ?? 0) > now) continue
-                // A ticket that names a label the server has not heard of yet
-                // waits for that label's create, which was queued before it.
+                // A ticket that names a label, epic, sprint or milestone the
+                // server has not heard of yet waits for that create, which was
+                // queued before it.
                 if (head.entity === 'ticket' && head.kind !== 'archive' && head.kind !== 'unarchive') {
-                    if (head.payload.label_ids?.some(isTempId)) continue
+                    const { payload } = head
+                    if (
+                        payload.label_ids?.some(isTempId) ||
+                        payload.sprint_ids?.some(isTempId) ||
+                        (payload.epic_id && isTempId(payload.epic_id)) ||
+                        (payload.milestone_id && isTempId(payload.milestone_id))
+                    ) {
+                        continue
+                    }
                 }
 
                 let entry = head
@@ -1254,6 +1291,15 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         createLabel: (label) => create('label', label),
         updateLabel: (id, patch) => update('label', id, patch),
         deleteLabel: (id) => archive('label', id),
+        createEpic: (epic) => create('epic', epic),
+        updateEpic: (id, patch) => update('epic', id, patch),
+        deleteEpic: (id) => archive('epic', id),
+        createSprint: (sprint) => create('sprint', sprint),
+        updateSprint: (id, patch) => update('sprint', id, patch),
+        deleteSprint: (id) => archive('sprint', id),
+        createMilestone: (milestone) => create('milestone', milestone),
+        updateMilestone: (id, patch) => update('milestone', id, patch),
+        deleteMilestone: (id) => archive('milestone', id),
         createStatus: (status) => create('status', status),
         updateStatus: (id, patch) => update('status', id, patch),
         deleteStatus: (id, moveTo) => archive('status', id, { move_to: moveTo }),

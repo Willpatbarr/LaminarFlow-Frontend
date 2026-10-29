@@ -5,6 +5,8 @@ import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
+import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
+import { KINDS, type Kind } from '@/features/hierarchy/kinds'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
@@ -14,6 +16,9 @@ import { boardById, currentProject, savedViewsForTeam, sync, unsyncedCount } fro
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [
     { label: 'Tickets', href: '/', icon: ICONS.list },
+    { label: 'Epics', href: '/epics', icon: ICONS.epic },
+    { label: 'Sprints', href: '/sprints', icon: ICONS.sprint },
+    { label: 'Milestones', href: '/milestones', icon: ICONS.milestone },
     { label: 'Documents', href: '/documents', icon: ICONS.document },
     { label: 'Views', href: '/views', icon: ICONS.views },
 ]
@@ -34,6 +39,8 @@ export function AppLayout(props: RouteSectionProps) {
     const navigate = useNavigate()
     const location = useLocation()
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
+    // The epic, sprint or milestone being made from the sidebar (LAM-105).
+    const [making, setMaking] = createSignal<Kind | null>(null)
     // The first /auth/me got no usable answer: nothing more to wait for, and
     // the content area says so instead of showing a placeholder for ever.
     const unreachable = () => session.status === 'unknown' && session.loadFailure !== null
@@ -58,6 +65,13 @@ export function AppLayout(props: RouteSectionProps) {
         const found = named ? sync.projects.find((p) => p.id === named) : currentProject()
         return found?.team_id ?? currentProject()?.team_id ?? sync.teams[0]?.id
     })
+    // Made in the picked project when it is the team in view's, else in the
+    // team's first one. Nothing can be made before there is a project.
+    const homeProject = () => {
+        const picked = currentProject()
+        if (picked && picked.team_id === activeTeamId()) return picked
+        return sync.projects.filter((p) => p.team_id === activeTeamId()).toSorted((a, b) => a.name.localeCompare(b.name))[0]
+    }
     const teams = createMemo(() => sync.teams.toSorted((a, b) => a.name.localeCompare(b.name)))
     const projectLinks = () =>
         sync.projects
@@ -108,6 +122,14 @@ export function AppLayout(props: RouteSectionProps) {
                         }
                         projects={teams().length > 0 ? projectLinks() : undefined}
                         views={teams().length > 0 ? viewLinks() : undefined}
+                        create={
+                            homeProject()
+                                ? (['epic', 'sprint', 'milestone'] as const).map((kind) => ({
+                                      label: `New ${KINDS[kind].singular}`,
+                                      onClick: () => setMaking(kind),
+                                  }))
+                                : undefined
+                        }
                         userName={session.me?.display_name}
                         loading={stillAsking()}
                         status={
@@ -140,6 +162,14 @@ export function AppLayout(props: RouteSectionProps) {
                     <SessionUnreachable />
                 </Show>
             </AppShell>
+            <Show when={making() && homeProject()}>
+                <NewHierarchyDialog
+                    kind={making()!}
+                    projectId={homeProject()!.id}
+                    onCreated={(row) => navigate(`${KINDS[making()!].path}/${row.id}`)}
+                    onClose={() => setMaking(null)}
+                />
+            </Show>
             <Show when={confirmingLogout()}>
                 <LogoutConfirm
                     unsynced={unsyncedCount()}

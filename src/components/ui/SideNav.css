@@ -171,3 +171,8 @@
 .side-nav--collapsed .side-nav__collapse {
   margin-left: 0;
 }
+
+.side-nav__create .side-nav__icon {
+  width: 20px;
+  text-align: center;
+}

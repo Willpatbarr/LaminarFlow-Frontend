@@ -16,7 +16,7 @@ type InputProps = {
     onInput: (value: string) => void
     /** Focus left the control. For a field that saves when you leave it. */
     onBlur?: () => void
-    type?: 'text' | 'email' | 'password'
+    type?: 'text' | 'email' | 'password' | 'date'
     name?: string
     autocomplete?: 'email' | 'current-password' | 'new-password' | 'given-name' | 'family-name'
     placeholder?: string

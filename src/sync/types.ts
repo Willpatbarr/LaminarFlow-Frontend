@@ -133,8 +133,8 @@ export type BoardFields = Pick<Board, 'name' | 'columns'>
 
 export type NewBoard = BoardFields & { project_id: string }
 
-/** The four things a ticket can be filed under. The app writes labels (LAM-104)
- *  and only reads the rest (the pickers); all are carried by the engine so they
+/** The four things a ticket can be filed under. The app writes all of them
+ *  (labels LAM-104; the rest LAM-105); the engine carries them so they
  *  work offline and follow the change feed. The server keeps no version for
  *  them, so `version` is always 1, as for a status. */
 export type Epic = { id: string; project_id: string; name: string; description: string; version: number }
@@ -156,8 +156,8 @@ export type Milestone = {
 }
 export type Label = { id: string; team_id: string; name: string; color: string; version: number }
 
-/** What a user edits. Labels are written from the app (LAM-104); the others are
- *  not yet (LAM-105), and their field types exist so the engine's maps are complete. */
+/** What a user edits. All four are written from the app (labels LAM-104; epics,
+ *  sprints and milestones LAM-105). */
 export type EpicFields = Pick<Epic, 'name' | 'description'>
 export type SprintFields = Pick<Sprint, 'name' | 'start_date' | 'end_date'>
 export type MilestoneFields = Pick<Milestone, 'name' | 'description' | 'target_date'>
@@ -355,6 +355,9 @@ export type DocEntry = EntryOf<'document'>
 export type StatusEntry = EntryOf<'status'>
 export type BoardEntry = EntryOf<'board'>
 export type LabelEntry = EntryOf<'label'>
+export type EpicEntry = EntryOf<'epic'>
+export type SprintEntry = EntryOf<'sprint'>
+export type MilestoneEntry = EntryOf<'milestone'>
 export type SavedViewEntry = EntryOf<'saved_view'>
 
 /** An entry before IndexedDB has numbered it. */
