@@ -217,6 +217,9 @@ describe('the ticket list', () => {
                     description: '',
                     status_id: 's-todo',
                     assignee_id: null,
+                    epic_id: null,
+                    milestone_id: null,
+                    label_ids: [],
                 },
             ]),
         )
@@ -295,6 +298,9 @@ describe('creating from the keyboard', () => {
                     description: 'With words',
                     status_id: 's-doing',
                     assignee_id: null,
+                    epic_id: null,
+                    milestone_id: null,
+                    label_ids: [],
                 },
             ]),
         )
@@ -335,7 +341,7 @@ describe('editing in the list', () => {
             expect(puts).toEqual([
                 {
                     ifMatch: '"3"',
-                    body: { title: 'Renamed', description: '', status_id: 's-done', assignee_id: null },
+                    body: { title: 'Renamed', description: '', status_id: 's-done', assignee_id: null, epic_id: null, milestone_id: null, label_ids: [] },
                 },
             ]),
         )
@@ -440,6 +446,10 @@ describe('first-run setup', () => {
             'POST /api/v1/tickets/list': none,
             'POST /api/v1/documents/list': none,
             'POST /api/v1/boards/list': none,
+            'POST /api/v1/epics/list': none,
+            'POST /api/v1/sprints/list': none,
+            'POST /api/v1/milestones/list': none,
+            'POST /api/v1/labels/list': none,
             'POST /api/v1/teams': async (request) => {
                 calls.push({ path: 'teams', body: await bodyOf(request) })
                 return ok(TEAM)
@@ -479,6 +489,10 @@ describe('first-run setup', () => {
             'POST /api/v1/tickets/list': none,
             'POST /api/v1/documents/list': none,
             'POST /api/v1/boards/list': none,
+            'POST /api/v1/epics/list': none,
+            'POST /api/v1/sprints/list': none,
+            'POST /api/v1/milestones/list': none,
+            'POST /api/v1/labels/list': none,
             'POST /api/v1/teams': () => {
                 teamPosts += 1
                 teamCreated = true
@@ -544,6 +558,9 @@ describe('the ticket page', () => {
                         description: 'Before',
                         status_id: 's-todo',
                         assignee_id: null,
+                        epic_id: null,
+                        milestone_id: null,
+                        label_ids: [],
                     },
                 },
             ]),

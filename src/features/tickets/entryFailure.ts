@@ -6,14 +6,14 @@ import type { EntryError } from '@/sync'
 │  turns the error on a parked outbox entry into words, at the field it is about
 ├─ out ───────────────────────────────────────────
 │      describeFailure   EntryError (+ the text sent) → { fields, form, fieldShaped }
-│      EditableField     title · description · status · assignee
+│      EditableField     title · description · status · assignee · epic · milestone · labels
 ├─ example ───────────────────────────────────────
 │      422 [{location:'body.title', message:'expected length >= 1'}]
 │        →  { fields: { title: "The server didn't accept this title: expected length >= 1." }, fieldShaped: true }
 │      422 status_not_found  →  { fields: { status: 'That status no longer exists. Pick another.' } }
 */
 
-export type EditableField = 'title' | 'description' | 'status' | 'assignee'
+export type EditableField = 'title' | 'description' | 'status' | 'assignee' | 'epic' | 'milestone' | 'labels'
 
 export type FailureDescription = {
     /** Words for the fields the server named. */
@@ -34,6 +34,9 @@ const FIELD_OF_LOCATION: Record<string, EditableField> = {
     description: 'description',
     status_id: 'status',
     assignee_id: 'assignee',
+    epic_id: 'epic',
+    milestone_id: 'milestone',
+    label_ids: 'labels',
 }
 
 const NAME: Record<EditableField, string> = {
@@ -41,6 +44,9 @@ const NAME: Record<EditableField, string> = {
     description: 'description',
     status: 'status',
     assignee: 'assignee',
+    epic: 'epic',
+    milestone: 'milestone',
+    labels: 'labels',
 }
 
 function fieldOf(location: string | undefined): EditableField | null {
@@ -56,6 +62,9 @@ const GONE: Record<string, { field: EditableField; sentence: string }> = {
         field: 'status',
         sentence: 'That status no longer exists. Pick another.',
     },
+    epic_not_found: { field: 'epic', sentence: 'That epic no longer exists. Pick another.' },
+    milestone_not_found: { field: 'milestone', sentence: 'That milestone no longer exists. Pick another.' },
+    label_not_found: { field: 'labels', sentence: 'One of those labels no longer exists. Check the labels again.' },
     assignee_not_found: {
         field: 'assignee',
         sentence: 'That assignee is no longer available. Pick another.',

@@ -19,7 +19,16 @@ const STATUSES: Status[] = [
     { id: 's-todo', team_id: 'team-1', name: 'To Do', color: '#94a3b8', position: 1, category: 'not_started', version: 1 },
     { id: 's-done', team_id: 'team-1', name: 'Done', color: '#22c55e', position: 2, category: 'done', version: 1 },
 ]
-const MINE = { title: 'Mine', description: 'My words', status_id: 's-todo', assignee_id: null }
+const MINE = {
+    title: 'Mine',
+    description: 'My words',
+    status_id: 's-todo',
+    assignee_id: null,
+    epic_id: null,
+    milestone_id: null,
+    label_ids: [],
+    sprint_ids: [],
+}
 
 function current(overrides: Partial<Ticket> = {}): Ticket {
     return {
@@ -29,6 +38,10 @@ function current(overrides: Partial<Ticket> = {}): Ticket {
         description: 'My words',
         status_id: 's-todo',
         assignee_id: null,
+        epic_id: null,
+        milestone_id: null,
+        label_ids: [],
+        sprint_ids: [],
         position: 1024,
         version: 5,
         updated_at: '2026-03-10T11:58:00Z',

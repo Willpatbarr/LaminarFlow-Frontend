@@ -131,11 +131,11 @@ describe('TicketDetail', () => {
         expect(screen.getByRole('status')).toHaveTextContent('Loading ticket…')
         expect(screen.getAllByRole('status')).toHaveLength(1)
 
-        // The placeholder form: four labelled boxes where the four fields go.
+        // The placeholder form: seven labelled boxes where the fields go.
         const form = section.querySelector('.ticket__form') as HTMLElement
         expect(form.tagName).toBe('DIV')
         expect(form).toHaveAttribute('aria-hidden', 'true')
-        expect(form.querySelectorAll('.input')).toHaveLength(4)
+        expect(form.querySelectorAll('.input')).toHaveLength(7)
         expect(form.querySelector('.ticket__row')).not.toBeNull()
         expect(form.querySelector('.ticket__danger .skeleton')).not.toBeNull()
 

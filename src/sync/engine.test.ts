@@ -75,7 +75,7 @@ describe('create', () => {
         await engine.idle()
 
         expect(sent).toEqual([
-            { project_id: 'p-1', title: 'New', description: '', status_id: null, assignee_id: null },
+            { project_id: 'p-1', title: 'New', description: '', status_id: null, assignee_id: null, epic_id: null, milestone_id: null, label_ids: [] },
         ])
     })
 
@@ -108,7 +108,7 @@ describe('create', () => {
             {
                 url: '/api/v1/tickets/t-9',
                 ifMatch: '"1"',
-                body: { title: 'Renamed', description: '', status_id: 's-todo', assignee_id: null },
+                body: { title: 'Renamed', description: '', status_id: 's-todo', assignee_id: null, epic_id: null, milestone_id: null, label_ids: [] },
             },
         ])
         const after = await local(db)
@@ -249,7 +249,7 @@ describe('update', () => {
         await engine.idle()
 
         expect(bodies).toEqual([
-            { title: 'Two', description: 'More', status_id: 's-todo', assignee_id: null },
+            { title: 'Two', description: 'More', status_id: 's-todo', assignee_id: null, epic_id: null, milestone_id: null, label_ids: [] },
         ])
     })
 
@@ -2143,7 +2143,7 @@ describe('move', () => {
         await engine.idle()
 
         expect(calls).toEqual(['move', 'put "4"'])
-        expect(put).toEqual({ title: 'Renamed', description: '', status_id: 's-doing', assignee_id: null })
+        expect(put).toEqual({ title: 'Renamed', description: '', status_id: 's-doing', assignee_id: null, epic_id: null, milestone_id: null, label_ids: [] })
     })
 
     it('leaves position out of an ordinary edit, which stays a PUT', async () => {
@@ -2158,7 +2158,7 @@ describe('move', () => {
         const { engine } = await startEngine()
         await engine.updateTicket('t-1', { title: 'Edited' })
         await engine.idle()
-        expect(put).toEqual({ title: 'Edited', description: '', status_id: 's-todo', assignee_id: null })
+        expect(put).toEqual({ title: 'Edited', description: '', status_id: 's-todo', assignee_id: null, epic_id: null, milestone_id: null, label_ids: [] })
     })
 
     it('takes the renumbered neighbours and the mover from the feed in whatever order, by version', async () => {
