@@ -3,7 +3,7 @@ import { createSignal, createUniqueId, For, Show } from 'solid-js'
 import type { AspectField } from '@/features/aspects/api'
 import { Button } from '@/components/ui/Button'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
-import type { Doc, DocConflict } from '@/sync'
+import { sync, type Doc, type DocConflict } from '@/sync'
 
 import { CONTENT_KEY } from '../content'
 import '@/features/tickets/components/conflict.css'
@@ -43,6 +43,11 @@ export function DocumentConflictPanel(props: DocumentConflictPanelProps) {
         const found: Difference[] = []
         if (shown('title') && props.mine.title !== theirs().title) {
             found.push({ field: 'Title', mine: props.mine.title, theirs: theirs().title })
+        }
+        if (shown('project_id') && props.mine.project_id !== theirs().project_id) {
+            const name = (id: string | null) =>
+                id === null ? 'No project (team-wide)' : (sync.projects.find((project) => project.id === id)?.name ?? 'A project')
+            found.push({ field: 'Project', mine: name(props.mine.project_id), theirs: name(theirs().project_id) })
         }
         // An aspect's text is spread over its fields; a normal document's is one.
         const keys = props.fields

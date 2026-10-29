@@ -133,6 +133,72 @@ describe('an edit that lost to someone else\'s', () => {
     })
 })
 
+describe('a document\'s project (LAM-138)', () => {
+    it('the Project picker moves it to another project and to team-wide', async () => {
+        const puts = await openDocument({ content: 'Hello' }, { project_id: 'p-1' })
+        const picker = await screen.findByLabelText('Project')
+        expect(picker).toHaveValue('p-1')
+        const user = userEvent.setup()
+        await user.selectOptions(picker, '')
+
+        await waitFor(() => expect(puts).toHaveLength(1))
+        expect(puts[0].body).toMatchObject({ project_id: null, title: 'Notes' })
+        expect(screen.getByLabelText('Project')).toHaveValue('')
+        expect(within(screen.getByLabelText('Project')).getByRole('option', { name: 'No project (team-wide)' })).toBeInTheDocument()
+    })
+
+    it('a text edit does not send the project', async () => {
+        const puts = await openDocument({ content: 'Hello' }, { project_id: 'p-1' })
+        const title = await screen.findByLabelText('Title')
+        const user = userEvent.setup()
+        await user.type(title, '!')
+        await user.tab()
+        await waitFor(() => expect(puts).toHaveLength(1))
+        expect('project_id' in puts[0].body).toBe(false)
+    })
+
+    it('New document from "All projects" is filed team-wide, under the team', async () => {
+        const created: Record<string, unknown>[] = []
+        await openApp('/documents', {
+            ...listRoutes([], []),
+            'POST /api/v1/documents': async (request) => {
+                const sent = await bodyOf(request)
+                created.push(sent)
+                return ok(docBody({ id: 'd-new', ...sent }), 201)
+            },
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('option', { name: 'Launch' })
+        await user.click(screen.getByRole('button', { name: 'New document' }))
+        await waitFor(() => expect(created).toHaveLength(1))
+        expect(created[0]).toMatchObject({ team_id: 'team-1', project_id: null })
+    })
+
+    it('labels a team-wide document in the list, and the project filter finds it as "Team-wide"', async () => {
+        await openApp('/documents', listRoutes([], [doc({ id: 'd-t', title: 'Loose', project_id: null, team_id: 'team-1' })]))
+        const row = (await screen.findByRole('link', { name: 'Loose' })).closest('li')!
+        expect(within(row).getByText('Team-wide')).toBeInTheDocument()
+    })
+
+    it('a project filter creates the document in that project, with no team of its own', async () => {
+        const created: Record<string, unknown>[] = []
+        await openApp('/documents', {
+            ...listRoutes([], []),
+            'POST /api/v1/documents': async (request) => {
+                const sent = await bodyOf(request)
+                created.push(sent)
+                return ok(docBody({ id: 'd-new', ...sent }), 201)
+            },
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('option', { name: 'Launch' })
+        await user.selectOptions(screen.getByLabelText('Project'), 'p-1')
+        await user.click(screen.getByRole('button', { name: 'New document' }))
+        await waitFor(() => expect(created).toHaveLength(1))
+        expect(created[0]).toMatchObject({ team_id: null, project_id: 'p-1' })
+    })
+})
+
 describe('browsing documents (LAM-97)', () => {
     const docs = [
         doc({ id: 'd-a', title: 'In project', project_id: 'p-1', updated_at: '2025-12-31T00:00:00Z' }),

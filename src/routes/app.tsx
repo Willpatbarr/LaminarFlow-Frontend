@@ -105,6 +105,15 @@ export function AppLayout(props: RouteSectionProps) {
         const found = named ? sync.projects.find((p) => p.id === named) : currentProject()
         return found?.team_id ?? currentProject()?.team_id ?? sync.teams[0]?.id
     })
+    // The project the URL is about (a project page, or a board's project): where "New document"
+    // files a document from the palette. Anywhere else there is no obvious project (team-wide).
+    const projectInView = () => {
+        const path = location.pathname
+        const project = /^\/projects\/([^/]+)/.exec(path)
+        if (project) return decodeURIComponent(project[1])
+        const board = /^\/boards\/([^/]+)/.exec(path)
+        return board ? (boardById(decodeURIComponent(board[1]))?.project_id ?? null) : null
+    }
     // Made in the picked project when it is the team in view's, else in the
     // team's first one. Nothing can be made before there is a project.
     const homeProject = () => {
@@ -246,7 +255,10 @@ export function AppLayout(props: RouteSectionProps) {
                     <SessionUnreachable />
                 </Show>
             </AppShell>
-            <CommandPalette onNewTicket={homeProject() && can('ticket:write') ? () => setCreatingTicket(true) : undefined} />
+            <CommandPalette
+                documentTarget={() => ({ projectId: projectInView() })}
+                onNewTicket={homeProject() && can('ticket:write') ? () => setCreatingTicket(true) : undefined}
+            />
             <Show when={creatingTicket() && homeProject()}>
                 <NewTicketDialog
                     projectId={homeProject()!.id}
