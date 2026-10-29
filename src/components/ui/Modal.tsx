@@ -17,6 +17,10 @@ type ModalProps = {
     destructive?: boolean
     /** Greys the confirm out, while its work is under way or cannot start. */
     confirmDisabled?: boolean
+    /** For content that cannot be shown again: Escape and a click on the
+     *  backdrop do nothing and there is no Cancel, so the confirm is the only
+     *  way out. */
+    persistent?: boolean
     onConfirm: () => void
     /** Also called for Escape and a click on the backdrop. */
     onCancel: () => void
@@ -57,7 +61,7 @@ export function Modal(props: ModalProps) {
     function onKeyDown(event: KeyboardEvent) {
         if (event.key === 'Escape') {
             event.preventDefault()
-            props.onCancel()
+            if (!props.persistent) props.onCancel()
             return
         }
         if (event.key !== 'Tab' || !panel) return
@@ -81,7 +85,7 @@ export function Modal(props: ModalProps) {
                 class="modal__backdrop"
                 onKeyDown={onKeyDown}
                 onClick={(event) => {
-                    if (event.target === event.currentTarget) props.onCancel()
+                    if (event.target === event.currentTarget && !props.persistent) props.onCancel()
                 }}
             >
                 <form
@@ -110,15 +114,17 @@ export function Modal(props: ModalProps) {
                         {props.children}
                     </div>
                     <div class="modal__footer">
-                        <Button
-                            ref={(el) => {
-                                cancelButton = el
-                            }}
-                            variant="ghost"
-                            onClick={() => props.onCancel()}
-                        >
-                            {props.cancel ?? 'Cancel'}
-                        </Button>
+                        <Show when={!props.persistent}>
+                            <Button
+                                ref={(el) => {
+                                    cancelButton = el
+                                }}
+                                variant="ghost"
+                                onClick={() => props.onCancel()}
+                            >
+                                {props.cancel ?? 'Cancel'}
+                            </Button>
+                        </Show>
                         <Button
                             type="submit"
                             variant={props.destructive ? 'danger' : 'primary'}

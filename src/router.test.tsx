@@ -149,7 +149,7 @@ describe('app shell', () => {
         await screen.findByRole('heading', { name: 'Tickets' })
         const nav = screen.getByRole('navigation', { name: 'Main' })
         expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
-        expect(nav.querySelectorAll('a')).toHaveLength(6)
+        expect(nav.querySelectorAll('a')).toHaveLength(7)
         expect(screen.getByRole('link', { name: 'Epics' })).toHaveAttribute('href', '/epics')
         expect(screen.getByRole('link', { name: 'Sprints' })).toHaveAttribute('href', '/sprints')
         expect(screen.getByRole('link', { name: 'Milestones' })).toHaveAttribute('href', '/milestones')
@@ -166,6 +166,7 @@ describe('section routes', () => {
     it.each([
         ['/documents', 'Documents'],
         ['/views', 'Views'],
+        ['/settings/tokens', 'API tokens'],
     ])('%s is reachable by URL', async (url, heading) => {
         mount(url)
 
