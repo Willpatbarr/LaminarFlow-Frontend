@@ -172,7 +172,7 @@ export const boardEntity: Entity<'board'> = {
                     entry,
                     () =>
                         api.POST('/api/v1/projects/{id}/boards', {
-                            params: { path: { id: entry.payload.project_id } },
+                            params: { path: { id: entry.payload.project_id }, header: { 'Idempotency-Key': entry.idempotency_key } },
                             body: { name: entry.payload.name, group_by: 'status' },
                         }),
                     codec,

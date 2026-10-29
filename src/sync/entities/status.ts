@@ -24,8 +24,8 @@ import type { Entity } from './entity'
 //    team, unsent changes included, sorted by position). Several statuses moved
 //    by one drag each queue an update; the first reorder already carries the
 //    whole new order and the rest find the server where they wanted it.
-//  - the create takes no Idempotency-Key. A create whose answer was lost and is
-//    retried can therefore make a second status; the next hydration shows both.
+//  - the create sends its stored `Idempotency-Key` (LAM-127), so a create whose
+//    answer was lost and is retried returns the first status, not a second.
 
 type StatusBody = components['schemas']['StatusBody']
 type Category = components['schemas']['CreateStatusInputBody']['category']
@@ -137,7 +137,7 @@ export const statusEntity: Entity<'status'> = {
                 const { name, color, category, position } = entry.payload
                 return answer(
                     entry,
-                    () => api.POST('/api/v1/teams/{id}/statuses', { params: { path }, body: { name, color, category: category as Category, position } }),
+                    () => api.POST('/api/v1/teams/{id}/statuses', { params: { path, header: { 'Idempotency-Key': entry.idempotency_key } }, body: { name, color, category: category as Category, position } }),
                     { ...codec, row: (body: StatusBody) => toStatus(body, teamId) },
                 )
             }
