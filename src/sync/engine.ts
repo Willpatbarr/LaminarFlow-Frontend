@@ -420,6 +420,13 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // `sent` is what that write held, which is what the fields were afterwards.
     const moved = new Map<string, Map<number, { to: number; sent: Record<string, unknown> }>>()
 
+    // Temporary id -> real id, for every create this run has had answered. A
+    // caller names a row by the id it last saw, and the write it asks for may
+    // run after the answer was stored but before the caller heard of the new
+    // id (LAM-169): the row is then found under its real one, not lost.
+    const swapped = new Map<string, string>()
+    const live = (id: string) => swapped.get(id) ?? id
+
     // The version a new edit is made on top of. `began` is the version the user
     // saw when they started typing; `now` is what the row is at this moment, which
     // a live update from someone else may have moved on. The edit keeps `began`
@@ -487,6 +494,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         if (!isRunning()) throw new Error('the sync engine is not running')
         const rules = rulesFor(entity)
         const queued = await db.write(async (tx) => {
+            id = live(id)
             const { rows, server: copies } = tables(tx, entity)
             const local = await rows.get(id)
             if (!local) return null
@@ -556,6 +564,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     async function archive<N extends EntityName>(entity: N, id: string, ...rest: ArchiveArgs<N>): Promise<boolean> {
         if (!isRunning()) throw new Error('the sync engine is not running')
         const found = await db.write(async (tx) => {
+            id = live(id)
             const { rows, server: copies } = tables(tx, entity)
             if (!(await rows.get(id))) return false
             const entries = await tx.outbox.forEntity(id)
@@ -658,7 +667,10 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         for (const later of await tx.outbox.forEntity(from)) {
             await tx.outbox.put({ ...later, entity_id: server.id, base_version: server.version })
         }
-        if (from !== server.id) await rows.delete(from)
+        if (from !== server.id) {
+            swapped.set(from, server.id)
+            await rows.delete(from)
+        }
         await copies.put(server)
         if (entry.entity in RELEASES && from !== server.id) await renameFiled(tx, entry.entity as keyof typeof RELEASES, from, server.id)
         await rebuild(tx, entry.entity, server.id)
@@ -752,6 +764,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 (index === 0 ? { ...moved, state: 'conflict', conflict, error: null } : moved) as OutboxEntry,
             )
         }
+        swapped.set(from, to)
         await rows.delete(from)
         await server.put(conflict.current)
         await rebuild(tx, entry.entity, to)
