@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
 import { can, denial } from '@/features/auth'
+import { useScope } from '@/features/shortcuts/registry'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -86,6 +87,9 @@ export function Board(props: BoardProps) {
     const [said, say] = createSignal('')
     const [editingStatuses, setEditingStatuses] = createSignal(false)
     let root: HTMLElement | undefined
+    // The card keys below are handled on the card itself; this makes the help
+    // sheet list them (they are declared in the shortcut registry).
+    useScope('board')
 
     const navigate = useNavigate()
     const location = useLocation()

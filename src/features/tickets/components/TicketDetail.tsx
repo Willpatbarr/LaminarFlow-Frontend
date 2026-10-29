@@ -39,6 +39,7 @@ import {
     type Ticket,
 } from '@/sync'
 
+import { useScope, useShortcut } from '@/features/shortcuts/registry'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import type { Kind } from '@/features/hierarchy/kinds'
 import { ActivityFeed } from '@/features/activity/ActivityFeed'
@@ -326,6 +327,7 @@ function TicketEditor(props: TicketEditorProps) {
     const statuses = createMemo(() => statusesForProject(props.ticket.project_id))
 
     let titleEl: HTMLInputElement | undefined
+    let statusEl: HTMLSelectElement | undefined
 
     const title = createDraft(
         () => props.ticket.title,
@@ -443,6 +445,20 @@ function TicketEditor(props: TicketEditorProps) {
     function focusTitle() {
         titleEl?.focus()
     }
+
+    // `S` and `E` (LAM-124). The status is a native select, so `S` puts focus
+    // on it and the arrow keys or typing pick the new one; `E` puts the cursor
+    // in the title. Not offered while the ticket is read-only.
+    useScope('ticket')
+    useShortcut('ticket.status', () => statusEl?.focus(), () => !locked())
+    useShortcut(
+        'ticket.edit',
+        () => {
+            titleEl?.focus()
+            titleEl?.select()
+        },
+        () => !locked(),
+    )
 
     async function keepTheirs() {
         const found = conflicted()
@@ -632,6 +648,9 @@ function TicketEditor(props: TicketEditorProps) {
             <div class="ticket__row">
                 <Select
                     label="Status"
+                    ref={(el) => {
+                        statusEl = el
+                    }}
                     value={props.ticket.status_id ?? ''}
                     options={statusOptions()}
                     disabled={locked()}

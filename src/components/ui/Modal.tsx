@@ -21,6 +21,9 @@ type ModalProps = {
      *  backdrop do nothing and there is no Cancel, so the confirm is the only
      *  way out. */
     persistent?: boolean
+    /** Something to read rather than to answer (a help sheet): no Cancel, only
+     *  the confirm; Escape and a click outside still close it. */
+    informational?: boolean
     onConfirm: () => void
     /** Also called for Escape and a click on the backdrop. */
     onCancel: () => void
@@ -43,6 +46,7 @@ export function Modal(props: ModalProps) {
     const consequenceId = `${titleId}-consequence`
     let panel: HTMLFormElement | undefined
     let cancelButton: HTMLButtonElement | undefined
+    let confirmButton: HTMLButtonElement | undefined
 
     // Captured while the component is being created, before anything in it can
     // take focus: the control that opened the dialog.
@@ -52,7 +56,7 @@ export function Modal(props: ModalProps) {
         // A field to fill in comes first. With none, Cancel: Enter on a
         // just-opened destructive confirmation must not be the destructive act.
         const field = panel?.querySelector<HTMLElement>('input, select, textarea')
-        ;(field ?? cancelButton)?.focus()
+        ;(field ?? cancelButton ?? confirmButton)?.focus()
         return () => {
             if (opener?.isConnected) opener.focus()
         }
@@ -114,7 +118,7 @@ export function Modal(props: ModalProps) {
                         {props.children}
                     </div>
                     <div class="modal__footer">
-                        <Show when={!props.persistent}>
+                        <Show when={!props.persistent && !props.informational}>
                             <Button
                                 ref={(el) => {
                                     cancelButton = el
@@ -126,6 +130,9 @@ export function Modal(props: ModalProps) {
                             </Button>
                         </Show>
                         <Button
+                            ref={(el) => {
+                                confirmButton = el
+                            }}
                             type="submit"
                             variant={props.destructive ? 'danger' : 'primary'}
                             disabled={props.confirmDisabled}
