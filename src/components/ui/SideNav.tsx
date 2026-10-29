@@ -30,6 +30,9 @@ export type SideNavLink = {
     icon?: string
     /** A word after the label, such as "Private". Quiet, and read out with it. */
     note?: string
+    /** The keys that go here, as text beside the label ("G then T"). Hidden
+     *  from screen readers, who get it as `aria-keyshortcuts` instead. */
+    hint?: string
 }
 
 /** The team switcher: the teams the account has and the one in view. */
@@ -241,6 +244,7 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
             <a
                 class="side-nav__link t-body"
                 href={props.link.href}
+                aria-keyshortcuts={props.link.hint?.replace(' then ', ' ')}
                 title={props.collapsed ? props.link.label : undefined}
             >
                 <svg
@@ -260,6 +264,13 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
                     />
                 </svg>
                 <span class="side-nav__label">{props.link.label}</span>
+                <Show when={props.link.hint}>
+                    {(hint) => (
+                        <kbd class="side-nav__hint t-meta" aria-hidden="true">
+                            {hint()}
+                        </kbd>
+                    )}
+                </Show>
                 <Show when={props.link.note}>
                     {' '}
                     <span class="side-nav__note t-meta">{props.link.note}</span>

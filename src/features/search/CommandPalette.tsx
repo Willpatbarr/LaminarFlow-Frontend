@@ -3,6 +3,7 @@ import { Portal } from '@solidjs/web'
 import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show } from 'solid-js'
 
 import { makeDocument } from '@/features/documents/newDocument'
+import { useShortcut } from '@/features/shortcuts'
 import { sync } from '@/sync'
 
 import { MAX_QUERY, searchServer, type SearchItem } from './api'
@@ -25,8 +26,7 @@ import './search.css'
 // stay and the palette says so.
 //
 // Keys: Ctrl/Cmd+K toggles it from anywhere, including a text field and the
-// editor (nothing else binds that chord; the list's bare `C` ignores Ctrl and
-// Cmd, and a palette that is open is a dialog, which `C` ignores too). Inside:
+// editor (the shortcut listener lets that chord through both). Inside:
 // Up/Down move, Enter opens, Escape closes. Focus stays in the input and the
 // highlighted row is announced with aria-activedescendant.
 
@@ -126,16 +126,9 @@ type PaletteProps = {
 export function CommandPalette(props: PaletteProps) {
     const [open, setOpen] = createSignal(false)
 
-    onSettled(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (event.key.toLowerCase() !== 'k' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
-            if (event.repeat) return
-            event.preventDefault()
-            setOpen((now) => !now)
-        }
-        document.addEventListener('keydown', onKeyDown)
-        return () => document.removeEventListener('keydown', onKeyDown)
-    })
+    // Ctrl/Cmd+K is declared in the shortcut registry (LAM-124), which also
+    // keeps it working from a field and above a dialog.
+    useShortcut('palette.toggle', () => setOpen((now) => !now))
 
     return (
         <Show when={open()}>

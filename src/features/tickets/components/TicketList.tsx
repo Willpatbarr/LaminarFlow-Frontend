@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@solidjs/router'
-import { createEffect, createMemo, createSignal, For, Match, onSettled, Show, Switch } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from 'solid-js'
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
@@ -36,6 +36,8 @@ import { buildGroups } from '../listView/group'
 import { serverMatches } from '../listView/serverRun'
 import { VIEW_PARAM, viewUrl } from '../savedViews/savedView'
 import { hueFor, isStarted } from '../statusLook'
+import { ShortcutHint } from '@/features/shortcuts/ShortcutHint'
+import { useScope, useShortcut } from '@/features/shortcuts/registry'
 import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
 import { ListControls } from './ListControls'
@@ -211,26 +213,25 @@ function ProjectTickets(props: ProjectTicketsProps) {
 
     const statuses = createMemo(() => statusesForProject(props.project.id))
 
-    // `C` opens the new-ticket dialog from anywhere on the list, unless the
-    // key is meant for something else: a field being typed in, a shortcut
-    // (Ctrl/Cmd/Alt + C is copy), or a dialog that is already open.
-    onSettled(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (event.key.toLowerCase() !== 'c' || event.ctrlKey || event.metaKey || event.altKey) return
-            if (event.defaultPrevented || event.repeat || creating()) return
-            const target = event.target
-            if (
-                target instanceof HTMLElement &&
-                (target.isContentEditable || target.closest('input, textarea, select, [role="dialog"]'))
-            ) {
-                return
-            }
-            event.preventDefault()
-            setCreating(true)
-        }
-        document.addEventListener('keydown', onKeyDown)
-        return () => document.removeEventListener('keydown', onKeyDown)
-    })
+    // Keys for this screen, declared in the shortcut registry (LAM-124): `C`
+    // opens this list's own new-ticket dialog (taking over the shell's
+    // fallback), `J` and `K` walk the rows. The listener has already ruled out
+    // fields, open dialogs and Ctrl/Cmd/Alt.
+    useScope('list')
+    useShortcut('ticket.new', () => setCreating(true))
+    useShortcut('list.next', () => stepRow(1))
+    useShortcut('list.previous', () => stepRow(-1))
+
+    let root: HTMLDivElement | undefined
+    // Moves focus to the next (or previous) ticket row; from nowhere in the
+    // list, to the first (or last). Enter on the row then opens it like a click.
+    function stepRow(by: 1 | -1) {
+        const rows = [...(root?.querySelectorAll<HTMLElement>('a.table__row') ?? [])]
+        if (rows.length === 0) return
+        const at = rows.findIndex((row) => row === document.activeElement)
+        const next = at === -1 ? (by === 1 ? 0 : rows.length - 1) : Math.max(0, Math.min(at + by, rows.length - 1))
+        rows[next].focus()
+    }
 
     const lookups = createMemo<Lookups>(() => ({
         statuses: statuses(),
@@ -292,6 +293,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
     return (
         <div
             ref={(el) => {
+                root = el
                 el.addEventListener('click', openPanel, true)
             }}
         >
@@ -315,6 +317,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                             <>
                                 <a class="t-body" href={`/boards/${board().id}`}>
                                     Board
+                                    <ShortcutHint id="nav.board" />
                                 </a>{' '}
                             </>
                         )}
@@ -324,6 +327,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     </a>{' '}
                     <Button onClick={() => setCreating(true)} disabledReason={denial('ticket:write', 'create tickets')}>
                         New ticket
+                        <ShortcutHint id="ticket.new" />
                     </Button>
                 </div>
             </header>

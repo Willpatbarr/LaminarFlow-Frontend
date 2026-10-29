@@ -18,6 +18,7 @@ type SelectProps = {
     options: SelectOption[]
     onChange: (value: string) => void
     disabled?: boolean
+    ref?: (el: HTMLSelectElement) => void
     /** Marks the control invalid and renders the message under it. */
     error?: string
 }
@@ -36,6 +37,7 @@ export function Select(props: SelectProps) {
             </label>
             <select
                 id={id}
+                ref={props.ref}
                 class="input__control select__control"
                 disabled={props.disabled}
                 aria-invalid={props.error ? 'true' : undefined}

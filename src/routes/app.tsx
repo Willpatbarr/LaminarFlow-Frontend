@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, type RouteSectionProps } from '@solidjs/router'
-import { createEffect, createMemo, createSignal, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, onSettled, Show } from 'solid-js'
 
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
@@ -11,12 +11,13 @@ import { clearMembers } from '@/features/members/members'
 import { clearReviewFeed, loadNeedsMine, needsMine, pendingSignature } from '@/features/review/feed'
 import { useEditorLinks } from '@/features/links/editorLinks'
 import { CommandPalette } from '@/features/search/CommandPalette'
+import { hintFor, installShortcutListener, ShortcutHelp, useShortcut } from '@/features/shortcuts'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
-import { boardById, currentProject, savedViewsForTeam, statusesForProject, sync, unsyncedCount } from '@/sync'
+import { boardById, boardsForProject, currentProject, savedViewsForTeam, statusesForProject, sync, unsyncedCount } from '@/sync'
 
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [
@@ -52,6 +53,10 @@ export function AppLayout(props: RouteSectionProps) {
     const [making, setMaking] = createSignal<Kind | null>(null)
     // The ticket being made from the search palette's command (LAM-115).
     const [creatingTicket, setCreatingTicket] = createSignal(false)
+    // The keyboard shortcut sheet (`?`, LAM-124).
+    const [helping, setHelping] = createSignal(false)
+    // The one keydown listener for every shortcut; each screen binds its own keys.
+    onSettled(() => installShortcutListener())
     // "Needs my review": asked for once there is an account, and again whenever
     // a review request appears or changes state (they arrive on the change feed).
     createEffect(
@@ -60,10 +65,14 @@ export function AppLayout(props: RouteSectionProps) {
             if (me && live) void loadNeedsMine(me)
         },
     )
+    const HINTS: Record<string, 'nav.tickets' | 'nav.documents'> = { '/': 'nav.tickets', '/documents': 'nav.documents' }
     const links = createMemo(() =>
-        LINKS.map((link) =>
-            link.href === '/reviews' && needsMine().length > 0 ? { ...link, note: String(needsMine().length) } : link,
-        ),
+        LINKS.map((link) => {
+            const hint = HINTS[link.href] ? hintFor(HINTS[link.href]) : undefined
+            return link.href === '/reviews' && needsMine().length > 0
+                ? { ...link, note: String(needsMine().length) }
+                : { ...link, hint }
+        }),
     )
     // The first /auth/me got no usable answer: nothing more to wait for, and
     // the content area says so instead of showing a placeholder for ever.
@@ -96,6 +105,25 @@ export function AppLayout(props: RouteSectionProps) {
         if (picked && picked.team_id === activeTeamId()) return picked
         return sync.projects.filter((p) => p.team_id === activeTeamId()).toSorted((a, b) => a.name.localeCompare(b.name))[0]
     }
+    const homeBoard = () => {
+        const project = homeProject()
+        return project ? boardsForProject(project.id)[0] : undefined
+    }
+    // Shortcuts that belong to the shell. `C` is the fallback anywhere; the
+    // ticket list binds its own, which wins while it is on screen.
+    useShortcut('help.open', () => setHelping(true))
+    useShortcut('nav.tickets', () => navigate('/'))
+    useShortcut('nav.documents', () => navigate('/documents'))
+    useShortcut(
+        'nav.board',
+        () => navigate(`/boards/${homeBoard()!.id}`),
+        () => homeBoard() !== undefined,
+    )
+    useShortcut(
+        'ticket.new',
+        () => setCreatingTicket(true),
+        () => homeProject() !== undefined,
+    )
     const teams = createMemo(() => sync.teams.toSorted((a, b) => a.name.localeCompare(b.name)))
     const projectLinks = () =>
         sync.projects
@@ -196,6 +224,9 @@ export function AppLayout(props: RouteSectionProps) {
                     statusId={statusesForProject(homeProject()!.id)[0]?.id ?? null}
                     onClose={() => setCreatingTicket(false)}
                 />
+            </Show>
+            <Show when={helping()}>
+                <ShortcutHelp onClose={() => setHelping(false)} />
             </Show>
             <Show when={making() && homeProject()}>
                 <NewHierarchyDialog

@@ -176,3 +176,14 @@
   width: 20px;
   text-align: center;
 }
+
+.side-nav__hint {
+    margin-inline-start: auto;
+    font-family: inherit;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.side-nav--collapsed .side-nav__hint {
+    display: none;
+}
