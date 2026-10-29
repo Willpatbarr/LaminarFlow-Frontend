@@ -127,6 +127,40 @@ test('Request changes asks for a note, confirms in place, and the requester sees
     await expect(page.getByTestId('decision-note')).toHaveText('Could this be one shorter sentence?')
 })
 
+test('an approval that went stale says who had approved the earlier text; the reviewer list shows names, not emails (LAM-158)', async ({ page, context, baseURL }) => {
+    const alice = await newAccount('alice-stale')
+    const bob = await newAccount('bob-stale')
+    const world = await projectOf(alice)
+    const documentId = await documentWith(alice, world.projectId, 'Please look over this paragraph.')
+    const made = await alice.api.POST('/api/v1/review-requests', {
+        params: { header: { 'Idempotency-Key': crypto.randomUUID() } },
+        body: { document_id: documentId, region_start: 0, region_end: 32, body: 'Thoughts?', reviewer_ids: [bob.accountId] },
+    })
+    expect(made.response.ok).toBe(true)
+    expect((await bob.api.PUT('/api/v1/review-requests/{id}', { params: { path: { id: made.data!.id } }, body: { review_status: 'approved' } })).response.ok).toBe(true)
+
+    // The anchored text is rewritten, so the approval is set aside.
+    const current = (await alice.api.GET('/api/v1/documents/{id}', { params: { path: { id: documentId } } })).data!
+    const saved = await alice.api.PUT('/api/v1/documents/{id}', {
+        params: { path: { id: documentId }, header: { 'If-Match': `"${current.version}"` } },
+        body: { title: 'Launch plan', type: 'normal', body: { content: 'Entirely different words now, nothing like before.' } },
+    })
+    expect(saved.response.ok).toBe(true)
+
+    await signedInAs(context, alice, baseURL!)
+    await page.goto(`/documents/${documentId}`)
+    await expect(page.getByLabel('Title')).toHaveValue('Launch plan')
+    await expect(page.getByText('This is open again because the text it points at was edited.')).toBeVisible()
+    await expect(page.getByText(`${bob.displayName} had approved the earlier text.`)).toBeVisible()
+
+    // Asking for a review lists names; the email is not printed beside them.
+    await page.getByRole('textbox', { name: 'Text' }).click({ clickCount: 3 })
+    await page.getByRole('button', { name: 'Request review', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('checkbox', { name: new RegExp(bob.displayName) })).toBeVisible()
+    await expect(dialog.getByText(bob.email)).toHaveCount(0)
+})
+
 test('offsets count characters, not UTF-16 units: a selection after emoji lands on the right words', async ({ page, context, baseURL }) => {
     const alice = await newAccount('alice-emoji')
     const bob = await newAccount('bob-emoji')

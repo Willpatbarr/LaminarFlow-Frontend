@@ -95,14 +95,13 @@ export function RequestReviewDialog(props: Props) {
                         <Show when={people().length > 0} fallback={<p class="t-meta">No one else is in this workspace yet.</p>}>
                             <For each={people()}>
                                 {(member) => (
-                                    <label class="review-dialog__person t-body">
+                                    <label class="review-dialog__person t-body" title={member.email}>
                                         <input
                                             type="checkbox"
                                             checked={chosen().includes(member.account_id)}
                                             onChange={() => toggle(member.account_id)}
                                         />
                                         <span>{member.display_name}</span>
-                                        <span class="t-meta">{member.email}</span>
                                     </label>
                                 )}
                             </For>
