@@ -39,6 +39,14 @@ describe('cardsOf', () => {
         const tickets = [card('b', 'a', 2), card('x', 'z', 1), card('a', 'a', 2), card('c', 'a', 1), card('n', null, 0)]
         expect(cardsOf(col('c1', 1, ['a']), tickets).map((t) => t.id)).toEqual(['c', 'a', 'b'])
     })
+
+    it('shows a ticket in the first column that maps its status only (LAM-134)', () => {
+        const columns = [col('later', 2, ['a', 'b']), col('first', 1, ['a']), col('empty', 3, [])]
+        const tickets = [card('t1', 'a', 1), card('t2', 'b', 1)]
+        expect(cardsOf(columns[1], tickets, columns).map((t) => t.id)).toEqual(['t1'])
+        expect(cardsOf(columns[0], tickets, columns).map((t) => t.id)).toEqual(['t2'])
+        expect(cardsOf(columns[2], tickets, columns)).toEqual([])
+    })
 })
 
 describe('statusFor', () => {

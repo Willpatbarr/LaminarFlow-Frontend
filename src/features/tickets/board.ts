@@ -24,9 +24,19 @@ export function byPosition(a: Pick<Ticket, 'position' | 'id'>, b: Pick<Ticket, '
     return a.position - b.position || a.id.localeCompare(b.id)
 }
 
-/** The tickets a column shows: those of its statuses, in order. */
-export function cardsOf(column: BoardColumn, tickets: Ticket[]): Ticket[] {
-    return tickets.filter((ticket) => ticket.status_id !== null && column.status_ids.includes(ticket.status_id)).sort(byPosition)
+/** The tickets a column shows: those of its statuses, in order. Given the board's
+ *  `columns`, a status mapped into two columns shows its tickets in the first of them
+ *  only (board order), so a card never renders twice even if the data has such a
+ *  mapping (the server no longer writes one, LAM-134). */
+export function cardsOf(column: BoardColumn, tickets: Ticket[], columns: BoardColumn[] = [column]): Ticket[] {
+    const earlier = new Set<string>()
+    for (const other of inOrder(columns)) {
+        if (other.id === column.id) break
+        for (const id of other.status_ids) earlier.add(id)
+    }
+    return tickets
+        .filter((ticket) => ticket.status_id !== null && column.status_ids.includes(ticket.status_id) && !earlier.has(ticket.status_id))
+        .sort(byPosition)
 }
 
 /** The status a card has once it is in `column`: the one it already has when the

@@ -110,7 +110,7 @@ export function Board(props: BoardProps) {
     const columns = () => inOrder(props.board.columns)
     const shown = () => columns().filter((column) => column.is_visible)
     const hidden = () => columns().filter((column) => !column.is_visible)
-    const cards = (column: BoardColumn) => cardsOf(column, tickets())
+    const cards = (column: BoardColumn) => cardsOf(column, tickets(), props.board.columns)
     const others = (column: BoardColumn) => cards(column).filter((ticket) => ticket.id !== lift()?.ticketId)
     // A column with no status has nothing to set on a card dropped in it.
     const accepts = (column: BoardColumn) => column.status_ids.length > 0
@@ -389,7 +389,7 @@ export function Board(props: BoardProps) {
                                 </For>
                             </ul>
                             <Show when={!accepts(column())}>
-                                <p class="board__empty t-meta">No status is mapped to this column, so it takes no cards.</p>
+                                <p class="board__empty t-meta">No status in this column yet. Add one from the column menu (⋯).</p>
                             </Show>
                         </section>
                     )}
