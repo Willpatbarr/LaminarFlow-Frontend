@@ -1555,7 +1555,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a status, moving its tickets
-         * @description Tickets that use the status need a `move_to` status, or the answer is a 422 `status_in_use` at `query.move_to` naming how many. Deleting a team's last status is allowed only while the team has no tickets. Tickets that move are written like any edit (version + 1) and each is announced as `ticket.updated`. Board columns mapped to the deleted status are mapped to `move_to` instead when tickets move, and unmapped otherwise.
+         * @description Tickets that use the status need a `move_to` status, or the answer is a 422 `status_in_use` at `query.move_to` naming how many. Deleting a team's last status is allowed only while the team has no tickets. Tickets that move are written like any edit (version + 1) and each is announced as `ticket.updated`. The status is removed from every board column that showed it (a column may be left with no status); it is never mapped to `move_to` for the column, so a status cannot end up in two columns of a board. Each affected column is announced as `board.column.updated`.
          */
         delete: operations["delete-status"];
         options?: never;
@@ -1749,6 +1749,10 @@ export interface components {
              * @enum {string}
              */
             kind: "created" | "status_changed" | "assignee_changed" | "parent_changed" | "label_added" | "label_removed" | "archived" | "unarchived" | "aspect_type_changed" | "field_changed";
+            /** @description Only for status_changed: the name of the status in summary_after, in the same form. */
+            name_after: string | null;
+            /** @description Only for status_changed: the name of the status in summary_before as it was when the change happened (a later rename does not change it). Null for other kinds, for no status, and for old entries whose status was already deleted before names were stored. */
+            name_before: string | null;
             /** @description The value after the change, in the same form. label_added carries the label id here. */
             summary_after: string | null;
             /** @description The value before the change; null for none. status_changed, assignee_changed, parent_changed (the epic), label_removed, aspect_type_changed and milestone carry the id of the thing, so they stay true after a rename. title and description carry the text, cut to 200 characters. A document's fields carry the sorted ids of the fields that had a value. */
