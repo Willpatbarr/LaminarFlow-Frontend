@@ -122,12 +122,19 @@ function DocumentEditor(props: DocumentEditorProps) {
 
     const title = createAutosave(
         () => props.doc.title,
-        (value) => updateDocument(id(), { title: value.trim() }),
+        (value, context) => updateDocument(id(), { title: value.trim() }, { base: context.base, was: { title: context.from } }),
+        { base: () => props.doc.version },
     )
     const content = createAutosave(
         () => props.doc.body[CONTENT_KEY] ?? '',
         // The body is replaced whole, so everything else in it goes back too.
-        (value) => updateDocument(id(), { body: { ...documentById(id())?.body, [CONTENT_KEY]: value } }),
+        (value, context) =>
+            updateDocument(
+                id(),
+                { body: { ...documentById(id())?.body, [CONTENT_KEY]: value } },
+                { base: context.base, was: { body: { [CONTENT_KEY]: context.from } } },
+            ),
+        { base: () => props.doc.version },
     )
 
     const isAspect = () => props.doc.type === 'aspect'
@@ -147,7 +154,9 @@ function DocumentEditor(props: DocumentEditorProps) {
     const head = createMemo(() => documentHead(id()))
     const conflicted = createMemo(() => {
         const found = head()
-        return found?.state === 'conflict' && found.conflict ? { entryId: found.id, conflict: found.conflict } : null
+        return found?.state === 'conflict' && found.conflict
+            ? { entryId: found.id, conflict: found.conflict, clashing: found.clashing }
+            : null
     })
     const refused = createMemo(() => {
         const found = head()
@@ -247,6 +256,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                 {(found) => (
                     <DocumentConflictPanel
                         conflict={found().conflict}
+                        only={found().clashing?.some((f) => f === 'type' || f === 'aspect_type_id') ? undefined : found().clashing}
                         mine={props.doc}
                         fields={isAspect() ? fields() : undefined}
                         onKeepTheirs={keepTheirs}
@@ -361,8 +371,15 @@ type AspectFieldEditorProps = {
 // text of a normal document, under the field's id. The rest of the body goes
 // back with it, so the values of fields the type has since dropped stay stored.
 function AspectFieldEditor(props: AspectFieldEditorProps) {
-    const value = createAutosave(props.saved, (markdown) =>
-        updateDocument(props.docId, { body: { ...documentById(props.docId)?.body, [props.field.id]: markdown } }),
+    const value = createAutosave(
+        props.saved,
+        (markdown, context) =>
+            updateDocument(
+                props.docId,
+                { body: { ...documentById(props.docId)?.body, [props.field.id]: markdown } },
+                { base: context.base, was: { body: { [props.field.id]: context.from } } },
+            ),
+        { base: () => documentById(props.docId)?.version ?? null },
     )
     let wasDirty = false
     createEffect(

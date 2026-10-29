@@ -579,3 +579,128 @@ describe('applyRemote', () => {
         expect(await snapshot(db)).toMatchObject({ tickets: [{ id: 'same' }], documents: [{ id: 'other' }] })
     })
 })
+
+// LAM-166: an edit carries the version and per-field starting text it began on.
+describe('update from the version an edit began on (LAM-166)', () => {
+    const live = (row: Doc) => ({
+        type: 'document.updated',
+        document_id: row.id,
+        version: row.version,
+        actor_id: 'acc-other',
+        at: row.updated_at,
+        document: docBody(row),
+    })
+    const BODY = { content: 'Hello', notes: 'N' }
+    const base = () => doc({ version: 3, body: BODY })
+
+    it('same body key changed by someone else: parked as a clash on that key only, nothing lost', async () => {
+        const seen: (string | null)[] = []
+        const theirs = doc({ version: 4, body: { ...BODY, content: 'Theirs' } })
+        stubFetch({
+            ...listRoutes([], [base()]),
+            'PUT /api/v1/documents/d-1': (request) => {
+                seen.push(request.headers.get('If-Match'))
+                return conflict(theirs)
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.applyRemote(live(theirs))
+
+        await engine.updateDocument(
+            'd-1',
+            { body: { ...theirs.body, content: 'Mine' } },
+            { base: 3, was: { body: { content: 'Hello' } } },
+        )
+        await engine.idle()
+
+        expect(seen).toEqual(['"3"'])
+        const now = await db.snapshot()
+        expect(now.outbox).toMatchObject([
+            { state: 'conflict', clashing: ['body.content'], payload: { body: { content: 'Mine', notes: 'N' } }, conflict: { current: { version: 4 } } },
+        ])
+        expect(now.documents).toMatchObject([{ body: { content: 'Mine' } }])
+    })
+
+    it('someone else changed the title while we edit the body: no panel, both kept', async () => {
+        const bodies: unknown[] = []
+        const theirs = doc({ version: 4, title: 'Their title', body: BODY })
+        stubFetch({
+            ...listRoutes([], [base()]),
+            'PUT /api/v1/documents/d-1': async (request) => {
+                const sent = (await request.clone().json()) as { title: string; body: unknown }
+                bodies.push(sent)
+                return request.headers.get('If-Match') === '"3"' ? conflict(theirs) : ok(docBody({ ...theirs, ...sent, version: 5 } as Doc))
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.applyRemote(live(theirs))
+
+        await engine.updateDocument('d-1', { body: { ...BODY, content: 'Mine' } }, { base: 3, was: { body: { content: 'Hello' } } })
+        await engine.idle()
+
+        expect(bodies).toMatchObject([{ title: 'Their title' }, { title: 'Their title', body: { content: 'Mine', notes: 'N' } }])
+        const now = await db.snapshot()
+        expect(now.outbox).toEqual([])
+        expect(now.documents).toMatchObject([{ title: 'Their title', body: { content: 'Mine' }, version: 5 }])
+    })
+
+    it('someone else changed a different body key: no panel, their key and ours kept', async () => {
+        const theirs = doc({ version: 4, body: { ...BODY, notes: 'Their notes' } })
+        let last: { body: unknown } | undefined
+        stubFetch({
+            ...listRoutes([], [base()]),
+            'PUT /api/v1/documents/d-1': async (request) => {
+                last = (await request.clone().json()) as { body: unknown }
+                return request.headers.get('If-Match') === '"3"' ? conflict(theirs) : ok(docBody({ ...theirs, body: last.body as Doc['body'], version: 5 }))
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.applyRemote(live(theirs))
+
+        await engine.updateDocument('d-1', { body: { ...theirs.body, content: 'Mine' } }, { base: 3, was: { body: { content: 'Hello' } } })
+        await engine.idle()
+
+        expect(last).toMatchObject({ body: { content: 'Mine', notes: 'Their notes' } })
+        expect((await db.snapshot()).outbox).toEqual([])
+    })
+
+    it('several saves in one editing session never conflict with our own acked writes', async () => {
+        const seen: (string | null)[] = []
+        let version = 3
+        stubFetch({
+            ...listRoutes([], [base()]),
+            'PUT /api/v1/documents/d-1': async (request) => {
+                seen.push(request.headers.get('If-Match'))
+                version += 1
+                const sent = (await request.clone().json()) as Doc
+                return ok(docBody({ ...sent, id: 'd-1', version }))
+            },
+        })
+        const { engine, db } = await startEngine()
+
+        for (const text of ['one', 'two', 'three']) {
+            await engine.updateDocument('d-1', { body: { ...BODY, content: text } }, { base: 3, was: { body: { content: 'Hello' } } })
+            await engine.idle()
+        }
+
+        expect(seen).toEqual(['"3"', '"4"', '"5"'])
+        expect((await db.snapshot()).outbox).toEqual([])
+    })
+
+    it('edits folded into a pending entry keep the earliest start of each body key', async () => {
+        const theirs = doc({ version: 4, body: { ...BODY, content: 'Theirs' } })
+        stubFetch({ ...listRoutes([], [base()]), 'PUT /api/v1/documents/d-1': () => conflict(theirs) })
+        const { engine, db, net } = await startEngine()
+        net.goOffline()
+        await engine.updateDocument('d-1', { body: { ...BODY, content: 'Mine' } }, { base: 3, was: { body: { content: 'Hello' } } })
+        await engine.applyRemote(live(theirs))
+        await engine.updateDocument('d-1', { body: { ...BODY, content: 'Mine, longer', notes: 'N2' } }, { base: 4, was: { body: { content: 'Theirs' } } })
+
+        const [entry] = (await db.snapshot()).outbox
+        expect(entry).toMatchObject({ base_version: 3, was: { body: { content: 'Hello', notes: 'N' } } })
+
+        net.goOnline()
+        await engine.idle()
+        expect((await db.snapshot()).outbox).toMatchObject([{ state: 'conflict', clashing: ['body.content'] }])
+    })
+})

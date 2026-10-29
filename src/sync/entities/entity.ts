@@ -69,9 +69,17 @@ export type EntityRules<N extends EntityName> = {
      *  value for, so someone else changed them too. An entity without it treats
      *  every 409 as a conflict. */
     clash?(current: Row<N>, was: Record<string, unknown>): string[]
-    /** `mine` (an edit's fields) with every field outside `keep` taken from the
-     *  server's `current` copy: what the edit becomes on top of their change. */
-    merge?(mine: Fields<N>, current: Row<N>, keep: string[]): Fields<N>
+    /** `mine` (an edit's fields) with everything `was` does not name taken from
+     *  the server's `current` copy: what the edit becomes on top of their change. */
+    merge?(mine: Fields<N>, current: Row<N>, was: Record<string, unknown>): Fields<N>
+    /** Optional, for a field made of parts (a document's body): what the part(s)
+     *  of `field` this edit changes held when it began. `given` is the autosave's
+     *  start value, `acked` what our own acked write left there, `before` the
+     *  local row's value. Default: acked, else given, else before. */
+    startOf?(field: string, patched: unknown, given: unknown, acked: unknown, before: unknown): unknown
+    /** Optional: two `was` records of edits folded together; the earlier value of
+     *  each part stays. Default: the earlier record's fields win. */
+    foldWas?(earlier: Record<string, unknown>, later: Record<string, unknown>): Record<string, unknown>
 
     /** The server's copy in this 409 is archived. */
     conflictIsArchive(conflict: Conflict<N>): boolean
@@ -123,7 +131,9 @@ export type LooseRules = {
     copyOf(row: any): any
     carry?(incoming: any, known: any): any
     clash?(current: any, was: Record<string, unknown>): string[]
-    merge?(mine: any, current: any, keep: string[]): any
+    merge?(mine: any, current: any, was: Record<string, unknown>): any
+    startOf?(field: string, patched: unknown, given: unknown, acked: unknown, before: unknown): unknown
+    foldWas?(earlier: Record<string, unknown>, later: Record<string, unknown>): Record<string, unknown>
     conflictIsArchive(conflict: any): boolean
     conflictIsBy(conflict: any, accountId: string): boolean
 }

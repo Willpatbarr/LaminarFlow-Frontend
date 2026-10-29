@@ -232,7 +232,7 @@ export type SyncEngine = {
     updateBoard(id: string, patch: Partial<BoardFields>): Promise<boolean>
 
     createDocument(document: NewDoc): Promise<Doc>
-    updateDocument(id: string, patch: Partial<DocFields>): Promise<boolean>
+    updateDocument(id: string, patch: Partial<DocFields>, options?: UpdateOptions): Promise<boolean>
     archiveDocument(id: string): Promise<boolean>
     unarchiveDocument(document: Doc): Promise<string | null>
     /** Sends a parked entry again. For a conflict this means "mine wins": it is
@@ -497,10 +497,15 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             // whose value it then is) what we know.
             const wasOf = (sent?: Record<string, unknown>) =>
                 Object.fromEntries(
-                    Object.keys(patch).map((key) => [
-                        key,
-                        sent && key in sent ? sent[key] : options.was && key in options.was ? options.was[key] : before[key],
-                    ]),
+                    Object.keys(patch).map((key) => {
+                        const given = options.was && key in options.was ? options.was[key] : undefined
+                        const acked = sent && key in sent ? sent[key] : undefined
+                        // A field made of parts (a document's body) says for itself which part began where.
+                        if (rules.startOf) {
+                            return [key, rules.startOf(key, (patch as Record<string, unknown>)[key], given, acked, before[key])]
+                        }
+                        return [key, acked !== undefined ? acked : options.was && key in options.was ? given : before[key]]
+                    }),
                 )
             if (rules.sameFields(rules.fieldsOf(local), next)) return 'unchanged'
 
@@ -517,7 +522,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     ...last,
                     payload: { ...last.payload, ...patch },
                     // The earliest value of each field stays.
-                    was: last.was ? { ...wasOf(), ...last.was } : undefined,
+                    was: last.was ? (rules.foldWas ? rules.foldWas(last.was, wasOf()) : { ...wasOf(), ...last.was }) : undefined,
                     state,
                     attempts: state === last.state ? last.attempts : 0,
                     error: state === last.state ? last.error : null,
@@ -826,7 +831,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     ) {
                         const { current } = outcome.conflict
                         const clashing = rules.clash(current, entry.was)
-                        const payload = rules.merge(entry.payload, current, Object.keys(entry.was))
+                        const payload = rules.merge(entry.payload, current, entry.was)
                         const { server: copies } = tables(tx, entry.entity)
                         const known = await copies.get(entry.entity_id)
                         await copies.put(rules.carry && known ? rules.carry(current, known) : current)
@@ -1405,7 +1410,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         deleteStatus: (id, moveTo) => archive('status', id, { move_to: moveTo }),
         updateBoard: (id, patch) => update('board', id, patch),
         createDocument: (document) => create('document', document),
-        updateDocument: (id, patch) => update('document', id, patch),
+        updateDocument: (id, patch, options) => update('document', id, patch, options),
         archiveDocument: (id) => archive('document', id),
         unarchiveDocument: (document) => unarchive('document', document),
         retry,

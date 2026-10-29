@@ -884,8 +884,8 @@ export async function createDocument(document: NewDoc): Promise<Doc> {
     return created
 }
 
-export async function updateDocument(id: string, patch: Partial<DocFields>): Promise<boolean> {
-    const found = await running().engine.updateDocument(resolveId(id), patch)
+export async function updateDocument(id: string, patch: Partial<DocFields>, options?: UpdateOptions): Promise<boolean> {
+    const found = await running().engine.updateDocument(resolveId(id), patch, options)
     await caughtUp()
     return found
 }
