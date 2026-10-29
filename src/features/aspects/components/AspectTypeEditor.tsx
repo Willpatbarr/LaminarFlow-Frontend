@@ -9,6 +9,7 @@ import '@/features/tickets/components/StatusEditor.css'
 
 import {
     addField,
+    exportAspectType,
     fieldUsage,
     getAspectType,
     removeField,
@@ -19,6 +20,8 @@ import {
     type AspectType,
     type Result,
 } from '../api'
+import { takeImportNotice } from '../importNotice'
+import { downloadJson, exportFileName } from '../portable'
 
 /*
 ┌─ aspects ───────────────────────────────────────
@@ -49,7 +52,19 @@ export function AspectTypeEditor(props: { typeId: string }) {
     const [dragging, setDragging] = createSignal<string | null>(null)
     const [busy, setBusy] = createSignal(false)
 
+    const [notice, setNotice] = createSignal<string | null>(takeImportNotice())
+
     const fields = () => type()?.fields ?? []
+
+    async function exportJson() {
+        const current = type()
+        if (!current) return
+        const exported = await attempt(() => exportAspectType(current.id))
+        if (!exported) return
+        // The body carries a `$schema` pointer to the server's JSON Schema; the file is the shape alone.
+        const { $schema: _pointer, ...file } = exported
+        downloadJson(exportFileName(current.name), file)
+    }
 
     async function load(id: string) {
         setLoading(true)
@@ -163,6 +178,13 @@ export function AspectTypeEditor(props: { typeId: string }) {
                     </Banner>
                 )}
             </Show>
+            <Show when={notice()}>
+                {(message) => (
+                    <Banner hue="amber" onDismiss={() => setNotice(null)}>
+                        {message()}
+                    </Banner>
+                )}
+            </Show>
             <Show when={!missing()} fallback={<p class="t-body">This aspect type does not exist.</p>}>
                 <Show
                     when={type()}
@@ -188,6 +210,12 @@ export function AspectTypeEditor(props: { typeId: string }) {
                                     error={nameError()}
                                 />
                             </form>
+
+                            <div>
+                                <Button variant="secondary" onClick={() => void exportJson()}>
+                                    Export JSON
+                                </Button>
+                            </div>
 
                             <h2 class="t-section">Fields</h2>
                             <ul class="status-editor__list" aria-label="Fields">

@@ -82,6 +82,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/aspect-types/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a new aspect type from portable JSON
+         * @description Always creates a NEW type in `team_id`; it never replaces or edits an existing one. Fields get fresh ids, in the file's position order. If the team already has a type with that name the new one is named "<name> (2)", then "(3)" and so on - read the name in the response. A file is refused whole, as a 422 whose `errors[0].location` is the field (`body.format_version`, `body.name`, `body.fields[2].label`, or an unknown key); nothing is created. Needs `aspect:write`. See docs/aspect-type-format.md.
+         */
+        post: operations["import-aspect-type"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/aspect-types/{id}": {
         parameters: {
             query?: never;
@@ -93,6 +113,26 @@ export interface paths {
         get: operations["get-aspect-type"];
         /** Rename an aspect type */
         put: operations["rename-aspect-type"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export an aspect type as portable JSON
+         * @description The type's name and fields, in position order, with `format_version` and no ids - safe to hand to another team, which gets fresh ids on import. Nothing is recorded or changed. Needs `aspect:read`. See docs/aspect-type-format.md.
+         */
+        get: operations["export-aspect-type"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2533,6 +2573,28 @@ export interface components {
             /** @description and or or. Joins every condition and subgroup in this group. */
             op: string;
         };
+        ImportAspectTypeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ImportAspectTypeInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description At most 100, in the order they should appear. May be empty. */
+            fields: components["schemas"]["PortableFieldBody"][] | null;
+            /**
+             * Format: int64
+             * @description Always 1 for now. Any other number is a 422 aspect_format_unsupported at body.format_version.
+             */
+            format_version: number;
+            /** @description At most 100 characters, and not only whitespace. */
+            name: string;
+            /**
+             * Format: uuid
+             * @description The team that gets the new type.
+             */
+            team_id: string;
+        };
         LabelBody: {
             /**
              * Format: uri
@@ -3054,6 +3116,32 @@ export interface components {
              * @description Server time, UTC.
              */
             time: string;
+        };
+        PortableBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/PortableBody.json
+             */
+            readonly $schema?: string;
+            /** @description At most 100, in the order they should appear. May be empty. */
+            fields: components["schemas"]["PortableFieldBody"][] | null;
+            /**
+             * Format: int64
+             * @description Always 1 for now. Any other number is a 422 aspect_format_unsupported at body.format_version.
+             */
+            format_version: number;
+            /** @description At most 100 characters, and not only whitespace. */
+            name: string;
+        };
+        PortableFieldBody: {
+            /** @description At most 100 characters, and not only whitespace. */
+            label: string;
+            /**
+             * Format: int64
+             * @description Ordering only: import sorts by it (ties keep file order) and renumbers 1..n, so gaps and repeats are fine.
+             */
+            position: number;
         };
         ProjectBody: {
             /**
@@ -3871,6 +3959,39 @@ export interface operations {
             };
         };
     };
+    "import-aspect-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportAspectTypeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "get-aspect-type": {
         parameters: {
             query?: never;
@@ -3924,6 +4045,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "export-aspect-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortableBody"];
                 };
             };
             /** @description Error */

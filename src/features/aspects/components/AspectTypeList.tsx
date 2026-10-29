@@ -1,11 +1,15 @@
-import { createEffect, createSignal, For, Show } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { Banner } from '@/components/ui/Banner'
 import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { nameCount, overMessage } from '@/features/tickets/limits'
 import '@/features/tickets/components/StatusEditor.css'
 
-import { createAspectType, listAspectTypes, type AspectType } from '../api'
+import { createAspectType, importAspectType, listAspectTypes, type AspectType } from '../api'
+import { leaveImportNotice } from '../importNotice'
+import { parsePortable, type Parsed } from '../portable'
 
 /*
 ┌─ aspects ───────────────────────────────────────
@@ -19,6 +23,10 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
     const [problem, setProblem] = createSignal<string | null>(null)
     const [name, setName] = createSignal('')
     const [busy, setBusy] = createSignal(false)
+    const [picked, setPicked] = createSignal<Extract<Parsed, { ok: true }>['file'] | null>(null)
+    const [fileProblem, setFileProblem] = createSignal<string | null>(null)
+    const [importing, setImporting] = createSignal(false)
+    const fileId = createUniqueId()
     const tooLong = () => overMessage('Name', nameCount(name()))
     const blocked = () => name().trim() === '' || tooLong() !== undefined || busy()
 
@@ -43,6 +51,28 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
         props.onOpen(result.data.id)
     }
 
+    async function choose(file: File | undefined) {
+        if (!file) return
+        setProblem(null)
+        setFileProblem(null)
+        const parsed = parsePortable(await file.text())
+        if (parsed.ok) setPicked(parsed.file)
+        else setFileProblem(`${file.name}: ${parsed.message}`)
+    }
+
+    async function confirmImport(file: NonNullable<ReturnType<typeof picked>>) {
+        if (importing()) return
+        setImporting(true)
+        const result = await importAspectType(props.teamId, file)
+        setImporting(false)
+        setPicked(null)
+        if (!result.ok) return setFileProblem(result.message)
+        if (result.data.name !== file.name) {
+            leaveImportNotice(`Imported as “${result.data.name}”: this team already had a type named “${file.name}”.`)
+        }
+        props.onOpen(result.data.id)
+    }
+
     return (
         <div class="status-editor">
             <Show when={problem()}>
@@ -52,6 +82,31 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
                     </p>
                 )}
             </Show>
+            <Show when={fileProblem()}>
+                {(message) => (
+                    <Banner hue="rust" role="alert" onDismiss={() => setFileProblem(null)}>
+                        {message()}
+                    </Banner>
+                )}
+            </Show>
+            <div>
+                <Button variant="secondary" onClick={() => document.getElementById(fileId)?.click()}>
+                    Import
+                </Button>
+                <input
+                    id={fileId}
+                    class="visually-hidden"
+                    type="file"
+                    accept=".json,application/json"
+                    aria-label="Aspect type file"
+                    tabindex={-1}
+                    onChange={(event) => {
+                        const input = event.currentTarget
+                        void choose(input.files?.[0])
+                        input.value = ''
+                    }}
+                />
+            </div>
             <Show when={types()} fallback={<p class="t-meta" role="status">Loading aspect types…</p>}>
                 {(list) => (
                     <>
@@ -83,6 +138,26 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
                     Add aspect type
                 </Button>
             </form>
+            <Show when={picked()} keyed>
+                {(file) => (
+                    <Modal
+                        title={`Import “${file.name}”`}
+                        consequence="This adds a new aspect type to the team. Nothing existing is changed; a name already in use gets a number after it."
+                        confirm="Import"
+                        confirmDisabled={importing()}
+                        onConfirm={() => void confirmImport(file)}
+                        onCancel={() => setPicked(null)}
+                    >
+                        <Show when={file.fields.length > 0} fallback={<p class="t-meta">No fields.</p>}>
+                            <ol aria-label="Fields to import">
+                                <For each={file.fields} keyed={(item) => item}>
+                                    {(item) => <li>{item().label}</li>}
+                                </For>
+                            </ol>
+                        </Show>
+                    </Modal>
+                )}
+            </Show>
         </div>
     )
 }

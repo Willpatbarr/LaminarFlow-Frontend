@@ -121,3 +121,81 @@ describe('the aspect type editor', () => {
         await waitFor(() => expect(puts).toEqual([{ label: 'Aim' }]))
     })
 })
+
+describe('importing and exporting a type (LAM-119)', () => {
+    const fileOf = (content: unknown, name = 'brief.json') => new File([JSON.stringify(content)], name, { type: 'application/json' })
+    const valid = { format_version: 1, name: 'Brief', fields: [{ label: 'Goal', position: 1 }, { label: 'Risks', position: 2 }] }
+
+    it('previews a picked file, imports on confirm, opens the copy and says it was renamed', async () => {
+        const sent: unknown[] = []
+        await openApp(`/teams/${TEAM.id}/aspect-types`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types': () => ok({ items: [] }),
+            'POST /api/v1/aspect-types/import': async (request) => {
+                sent.push(await bodyOf(request))
+                return ok({ ...aType(), id: 'a-2', name: 'Brief (2)' })
+            },
+            'GET /api/v1/aspect-types/a-2': () => ok({ ...aType(), id: 'a-2', name: 'Brief (2)' }),
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Aspect types' })
+        await user.upload(screen.getByLabelText('Aspect type file'), fileOf(valid))
+        const dialog = await screen.findByRole('dialog', { name: /Import .Brief./ })
+        expect(within(dialog).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Goal', 'Risks'])
+        expect(sent).toEqual([])
+        await user.click(within(dialog).getByRole('button', { name: 'Import' }))
+        expect(await screen.findByLabelText('Aspect type name')).toHaveValue('Brief (2)')
+        expect(sent).toEqual([{ team_id: TEAM.id, ...valid }])
+        expect(screen.getByText(/Imported as .Brief \(2\)./)).toBeInTheDocument()
+    })
+
+    it('names what is wrong with a file and makes no request', async () => {
+        await openApp(`/teams/${TEAM.id}/aspect-types`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types': () => ok({ items: [] }),
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Aspect types' })
+        await user.upload(screen.getByLabelText('Aspect type file'), fileOf({ ...valid, fields: [{ label: '', position: 1 }] }, 'bad.json'))
+        expect(await screen.findByRole('alert')).toHaveTextContent('bad.json: fields[0].label: must not be empty')
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it("shows the field the server's 422 names", async () => {
+        await openApp(`/teams/${TEAM.id}/aspect-types`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types': () => ok({ items: [] }),
+            'POST /api/v1/aspect-types/import': () =>
+                problem(422, 'unprocessable_entity', [{ location: 'body.fields[1].label', message: 'too long' }]),
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Aspect types' })
+        await user.upload(screen.getByLabelText('Aspect type file'), fileOf(valid))
+        await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Import' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('body.fields[1].label: too long')
+    })
+
+    it('exports the type as a named file', async () => {
+        const saved: { name: string; text: Promise<string> }[] = []
+        URL.createObjectURL = (blob: Blob) => {
+            saved.push({ name: '', text: blob.text() })
+            return 'blob:x'
+        }
+        URL.revokeObjectURL = () => {}
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+            saved[saved.length - 1].name = this.download
+        })
+        await openApp(`/teams/${TEAM.id}/aspect-types/a-1`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types/a-1': () => ok(aType()),
+            'GET /api/v1/aspect-types/a-1/export': () => ok(valid),
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Fields' })
+        await user.click(screen.getByRole('button', { name: 'Export JSON' }))
+        await waitFor(() => expect(saved).toHaveLength(1))
+        expect(saved[0].name).toBe('brief.aspect-type.json')
+        expect(JSON.parse(await saved[0].text)).toEqual(valid)
+        click.mockRestore()
+    })
+})
