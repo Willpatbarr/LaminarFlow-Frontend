@@ -40,6 +40,8 @@ import {
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import type { Kind } from '@/features/hierarchy/kinds'
 import { ActivityFeed } from '@/features/activity/ActivityFeed'
+import { AttachmentList } from '@/features/attachments/AttachmentList'
+import { imageUploader } from '@/features/attachments/upload'
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedDocuments } from '@/features/links/LinkedDocuments'
 import { describeFailure } from '../entryFailure'
@@ -204,6 +206,17 @@ function LoadingTicket() {
                     </span>
                     <div class="links__actions">
                         <SkeletonBox shape="control" width="132px" height="40px" />
+                        <SkeletonBox shape="control" width="120px" height="40px" />
+                    </div>
+                </div>
+                <div class="attachments">
+                    <span class="ticket__skeleton-line">
+                        <SkeletonLine width="12ch" height="16px" />
+                    </span>
+                    <span class="ticket__skeleton-line">
+                        <SkeletonLine width="16ch" height="14px" />
+                    </span>
+                    <div class="attachments__actions">
                         <SkeletonBox shape="control" width="120px" height="40px" />
                     </div>
                 </div>
@@ -590,6 +603,7 @@ function TicketEditor(props: TicketEditorProps) {
             <MarkdownEditor
                 label="Description"
                 placeholder="Write, or type Markdown: # for a heading, - for a list…"
+                images={imageUploader(() => ({ ticketId: props.routeId }))}
                 readOnly={locked()}
                 value={description.value()}
                 onChange={(markdown) => {
@@ -735,6 +749,8 @@ function TicketEditor(props: TicketEditorProps) {
             </fieldset>
 
             <LinkedDocuments ticketId={props.routeId} projectId={project()} disabled={locked()} />
+
+            <AttachmentList parent={{ ticketId: props.routeId }} disabled={locked()} />
 
             <CommentThread parent={{ ticketId: props.routeId }} accountId={props.viewer.accountId} disabled={locked()} />
 

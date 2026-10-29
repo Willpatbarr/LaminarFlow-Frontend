@@ -2,10 +2,11 @@ import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
 import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
-import { createEffect, createSignal, createUniqueId, onSettled, Show, untrack } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
 
 import { FieldFoot } from '../ui/CharacterCount'
 import { describedBy, isOver, type Count } from '../ui/count'
+import { AttachmentImage, ImageFiles, type ImageUpload } from './images'
 import { editorLinks } from './internalLinks'
 import { InternalLink, insertChipAt, LinkOrChip } from './internalLinkNode'
 import { MarkdownPaste } from './markdownPaste'
@@ -59,6 +60,10 @@ type MarkdownEditorProps = {
      *  cut off: the count shows near the limit, and over it the field is
      *  marked invalid (say why with `error`). */
     count?: Count
+    /** Turns a pasted or dropped image into a URL (LAM-116). Absent: the editor
+     *  takes no files. The editor shows the progress and the failure itself,
+     *  under the field, and inserts the Markdown image when the upload is done. */
+    images?: ImageUpload
     /** Receives the editor, for the caller to focus it or read its state. */
     ref?: (editor: Editor) => void
 }
@@ -73,6 +78,43 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     let known = ''
     // Where in the text the picker was opened, while it is open.
     const [picking, setPicking] = createSignal<number | null>(null)
+    // Images going up, and why the last one that failed did.
+    const [uploads, setUploads] = createSignal<{ id: number; name: string; fraction: number }[]>([])
+    const [uploadError, setUploadError] = createSignal('')
+    let uploadSeq = 0
+
+    // One file at a time, so they land in the order they were given.
+    async function takeFiles(files: File[], at: number | null) {
+        const upload = props.images
+        setUploadError('')
+        if (!upload) {
+            setUploadError('Images cannot be added to this field.')
+            return
+        }
+        const images = files.filter((file) => file.type.startsWith('image/'))
+        if (images.length < files.length) {
+            setUploadError('Only images can be dropped into the text. Use Attach a file to add other files.')
+        }
+        let position = at
+        for (const file of images) {
+            const id = ++uploadSeq
+            setUploads((all) => [...all, { id, name: file.name, fraction: 0 }])
+            const result = await upload(file, (fraction) =>
+                setUploads((all) => all.map((u) => (u.id === id ? { ...u, fraction } : u))),
+            )
+            setUploads((all) => all.filter((u) => u.id !== id))
+            if (!result.ok) {
+                setUploadError(result.message)
+                continue
+            }
+            if (!editor) return
+            const end = editor.state.doc.content.size
+            const target = Math.min(position ?? editor.state.selection.to, end)
+            editor.chain().insertContentAt(target, { type: 'image', attrs: { src: result.url, alt: result.alt } }).run()
+            // The next image goes after this one.
+            position = null
+        }
+    }
 
     onSettled(() => {
         if (!element) return
@@ -89,6 +131,8 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                 Markdown,
                 InternalLink.configure({ onPicker: setPicking }),
                 MarkdownPaste,
+                AttachmentImage,
+                ImageFiles.configure({ onFiles: (files, at) => void takeFiles(files, at) }),
                 Placeholder.configure({ placeholder: props.placeholder ?? '' }),
             ],
             content: props.value,
@@ -182,6 +226,24 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                         editor?.commands.focus()
                     },
                 })}
+            </Show>
+            <Show when={uploads().length > 0}>
+                <div class="md-editor__uploads t-meta" role="status">
+                    <For each={uploads()} keyed={(u) => u.id}>
+                        {(u) => (
+                            <label class="md-editor__upload">
+                                <span>Uploading {u().name}</span>
+                                <progress max="1" value={u().fraction} aria-label={`Uploading ${u().name}`} />
+                                <span>{Math.round(u().fraction * 100)}%</span>
+                            </label>
+                        )}
+                    </For>
+                </div>
+            </Show>
+            <Show when={uploadError()}>
+                <p class="md-editor__upload-error input__error t-meta" role="alert">
+                    {uploadError()}
+                </p>
             </Show>
             <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>

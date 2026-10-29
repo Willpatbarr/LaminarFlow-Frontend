@@ -4,6 +4,7 @@ import { createSignal } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { MarkdownEditor } from './MarkdownEditor'
+import type { ImageUpload } from './images'
 import { setEditorLinks, titlesChanged } from './internalLinks'
 
 // The editor mounted for real in jsdom: Markdown in, Markdown out.
@@ -223,5 +224,82 @@ describe('internal links as chips', () => {
         expect(editor.getMarkdown()).toContain('https://example.com/documents/d-1')
         expect(editor.getMarkdown().match(/lf:\/\//g)).toHaveLength(1)
         setEditorLinks(null)
+    })
+})
+
+describe('images (LAM-116)', () => {
+    const url = '/api/v1/attachments/0b7d4a3e-6d5f-4c1e-9a53-2f8d6b1e4712'
+
+    it('draws an attachment image and keeps its Markdown', async () => {
+        const markdown = `![a cat](${url})`
+        const editor = await mount(markdown)
+        expect(document.querySelector(`img[src="${url}"]`)).not.toBeNull()
+        expect(editor.getMarkdown().trim()).toBe(markdown)
+    })
+
+    it('does not fetch an image from anywhere else, and keeps its Markdown', async () => {
+        const markdown = '![pixel](https://evil.example/p.png)'
+        const editor = await mount(markdown)
+        expect(document.querySelector('img')).toBeNull()
+        expect(document.body).toHaveTextContent('Image not shown')
+        expect(editor.getMarkdown().trim()).toBe(markdown)
+    })
+
+    function mountWithImages(images: ImageUpload) {
+        let editor: Editor | undefined
+        const onChange = vi.fn()
+        render(() => (
+            <MarkdownEditor label="Notes" value="" onChange={onChange} images={images} ref={(e) => (editor = e)} />
+        ))
+        return { onChange, editor: () => editor! }
+    }
+
+    function pasteFile(file: File) {
+        const target = screen.getByRole('textbox', { name: 'Notes' })
+        const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & { clipboardData: unknown }
+        event.clipboardData = { files: [file], types: ['Files'], getData: () => '' }
+        target.dispatchEvent(event)
+        return event
+    }
+
+    it('uploads a pasted image, shows progress, then inserts the Markdown image', async () => {
+        let finish: (r: { ok: true; url: string; alt: string }) => void = () => {}
+        const upload = vi.fn(
+            (_file: File, onProgress: (f: number) => void) =>
+                new Promise<{ ok: true; url: string; alt: string }>((resolve) => {
+                    onProgress(0.5)
+                    finish = resolve
+                }),
+        )
+        const { onChange, editor } = mountWithImages(upload)
+        await waitFor(() => expect(editor()).toBeDefined())
+        const event = pasteFile(new File(['x'], 'shot.png', { type: 'image/png' }))
+        expect(event.defaultPrevented).toBe(true)
+        expect(upload).toHaveBeenCalledTimes(1)
+        expect(await screen.findByText('Uploading shot.png')).toBeInTheDocument()
+        expect(screen.getByRole('progressbar', { name: 'Uploading shot.png' })).toHaveValue(0.5)
+        finish({ ok: true, url, alt: 'shot' })
+        await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(`![shot](${url})`))
+        expect(screen.queryByText('Uploading shot.png')).toBeNull()
+    })
+
+    it('shows why an upload failed and inserts nothing', async () => {
+        const upload = vi.fn(async () => ({ ok: false as const, message: 'shot.png is too large. Files can be at most 25 MB.' }))
+        const { onChange, editor } = mountWithImages(upload)
+        await waitFor(() => expect(editor()).toBeDefined())
+        pasteFile(new File(['x'], 'shot.png', { type: 'image/png' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('at most 25 MB')
+        expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('leaves a paste of text alone', async () => {
+        const upload = vi.fn()
+        const { editor } = mountWithImages(upload)
+        await waitFor(() => expect(editor()).toBeDefined())
+        const target = screen.getByRole('textbox', { name: 'Notes' })
+        const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & { clipboardData: unknown }
+        event.clipboardData = { files: [], types: ['text/plain'], getData: (type: string) => (type === 'text/plain' ? 'hello' : '') }
+        target.dispatchEvent(event)
+        expect(upload).not.toHaveBeenCalled()
     })
 })

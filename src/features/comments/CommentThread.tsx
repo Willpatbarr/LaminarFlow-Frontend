@@ -3,6 +3,7 @@ import { createMemo, createSignal, For, onSettled, Show } from 'solid-js'
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { imageUploader } from '@/features/attachments/upload'
 import { loadMembers, memberName } from '@/features/members/members'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import {
@@ -104,7 +105,7 @@ export function CommentThread(props: CommentThreadProps) {
                 <ol class="comments__list">
                     <For each={comments()} keyed={(comment) => comment.id}>
                         {(comment) => (
-                            <CommentItem comment={comment()} mine={comment().author_id === props.accountId && props.accountId !== ''} disabled={props.disabled} />
+                            <CommentItem comment={comment()} parent={props.parent} mine={comment().author_id === props.accountId && props.accountId !== ''} disabled={props.disabled} />
                         )}
                     </For>
                 </ol>
@@ -123,6 +124,7 @@ export function CommentThread(props: CommentThreadProps) {
                 >
                     <MarkdownEditor
                         label="Add a comment"
+                        images={imageUploader(() => props.parent)}
                         placeholder="Write a comment. Markdown and links work."
                         value={draft()}
                         readOnly={props.disabled}
@@ -146,6 +148,7 @@ type CommentItemProps = {
     comment: Comment
     mine: boolean
     disabled?: boolean
+    parent: Parent
 }
 
 function CommentItem(props: CommentItemProps) {
@@ -236,6 +239,7 @@ function CommentItem(props: CommentItemProps) {
                     <MarkdownEditor
                         label="Edit comment"
                         labelHidden
+                        images={imageUploader(() => props.parent)}
                         // Editing starts with the cursor after the last word.
                         ref={(editor) => {
                             // Synchronously: tiptap's focus('end') moves the cursor a frame
