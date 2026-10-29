@@ -352,6 +352,13 @@ type EntryBase<N extends EntityName> = {
     attempts: number
     error: EntryError | null
     conflict: EntityConflicts[N] | null
+    /** An edit's own fields as they were when the edit began: one key per field
+     *  it changes. On a 409 they say which fields someone else also changed (the
+     *  server's value differs) and which they did not touch (LAM-131). When
+     *  edits are folded together the earliest value of each field is kept. */
+    was?: Record<string, unknown>
+    /** With a conflict: the fields of `was` the other writer also changed. */
+    clashing?: string[]
     /** When the user did it. Becomes the local row's `updated_at`. */
     created_at: string
 }

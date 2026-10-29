@@ -152,6 +152,21 @@ export type SyncChange = {
     swap?: { from: string; to: string }
 }
 
+/** What an edit knows about where it started. */
+export type UpdateOptions = {
+    /** The row's version when the user began this edit (an autosaved field's
+     *  `context.base`). Sent as `If-Match` instead of the version the row has by
+     *  the time the write is queued, so a change that landed in between is a
+     *  conflict rather than being overwritten. Without it the edit is made on
+     *  the row as it stands. */
+    base?: number | null
+    /** The values the patched fields had when the edit began (an autosaved
+     *  field's `context.from`, keyed by field). With `base` they let a 409 tell a
+     *  field someone else changed from one nobody touched. Without it the row's
+     *  value at queue time is used. */
+    was?: Record<string, unknown>
+}
+
 export type SyncEngine = {
     /** Hydrates, then drains the outbox, and keeps draining as things are
      *  queued. An engine is used once: start it, stop it, make another. */
@@ -170,14 +185,14 @@ export type SyncEngine = {
      *  local row at once and queues the request; see the ticket spellings
      *  below for what each resolves with. */
     create<N extends EntityName>(entity: N, input: EntityCreates[N]): Promise<EntityRows[N]>
-    update<N extends EntityName>(entity: N, id: string, patch: Partial<EntityFields[N]>): Promise<boolean>
+    update<N extends EntityName>(entity: N, id: string, patch: Partial<EntityFields[N]>, options?: UpdateOptions): Promise<boolean>
     archive<N extends EntityName>(entity: N, id: string, ...payload: ArchiveArgs<N>): Promise<boolean>
     unarchive<N extends EntityName>(entity: N, row: EntityRows[N]): Promise<string | null>
 
     createTicket(ticket: NewTicket): Promise<Ticket>
     /** Resolves false if there is no such local ticket. A patch that changes
      *  nothing queues nothing. */
-    updateTicket(id: string, patch: Partial<TicketFields>): Promise<boolean>
+    updateTicket(id: string, patch: Partial<TicketFields>, options?: UpdateOptions): Promise<boolean>
     archiveTicket(id: string): Promise<boolean>
     /** Undoes an archive. `ticket` is the row as it was before it was archived.
      *  If the archive has not reached the server it is simply withdrawn;
@@ -399,6 +414,34 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         }
     }
 
+    // Versions this client's own writes moved a row past: `from → to`, per row.
+    // An edit that began on `from` and is saved after our own save was answered
+    // started from our own write, not from someone else's.
+    // `sent` is what that write held, which is what the fields were afterwards.
+    const moved = new Map<string, Map<number, { to: number; sent: Record<string, unknown> }>>()
+
+    // The version a new edit is made on top of. `began` is the version the user
+    // saw when they started typing; `now` is what the row is at this moment, which
+    // a live update from someone else may have moved on. The edit keeps `began`
+    // (so the server refuses it if the row changed since) unless that version is
+    // only behind because of this client's own saved writes, or unknown.
+    function editBase(
+        id: string,
+        began: number | null,
+        now: number | null,
+    ): { base: number | null; sent?: Record<string, unknown> } {
+        if (began === null || began < 1 || now === null) return { base: now }
+        let version = began
+        let sent: Record<string, unknown> | undefined
+        const path = moved.get(id)
+        for (let hops = 0; path?.has(version) && hops < 1000; hops++) {
+            const hop = path.get(version)!
+            version = hop.to
+            sent = hop.sent
+        }
+        return { base: Math.min(version, now), sent }
+    }
+
     // Whether a new edit may be folded into `entry` instead of queued behind
     // it. Only when the server certainly has not applied that entry: it was
     // never sent, or the server refused it. An entry that was sent and got no
@@ -439,6 +482,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         entity: N,
         id: string,
         patch: Partial<EntityFields[N]>,
+        options: UpdateOptions = {},
     ): Promise<boolean> {
         if (!isRunning()) throw new Error('the sync engine is not running')
         const rules = rulesFor(entity)
@@ -446,7 +490,18 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             const { rows, server: copies } = tables(tx, entity)
             const local = await rows.get(id)
             if (!local) return null
-            const next = { ...rules.fieldsOf(local), ...patch }
+            const before = rules.fieldsOf(local) as Record<string, unknown>
+            const next = { ...before, ...patch }
+            // Each patched field as it was when this edit began: what the autosave
+            // saw on the first keystroke, else (and after our own acked write,
+            // whose value it then is) what we know.
+            const wasOf = (sent?: Record<string, unknown>) =>
+                Object.fromEntries(
+                    Object.keys(patch).map((key) => [
+                        key,
+                        sent && key in sent ? sent[key] : options.was && key in options.was ? options.was[key] : before[key],
+                    ]),
+                )
             if (rules.sameFields(rules.fieldsOf(local), next)) return 'unchanged'
 
             const entries = await tx.outbox.forEntity(id)
@@ -461,6 +516,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 await tx.outbox.put({
                     ...last,
                     payload: { ...last.payload, ...patch },
+                    // The earliest value of each field stays.
+                    was: last.was ? { ...wasOf(), ...last.was } : undefined,
                     state,
                     attempts: state === last.state ? last.attempts : 0,
                     error: state === last.state ? last.error : null,
@@ -468,6 +525,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 } as OutboxEntry)
             } else {
                 const server = await copies.get(id)
+                const from = editBase(id, options.base ?? null, server?.version ?? null)
                 await tx.outbox.add({
                     kind: 'update',
                     entity,
@@ -475,7 +533,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     payload: next,
                     // Behind another entry there is no version to name yet:
                     // that entry's answer fills it in (`adopt`).
-                    base_version: last ? null : (server?.version ?? null),
+                    base_version: last ? null : from.base,
+                    was: wasOf(last ? undefined : from.sent),
                     ...blank(),
                 } as never)
             }
@@ -586,6 +645,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         const from = entry.entity_id
         const { rows, server: copies } = tables(tx, entry.entity)
         await tx.outbox.delete(entry.id)
+        if (entry.kind === 'update' && entry.base_version !== null && server.version > entry.base_version) {
+            const path = moved.get(server.id) ?? new Map<number, { to: number; sent: Record<string, unknown> }>()
+            path.set(entry.base_version, { to: server.version, sent: entry.payload as Record<string, unknown> })
+            moved.set(server.id, path)
+        }
         for (const later of await tx.outbox.forEntity(from)) {
             await tx.outbox.put({ ...later, entity_id: server.id, base_version: server.version })
         }
@@ -614,6 +678,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     }
 
     async function forget(tx: SyncTx, entity: EntityName, id: string) {
+        moved.delete(id)
         for (const entry of await tx.outbox.forEntity(id)) {
             waits.delete(entry.id)
             await tx.outbox.delete(entry.id)
@@ -747,6 +812,39 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                             return {}
                         }
                         return adopt(tx, entry, outcome.conflict.current)
+                    }
+                    // Someone else's change to other fields than the ones this edit
+                    // changed is no conflict: the edit goes again on top of it,
+                    // on their version, and nothing is shown. Only a field both
+                    // changed needs a person (and only that field is shown).
+                    if (
+                        entry.kind === 'update' &&
+                        entry.was &&
+                        rules.clash &&
+                        rules.merge &&
+                        !rules.conflictIsArchive(outcome.conflict)
+                    ) {
+                        const { current } = outcome.conflict
+                        const clashing = rules.clash(current, entry.was)
+                        const payload = rules.merge(entry.payload, current, Object.keys(entry.was))
+                        const { server: copies } = tables(tx, entry.entity)
+                        const known = await copies.get(entry.entity_id)
+                        await copies.put(rules.carry && known ? rules.carry(current, known) : current)
+                        if (clashing.length > 0) {
+                            return park({ state: 'conflict', conflict: outcome.conflict, error: null, payload, clashing } as Partial<OutboxEntry>)
+                        }
+                        const { was: _was, clashing: _clashing, ...rest } = entry
+                        await tx.outbox.put({
+                            ...rest,
+                            payload,
+                            base_version: current.version,
+                            state: 'pending',
+                            attempts: 0,
+                            error: null,
+                            conflict: null,
+                        } as OutboxEntry)
+                        await rebuild(tx, entry.entity, entry.entity_id)
+                        return {}
                     }
                     // The freshest copy of a live row is worth keeping: it
                     // is what a discard goes back to.
@@ -1129,6 +1227,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 // "Mine wins" is still conditional: it names the version the
                 // conflict showed, so a third writer in the gap is caught too.
                 base_version: entry.conflict ? entry.conflict.current.version : entry.base_version,
+                was: undefined,
+                clashing: undefined,
                 state: 'pending',
                 attempts: 0,
                 error: null,
@@ -1285,7 +1385,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         archive,
         unarchive,
         createTicket: (ticket) => create('ticket', ticket),
-        updateTicket: (id, patch) => update('ticket', id, patch),
+        updateTicket: (id, patch, options) => update('ticket', id, patch, options),
         archiveTicket: (id) => archive('ticket', id),
         unarchiveTicket: (ticket) => unarchive('ticket', ticket),
         createLabel: (label) => create('label', label),
