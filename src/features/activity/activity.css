@@ -1,0 +1,23 @@
+/* The compact history under the comments on the ticket and document pages. */
+.activity {
+    display: grid;
+    gap: var(--s-8);
+    padding-top: var(--s-16);
+    border-top: 1px solid var(--border);
+}
+
+.activity__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-4);
+}
+
+.activity__item {
+    color: var(--text-2);
+}
+
+.activity__none {
+    color: var(--text-3);
+}

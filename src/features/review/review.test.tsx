@@ -75,6 +75,17 @@ describe('open requests on a document', () => {
         await openApp('/documents/d-1', withRequest(request({ anchor_text: 'Howdy' })))
         expect(await screen.findByText('The text has changed since this was requested.')).toBeInTheDocument()
     })
+
+    it('says why a request is open again, without blame, when the server gives a reason', async () => {
+        await openApp('/documents/d-1', withRequest(request({ stale_reason: 'anchored text changed' })))
+        expect(await screen.findByText('This is open again because the text it points at was edited.')).toBeInTheDocument()
+    })
+
+    it('says nothing about it when there is no reason', async () => {
+        await openApp('/documents/d-1', withRequest(request({ stale_reason: null })))
+        await screen.findByText('Review requested by Sam Ortiz')
+        expect(screen.queryByText(/open again/)).toBeNull()
+    })
 })
 
 describe('what a reviewer can do', () => {

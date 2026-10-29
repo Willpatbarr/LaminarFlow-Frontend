@@ -237,7 +237,13 @@ function CommentItem(props: CommentItemProps) {
                         label="Edit comment"
                         labelHidden
                         // Editing starts with the cursor after the last word.
-                        ref={(editor) => editor.commands.focus('end')}
+                        ref={(editor) => {
+                            // Synchronously: tiptap's focus('end') moves the cursor a frame
+                            // later, which can land after the user's first keystroke or a
+                            // select-all and turn a replacement into an append.
+                            editor.commands.setTextSelection(editor.state.doc.content.size)
+                            editor.view.focus()
+                        }}
                         value={text()}
                         onChange={setText}
                         count={commentCount(text())}

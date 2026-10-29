@@ -74,6 +74,15 @@ export function ReviewPanel(props: PanelProps) {
             if (missing > 0) void loadDetails({ documentId: resolveId(props.documentId) })
         },
     )
+    // A request that went back to open carries why (`stale_reason`), which the
+    // comment row does not: ask again when one of them changes after the first look.
+    createEffect(
+        () => `${resolveId(props.documentId)}|${open().map((request) => `${request.id}@${request.updated_at}`).join(',')}`,
+        (stamp, previous) => {
+            const [documentId, requests] = [stamp.slice(0, stamp.indexOf('|')), stamp.slice(stamp.indexOf('|') + 1)]
+            if (previous !== undefined && requests !== '') void loadDetails({ documentId })
+        },
+    )
     createEffect(
         () => open().length,
         (n) => {
@@ -111,6 +120,15 @@ function RequestCard(props: PanelProps & { request: Comment }) {
         return textAt(props.fieldText(props.request.field_id), start, end) !== q
     }
 
+    const staleNote = () => {
+        const reason = detail()?.stale_reason
+        if (!reason) return null
+        // Said as what happened to the text, not as a verdict on anyone's work.
+        return reason === 'anchored text changed'
+            ? 'This is open again because the text it points at was edited.'
+            : `This is open again: ${reason}.`
+    }
+
     const [busy, setBusy] = createSignal(false)
     const [problem, setProblem] = createSignal('')
     const [commenting, setCommenting] = createSignal(false)
@@ -144,6 +162,7 @@ function RequestCard(props: PanelProps & { request: Comment }) {
             <Show when={quote()}>
                 {(text) => <blockquote class="review-quote t-body">{text()}</blockquote>}
             </Show>
+            <Show when={staleNote()}>{(text) => <p class="t-meta review__stale">{text()}</p>}</Show>
             <Show when={moved()}>
                 <p class="t-meta">The text has changed since this was requested.</p>
             </Show>

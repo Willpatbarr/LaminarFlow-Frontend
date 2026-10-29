@@ -1,6 +1,85 @@
 {
   "components": {
     "schemas": {
+      "ActivityBody": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "description": "The account that made the change; a token acts as its owner. Null when the account has been deleted or the write had none: render \"someone\".",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "entity_type": {
+            "enum": [
+              "ticket",
+              "document"
+            ],
+            "type": "string"
+          },
+          "field": {
+            "description": "Only for field_changed: ticket - title, description or milestone; document - title or fields.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "description": "What happened. Document entries are only created, archived, unarchived, aspect_type_changed and field_changed.",
+            "enum": [
+              "created",
+              "status_changed",
+              "assignee_changed",
+              "parent_changed",
+              "label_added",
+              "label_removed",
+              "archived",
+              "unarchived",
+              "aspect_type_changed",
+              "field_changed"
+            ],
+            "type": "string"
+          },
+          "summary_after": {
+            "description": "The value after the change, in the same form. label_added carries the label id here.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary_before": {
+            "description": "The value before the change; null for none. status_changed, assignee_changed, parent_changed (the epic), label_removed, aspect_type_changed and milestone carry the id of the thing, so they stay true after a rename. title and description carry the text, cut to 200 characters. A document's fields carry the sorted ids of the fields that had a value.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "entity_type",
+          "entity_id",
+          "actor_id",
+          "kind",
+          "field",
+          "summary_before",
+          "summary_after",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "AddColumnInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1863,6 +1942,45 @@
         },
         "type": "object"
       },
+      "ListEnvelopeActivityBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeActivityBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
       "ListEnvelopeBoardBody": {
         "additionalProperties": false,
         "properties": {
@@ -3240,6 +3358,13 @@
               "null"
             ]
           },
+          "stale_reason": {
+            "description": "Why an approved request went back to pending: \"anchored text changed\" when a document edit changed more of the anchored text than review.stale_threshold_percent allows (docs/review-requests.md). Null otherwise; cleared when a reviewer approves or requests changes.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "updated_at": {
             "description": "When the body or the review_status last changed.",
             "format": "date-time",
@@ -3253,6 +3378,7 @@
           "region_start",
           "region_end",
           "anchor_text",
+          "stale_reason",
           "body",
           "review_status",
           "author_id",
@@ -4549,6 +4675,45 @@
           }
         },
         "summary": "Delete your own account (this one does delete)"
+      }
+    },
+    "/api/v1/activity/list": {
+      "post": {
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `actor_id` (uuid)\n- `created_at` (time)\n- `entity_id` (uuid)\n- `entity_type` (text)\n- `kind` (text)\n\nPage size defaults to 50 and may not exceed 200.",
+        "operationId": "list-activity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeActivityBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the history of one ticket or document (a read - see the description for why it is a POST)"
       }
     },
     "/api/v1/aspect-types": {
@@ -7414,7 +7579,7 @@
     },
     "/api/v1/settings": {
       "get": {
-        "description": "Registered keys only. A stored row whose key is not registered is skipped rather than returned or raised - one bad row must not break the settings screen for everyone.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
+        "description": "Registered keys only. A stored row whose key is not registered is skipped rather than returned or raised - one bad row must not break the settings screen for everyone.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
         "operationId": "list-settings",
         "parameters": [
           {
@@ -7472,9 +7637,36 @@
     },
     "/api/v1/settings/{key}": {
       "delete": {
-        "description": "Deletes the row. There is no value that means \"the default\" - absence is the default, and writing one would freeze today's default into the row.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
+        "description": "Deletes the row. There is no value that means \"the default\" - absence is the default, and writing one would freeze today's default into the row.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
         "operationId": "unset-setting",
         "parameters": [
+          {
+            "description": "Which level the setting hangs at.",
+            "explode": false,
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "description": "Which level the setting hangs at.",
+              "enum": [
+                "workspace",
+                "team"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The workspace's or the team's id, matching scope.",
+            "explode": false,
+            "in": "query",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace's or the team's id, matching scope.",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
           {
             "description": "A registered key. An unregistered one is a 422 rather than a stored row nobody reads.",
             "in": "path",
@@ -7504,9 +7696,36 @@
         "summary": "Remove one setting, restoring its default"
       },
       "get": {
-        "description": "404 with code setting_not_set means nothing is configured - fall back to the default. That is a different answer from an unknown key, which is a 422.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
+        "description": "404 with code setting_not_set means nothing is configured - fall back to the default. That is a different answer from an unknown key, which is a 422.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
         "operationId": "get-setting",
         "parameters": [
+          {
+            "description": "Which level the setting hangs at.",
+            "explode": false,
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "description": "Which level the setting hangs at.",
+              "enum": [
+                "workspace",
+                "team"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The workspace's or the team's id, matching scope.",
+            "explode": false,
+            "in": "query",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace's or the team's id, matching scope.",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
           {
             "description": "A registered key. An unregistered one is a 422 rather than a stored row nobody reads.",
             "in": "path",
@@ -7543,8 +7762,47 @@
         "summary": "Read one setting"
       },
       "put": {
-        "description": "The key, its scope and the value's shape are all checked before anything is stored. A misspelt key, a key at the wrong level, or a value of the wrong shape is a 422 here - previously each of those stored a row that nothing ever read.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
+        "description": "The key, its scope and the value's shape are all checked before anything is stored. A misspelt key, a key at the wrong level, or a value of the wrong shape is a 422 here - previously each of those stored a row that nothing ever read.\n\nRegistered keys:\n\n- `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.\n- `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.\n- `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.",
         "operationId": "set-setting",
+        "parameters": [
+          {
+            "description": "Which level the setting hangs at.",
+            "explode": false,
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "description": "Which level the setting hangs at.",
+              "enum": [
+                "workspace",
+                "team"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The workspace's or the team's id, matching scope.",
+            "explode": false,
+            "in": "query",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace's or the team's id, matching scope.",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A registered key. An unregistered one is a 422 rather than a stored row nobody reads.",
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "description": "A registered key. An unregistered one is a 422 rather than a stored row nobody reads.",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

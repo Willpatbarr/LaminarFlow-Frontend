@@ -45,7 +45,7 @@ describe('another account\'s changes', () => {
 
     // All three came as frames the server addressed to this connection, and
     // each one changed something.
-    const mine = rig.frames.filter((f) => f.frame.ticket_id === created.id)
+    const mine = rig.frames.filter((f) => f.frame.ticket_id === created.id && !f.frame.type?.startsWith('activity.'))
     expect(mine.map((f) => f.frame.type)).toEqual(['ticket.created', 'ticket.updated', 'ticket.archived'])
     expect(await Promise.all(mine.map((f) => f.changed))).toEqual([true, true, true])
   })
@@ -86,8 +86,9 @@ describe('this client\'s own writes', () => {
     await rig.engine.idle()
 
     // The server published both writes to every connection, ours included.
-    await eventually('both echoes arrived', () => rig.frames.filter((f) => f.frame.ticket_id === row.id).length >= 2 || undefined)
-    const echoes = rig.frames.filter((f) => f.frame.ticket_id === row.id)
+    await eventually('both echoes arrived', () => rig.frames.filter((f) => f.frame.ticket_id === row.id && !f.frame.type?.startsWith('activity.')).length >= 2 || undefined)
+    // activity.created (LAM-89) follows each write; it is not a row and has its own listener.
+    const echoes = rig.frames.filter((f) => f.frame.ticket_id === row.id && !f.frame.type?.startsWith('activity.'))
     expect(echoes.map((f) => [f.frame.type, f.frame.version, f.frame.actor_id])).toEqual([
       ['ticket.created', 1, me.accountId],
       ['ticket.updated', 2, me.accountId],
