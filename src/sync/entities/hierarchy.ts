@@ -1,6 +1,6 @@
 import type { components } from '@/api/schema'
 
-import { isNullableString, isString, listAll, PAGE_SIZE, type RemoteEvent, type SyncApi } from '../http'
+import { answer, isNullableString, isString, listAll, PAGE_SIZE, type Codec, type RemoteEvent, type SyncApi } from '../http'
 import type {
     Epic,
     EpicFields,
@@ -16,17 +16,15 @@ import type { Entity } from './entity'
 
 /*
 ┌─ sync/entities ─────────────────────────────────
-│  epics, sprints and milestones: read-only entities (LAM-103; labels became writable in LAM-104)
+│  epics, sprints and milestones: read-only from LAM-103, writable from LAM-105
 ├─ out ───────────────────────────────────────────
 │      epicEntity, sprintEntity, milestoneEntity   the registry entries
 │      toEpic, toSprint, toMilestone
 */
 // The ticket page needs these to fill its pickers and to say what a ticket is
-// filed under, offline included, and to follow the change feed. Nothing in the
-// app writes them yet (creating and renaming them is LAM-105), so
-// they are READ-ONLY entities: they have a list and an event reader, and a
-// `send` that refuses, so an entry for one can never reach the server by
-// accident. How they differ from a ticket, and nothing else:
+// filed under, offline included, and to follow the change feed; the epic,
+// sprint and milestone pages (LAM-105) create, rename, re-date and delete them
+// through the same outbox. How they differ from a ticket, and nothing else:
 //  - the server keeps NO version (no If-Match, no 409, none on a frame), so
 //    the rows hold a constant 1 and the feed is an upsert / remove on the id,
 //    as docs/realtime.md says ("replace the resource you hold").
@@ -103,15 +101,22 @@ async function eachProject(api: SyncApi) {
     return listAll((cursor) => api.POST('/api/v1/projects/list', { body: { limit: PAGE_SIZE, cursor } }))
 }
 
-const refused = { type: 'http' as const, error: { status: 400, code: 'unsupported', errors: [] } }
+const unsupported = { type: 'http' as const, error: { status: 400, code: 'unsupported', errors: [] } }
 
-// `fieldsOf` and friends exist because the engine asks every entity for them;
-// with no way to edit one, they only have to be consistent.
-function readOnly<N extends 'epic' | 'sprint' | 'milestone'>(
+type Hierarchy = 'epic' | 'sprint' | 'milestone'
+type Send<N extends Hierarchy> = Entity<N>['remote']['send']
+
+// Shared by the three: nothing here is specific to one.
+//  - the create takes no Idempotency-Key (the API has none for these), so a
+//    create whose answer was lost and is sent again makes a second row; the
+//    change feed brings it, and nothing is lost.
+//  - an unarchive is never asked for: a delete is final.
+function writable<N extends Hierarchy>(
     name: N,
     fields: (row: EntityRows[N]) => EntityFields[N],
     list: (api: SyncApi) => Promise<EntityRows[N][]>,
     read: Reader<EntityRows[N]>,
+    send: Send<N>,
 ): Entity<N> {
     const same = (a: EntityFields[N], b: EntityFields[N]) => JSON.stringify(a) === JSON.stringify(b)
     return {
@@ -124,19 +129,25 @@ function readOnly<N extends 'epic' | 'sprint' | 'milestone'>(
             fromCreate: (id: string, payload: unknown) => ({ id, ...(payload as object), version: 1 }) as EntityRows[N],
             edit: (base, edited) => ({ ...base, ...edited }),
             restore: (archived) => archived,
-            copyOf: (row) => ({ ...fields(row), ...('team_id' in row ? { team_id: row.team_id } : { project_id: (row as Epic).project_id }) }) as never,
+            copyOf: (row) => ({ ...fields(row), project_id: row.project_id }) as never,
             conflictIsArchive: () => false,
             conflictIsBy: () => true,
         },
         remote: {
             list,
-            send: async () => refused,
+            send: ((api, entry, context) =>
+                entry.kind === 'unarchive' ? Promise.resolve(unsupported) : send(api, entry, context)) as Send<N>,
             parseEvent: parser(name, read),
         },
     } as Entity<N>
 }
 
-export const epicEntity = readOnly<'epic'>(
+const codecOf = <Row extends { version: number }>(row: (body: never) => Row): Codec<Row, never> => ({
+    row: row as (body: unknown) => Row,
+    conflict: () => null,
+})
+
+export const epicEntity = writable<'epic'>(
     'epic',
     (row): EpicFields => ({ name: row.name, description: row.description }),
     async (api) => {
@@ -148,9 +159,20 @@ export const epicEntity = readOnly<'epic'>(
         return out
     },
     readEpic,
+    async (api, entry) => {
+        const codec = codecOf(toEpic)
+        if (entry.kind === 'create') {
+            const { project_id, name, description } = entry.payload
+            return answer(entry, () => api.POST('/api/v1/epics', { body: { project_id, name, description } }), codec)
+        }
+        const path = { id: entry.entity_id }
+        if (entry.kind === 'archive') return answer(entry, () => api.DELETE('/api/v1/epics/{id}', { params: { path } }), codec)
+        const { name, description } = entry.payload
+        return answer(entry, () => api.PUT('/api/v1/epics/{id}', { params: { path }, body: { name, description } }), codec)
+    },
 )
 
-export const sprintEntity = readOnly<'sprint'>(
+export const sprintEntity = writable<'sprint'>(
     'sprint',
     (row): SprintFields => ({ name: row.name, start_date: row.start_date, end_date: row.end_date }),
     async (api) => {
@@ -162,9 +184,27 @@ export const sprintEntity = readOnly<'sprint'>(
         return out
     },
     readSprint,
+    async (api, entry) => {
+        const codec = codecOf(toSprint)
+        if (entry.kind === 'create') {
+            const { project_id, name, start_date, end_date } = entry.payload
+            return answer(
+                entry,
+                () =>
+                    api.POST('/api/v1/sprints', {
+                        body: { project_id, name, start_date: start_date ?? undefined, end_date: end_date ?? undefined },
+                    }),
+                codec,
+            )
+        }
+        const path = { id: entry.entity_id }
+        if (entry.kind === 'archive') return answer(entry, () => api.DELETE('/api/v1/sprints/{id}', { params: { path } }), codec)
+        const { name, start_date, end_date } = entry.payload
+        return answer(entry, () => api.PUT('/api/v1/sprints/{id}', { params: { path }, body: { name, start_date, end_date } }), codec)
+    },
 )
 
-export const milestoneEntity = readOnly<'milestone'>(
+export const milestoneEntity = writable<'milestone'>(
     'milestone',
     (row): MilestoneFields => ({ name: row.name, description: row.description, target_date: row.target_date }),
     async (api) => {
@@ -176,4 +216,26 @@ export const milestoneEntity = readOnly<'milestone'>(
         return out
     },
     readMilestone,
+    async (api, entry) => {
+        const codec = codecOf(toMilestone)
+        if (entry.kind === 'create') {
+            const { project_id, name, description, target_date } = entry.payload
+            return answer(
+                entry,
+                () =>
+                    api.POST('/api/v1/milestones', {
+                        body: { project_id, name, description, target_date: target_date ?? undefined },
+                    }),
+                codec,
+            )
+        }
+        const path = { id: entry.entity_id }
+        if (entry.kind === 'archive') return answer(entry, () => api.DELETE('/api/v1/milestones/{id}', { params: { path } }), codec)
+        const { name, description, target_date } = entry.payload
+        return answer(
+            entry,
+            () => api.PUT('/api/v1/milestones/{id}', { params: { path }, body: { name, description, target_date } }),
+            codec,
+        )
+    },
 )

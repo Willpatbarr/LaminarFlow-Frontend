@@ -2,6 +2,7 @@ import { createRouter, defineRoutes, type RouterHistory } from '@solidjs/router'
 
 import { AppLayout } from '@/routes/app'
 import { BoardPage } from '@/routes/board'
+import { EpicPage, EpicsPage, MilestonePage, MilestonesPage, SprintPage, SprintsPage } from '@/routes/hierarchy'
 import { HomePage } from '@/routes/index'
 import { DocumentPage, DocumentsPage } from '@/routes/documents'
 import { LoginPage } from '@/routes/login'
@@ -33,6 +34,12 @@ const routes = defineRoutes([
             { path: '/teams/:teamId', component: TeamPage },
             { path: '/teams/:teamId/settings', component: TeamSettingsPage },
             { path: '/projects/:projectId', component: ProjectPage },
+            { path: '/epics', component: EpicsPage },
+            { path: '/epics/:id', component: EpicPage },
+            { path: '/sprints', component: SprintsPage },
+            { path: '/sprints/:id', component: SprintPage },
+            { path: '/milestones', component: MilestonesPage },
+            { path: '/milestones/:id', component: MilestonePage },
             { path: '/documents', component: DocumentsPage },
             { path: '/documents/:id', component: DocumentPage },
             { path: '/views', component: ViewsPage },

@@ -36,7 +36,14 @@ import type {
     LabelEntry,
     LabelFields,
     Milestone,
+    MilestoneEntry,
+    MilestoneFields,
     Sprint,
+    SprintEntry,
+    SprintFields,
+    EntityCreates,
+    EpicEntry,
+    EpicFields,
     NewDoc,
     NewStatus,
     NewTicket,
@@ -68,6 +75,7 @@ import type {
 ║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
 ║      createStatus, updateStatus, deleteStatus, statusesForTeam, statusHead   the same, for statuses (LAM-95)
 ║      createLabel, updateLabel, deleteLabel, labelsForTeam, labelHead   the same, for labels (LAM-104)
+║      createEpic/Sprint/Milestone, update…, delete…, epicById, sprintById, milestoneById, epicHead…   write and read them (LAM-105)
 ║      epicsForProject, sprintsForProject, milestonesForProject, labelsForProject   what a ticket can be filed under (LAM-103)
 ║      savedViewById, savedViewsForTeam, canEditSavedView, savedViewHead,
 ║      createSavedView, updateSavedView, deleteSavedView   saved list and board views (LAM-118)
@@ -484,6 +492,21 @@ export function labelsForProject(projectId: string): Label[] {
     return state.labels.filter((label) => label.team_id === project.team_id).toSorted(byName)
 }
 
+/** One epic, sprint or milestone by id (a temporary id works until the server
+ *  answers and for as long after). */
+export function epicById(id: string): Epic | undefined {
+    const resolved = resolveId(id)
+    return state.epics.find((epic) => epic.id === resolved)
+}
+export function sprintById(id: string): Sprint | undefined {
+    const resolved = resolveId(id)
+    return state.sprints.find((sprint) => sprint.id === resolved)
+}
+export function milestoneById(id: string): Milestone | undefined {
+    const resolved = resolveId(id)
+    return state.milestones.find((milestone) => milestone.id === resolved)
+}
+
 /** A team's labels, by name: for the settings list. */
 export function labelsForTeam(teamId: string): Label[] {
     return state.labels.filter((label) => label.team_id === teamId).toSorted(byName)
@@ -553,6 +576,21 @@ export function labelHead(id: string): LabelEntry | undefined {
     return head?.entity === 'label' ? head : undefined
 }
 
+/** The entry at the head of this epic's, sprint's or milestone's queue, or
+ *  undefined when it is in sync. A failed one carries the server's reason. */
+export function epicHead(id: string): EpicEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'epic' ? head : undefined
+}
+export function sprintHead(id: string): SprintEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'sprint' ? head : undefined
+}
+export function milestoneHead(id: string): MilestoneEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'milestone' ? head : undefined
+}
+
 /** The entry at the head of this saved view's queue, or undefined when it is in
  *  sync. A failed one carries the server's reason in `error`. */
 export function savedViewHead(id: string): SavedViewEntry | undefined {
@@ -605,14 +643,27 @@ export function parkedEntries(): OutboxEntry[] {
 // write is copied to plain data first.
 const plain = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
 
+// An epic, sprint, milestone or label made a moment ago is named by a temporary
+// id until the server answers, and the caller may be holding that id after the
+// swap. Naming the real one keeps the ticket from waiting for ever on an id that
+// no longer exists.
+function filedUnder<T extends Partial<Pick<TicketFields, 'epic_id' | 'milestone_id' | 'label_ids' | 'sprint_ids'>>>(fields: T): T {
+    const out = { ...fields }
+    if (out.epic_id) out.epic_id = resolveId(out.epic_id)
+    if (out.milestone_id) out.milestone_id = resolveId(out.milestone_id)
+    if (out.label_ids) out.label_ids = out.label_ids.map(resolveId)
+    if (out.sprint_ids) out.sprint_ids = out.sprint_ids.map(resolveId)
+    return out
+}
+
 export async function createTicket(ticket: NewTicket): Promise<Ticket> {
-    const created = await running().engine.createTicket(plain(ticket))
+    const created = await running().engine.createTicket(filedUnder(plain(ticket)))
     await caughtUp()
     return created
 }
 
 export async function updateTicket(id: string, patch: Partial<TicketFields>): Promise<boolean> {
-    const found = await running().engine.updateTicket(resolveTicketId(id), plain(patch))
+    const found = await running().engine.updateTicket(resolveTicketId(id), filedUnder(plain(patch)))
     await caughtUp()
     return found
 }
@@ -649,6 +700,69 @@ export async function updateLabel(id: string, patch: Partial<LabelFields>): Prom
 /** Deletes a label. It leaves every ticket that had it. */
 export async function deleteLabel(id: string): Promise<boolean> {
     const found = await running().engine.deleteLabel(resolveId(id))
+    await caughtUp()
+    return found
+}
+
+/** Makes an epic. Resolves with the row under its temporary id, which a ticket
+ *  can be given at once: the engine sends the epic first and swaps the id. */
+export async function createEpic(epic: EntityCreates['epic']): Promise<Epic> {
+    const created = await running().engine.createEpic(epic)
+    await caughtUp()
+    return created
+}
+
+export async function updateEpic(id: string, patch: Partial<EpicFields>): Promise<boolean> {
+    const found = await running().engine.updateEpic(resolveId(id), patch)
+    await caughtUp()
+    return found
+}
+
+/** Deletes an epic. Its tickets stay, filed under nothing. */
+export async function deleteEpic(id: string): Promise<boolean> {
+    const found = await running().engine.deleteEpic(resolveId(id))
+    await caughtUp()
+    return found
+}
+
+/** Makes a sprint. Resolves with the row under its temporary id, which a ticket
+ *  can be given at once: the engine sends the sprint first and swaps the id. */
+export async function createSprint(sprint: EntityCreates['sprint']): Promise<Sprint> {
+    const created = await running().engine.createSprint(sprint)
+    await caughtUp()
+    return created
+}
+
+export async function updateSprint(id: string, patch: Partial<SprintFields>): Promise<boolean> {
+    const found = await running().engine.updateSprint(resolveId(id), patch)
+    await caughtUp()
+    return found
+}
+
+/** Deletes a sprint. Its tickets stay, filed under nothing. */
+export async function deleteSprint(id: string): Promise<boolean> {
+    const found = await running().engine.deleteSprint(resolveId(id))
+    await caughtUp()
+    return found
+}
+
+/** Makes a milestone. Resolves with the row under its temporary id, which a ticket
+ *  can be given at once: the engine sends the milestone first and swaps the id. */
+export async function createMilestone(milestone: EntityCreates['milestone']): Promise<Milestone> {
+    const created = await running().engine.createMilestone(milestone)
+    await caughtUp()
+    return created
+}
+
+export async function updateMilestone(id: string, patch: Partial<MilestoneFields>): Promise<boolean> {
+    const found = await running().engine.updateMilestone(resolveId(id), patch)
+    await caughtUp()
+    return found
+}
+
+/** Deletes a milestone. Its tickets stay, filed under nothing. */
+export async function deleteMilestone(id: string): Promise<boolean> {
+    const found = await running().engine.deleteMilestone(resolveId(id))
     await caughtUp()
     return found
 }

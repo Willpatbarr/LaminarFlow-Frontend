@@ -15,6 +15,9 @@ export const ICONS = {
     list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
     document: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
     views: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    epic: 'M13 3 5 13h6l-1 8 8-10h-6z',
+    sprint: 'M12 8v4l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
+    milestone: 'M6 21V4M6 5h12l-2 4 2 4H6',
     project: 'M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z',
 } as const
 
@@ -43,6 +46,9 @@ type SideNavProps = {
     /** The active team's saved views, one link each (LAM-118). Absent until the
      *  account has a team; an empty list says so. */
     views?: SideNavLink[]
+    /** Things that can be made from anywhere, one button each (LAM-105). Absent
+     *  until there is a project to make them in. */
+    create?: { label: string; onClick: () => void }[]
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
@@ -138,6 +144,26 @@ export function SideNav(props: SideNavProps) {
                                                 link={{ ...link, icon: link.icon ?? ICONS.project }}
                                                 collapsed={collapsed()}
                                             />
+                                        )}
+                                    </For>
+                                </ul>
+                            </Show>
+                            <Show when={props.create && props.create.length > 0}>
+                                <h2 class="side-nav__heading t-meta">Create</h2>
+                                <ul class="side-nav__list" aria-label="Create">
+                                    <For each={props.create}>
+                                        {(item) => (
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    class="side-nav__link side-nav__create t-body"
+                                                    title={collapsed() ? item.label : undefined}
+                                                    onClick={() => item.onClick()}
+                                                >
+                                                    <span class="side-nav__icon" aria-hidden="true">+</span>
+                                                    <span class="side-nav__label">{item.label}</span>
+                                                </button>
+                                            </li>
                                         )}
                                     </For>
                                 </ul>

@@ -37,6 +37,8 @@ import {
     type Ticket,
 } from '@/sync'
 
+import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
+import type { Kind } from '@/features/hierarchy/kinds'
 import { describeFailure } from '../entryFailure'
 import { BLANK_TITLE, descriptionCount, overMessage, titleCount } from '../limits'
 import type { Viewer } from '../viewer'
@@ -173,6 +175,11 @@ function LoadingTicket() {
                 <div class="ticket__row">
                     <PlaceholderField control="40px" />
                 </div>
+                <div class="ticket__new-parent">
+                    <SkeletonBox shape="control" width="72px" height="26px" />
+                    <SkeletonBox shape="control" width="82px" height="26px" />
+                    <SkeletonBox shape="control" width="98px" height="26px" />
+                </div>
                 <div class="ticket__labels">
                     <span class="input__label t-body ticket__skeleton-line">
                         <SkeletonLine width="7ch" height="12px" />
@@ -259,6 +266,9 @@ type TicketEditorProps = {
 function TicketEditor(props: TicketEditorProps) {
     const navigate = useNavigate()
     const [confirmingArchive, setConfirmingArchive] = createSignal(false)
+    // The epic, sprint or milestone being made from this page (LAM-105): made
+    // here, it is given to this ticket in the same step.
+    const [makingParent, setMakingParent] = createSignal<Kind | null>(null)
     const assigneeLabelId = createUniqueId()
 
     const id = () => props.ticket.id
@@ -618,6 +628,32 @@ function TicketEditor(props: TicketEditorProps) {
                     error={refused()?.fields.milestone}
                 />
             </div>
+
+            <div class="ticket__new-parent">
+                <Button variant="ghost" size="sm" disabled={locked()} onClick={() => setMakingParent('epic')}>
+                    New epic
+                </Button>
+                <Button variant="ghost" size="sm" disabled={locked()} onClick={() => setMakingParent('sprint')}>
+                    New sprint
+                </Button>
+                <Button variant="ghost" size="sm" disabled={locked()} onClick={() => setMakingParent('milestone')}>
+                    New milestone
+                </Button>
+            </div>
+            <Show when={makingParent()}>
+                {(kind) => (
+                    <NewHierarchyDialog
+                        kind={kind()}
+                        projectId={project()}
+                        onCreated={(row) => {
+                            if (kind() === 'epic') void updateTicket(id(), { epic_id: row.id })
+                            else if (kind() === 'milestone') void updateTicket(id(), { milestone_id: row.id })
+                            else void updateTicket(id(), { sprint_ids: [...props.ticket.sprint_ids, row.id] })
+                        }}
+                        onClose={() => setMakingParent(null)}
+                    />
+                )}
+            </Show>
 
             <fieldset class="ticket__labels" disabled={locked()}>
                 <legend class="input__label t-body">Labels</legend>
