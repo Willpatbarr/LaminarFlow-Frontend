@@ -1,5 +1,6 @@
 import { createSignal, For, Show, untrack } from 'solid-js'
 
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -205,17 +206,18 @@ function StatusRow(props: StatusRowProps) {
                     value={name()}
                     onInput={setDraft}
                     onBlur={commit}
+                    readOnly={!can('team:write')}
                     error={tooLong()}
                 />
             </form>
             <span class="status-editor__actions">
-                <Button variant="ghost" size="sm" disabled={props.first} aria-label={`Move ${props.status.name} up`} onClick={() => props.onMove(-1)}>
+                <Button variant="ghost" size="sm" disabled={props.first} disabledReason={denial('team:write', 'change statuses')} aria-label={`Move ${props.status.name} up`} onClick={() => props.onMove(-1)}>
                     ↑
                 </Button>
-                <Button variant="ghost" size="sm" disabled={props.last} aria-label={`Move ${props.status.name} down`} onClick={() => props.onMove(1)}>
+                <Button variant="ghost" size="sm" disabled={props.last} disabledReason={denial('team:write', 'change statuses')} aria-label={`Move ${props.status.name} down`} onClick={() => props.onMove(1)}>
                     ↓
                 </Button>
-                <Button variant="ghost" size="sm" aria-label={`Delete ${props.status.name}`} onClick={() => props.onDelete()}>
+                <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'delete statuses')} aria-label={`Delete ${props.status.name}`} onClick={() => props.onDelete()}>
                     Delete
                 </Button>
             </span>
@@ -257,9 +259,13 @@ function NewStatus(props: { teamId: string; next: () => number }) {
             }}
         >
             <Input label="New status name" value={name()} onInput={setName} error={tooLong()} />
-            <Select label="Category" value={category()} options={CATEGORIES} onChange={setCategory} />
-            <Select label="Colour" value={colour()} options={COLOURS} onChange={setColour} />
-            <Button type="submit" disabled={name().trim() === '' || tooLong() !== undefined}>
+            <Select label="Category" value={category()} options={CATEGORIES} onChange={setCategory} disabled={!can('team:write')} />
+            <Select label="Colour" value={colour()} options={COLOURS} onChange={setColour} disabled={!can('team:write')} />
+            <Button
+                type="submit"
+                disabled={name().trim() === '' || tooLong() !== undefined}
+                disabledReason={denial('team:write', 'add statuses')}
+            >
                 Add status
             </Button>
         </form>

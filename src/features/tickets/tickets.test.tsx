@@ -17,6 +17,7 @@ import {
 } from '@/sync/testing/harness'
 import { FakeWebSocket } from '@/sync/testing/fakeSocket'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
+import { ALL_PERMISSIONS } from '@/testing/permissions'
 
 // The ticket screens, driven through the real route tree, the real store and
 // the real engine against fake-indexeddb, with only `fetch` stubbed.
@@ -27,7 +28,7 @@ const me = {
     email: 'ada@example.com',
     display_name: 'Ada Lovelace',
     workspace_id: 'ws-1',
-    permissions: [],
+    permissions: ALL_PERMISSIONS,
 }
 
 type Routes = Parameters<typeof stubFetch>[0]

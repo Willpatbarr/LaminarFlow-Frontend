@@ -8,6 +8,7 @@ import { createAppRouter } from '@/router'
 import { connectSyncToSession, wipeLocalData } from '@/sync'
 import { BOARD, listRoutes, ME, ticket } from '@/sync/testing/harness'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
+import { ALL_PERMISSIONS } from '@/testing/permissions'
 
 // Label management, the inline create on the ticket page, and the chips on
 // list rows and board cards (LAM-104), through the real route tree, store and
@@ -19,7 +20,7 @@ const me = {
     email: 'ada@example.com',
     display_name: 'Ada Lovelace',
     workspace_id: 'ws-1',
-    permissions: [],
+    permissions: ALL_PERMISSIONS,
 }
 const stamp = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
 const BUG = { id: 'l-1', team_id: 'team-1', name: 'bug', color: '#ef4444', ...stamp }

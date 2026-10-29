@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router'
 import { createSignal, For, Show } from 'solid-js'
 
+import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { session } from '@/features/auth'
@@ -49,7 +50,7 @@ export function HierarchyList(props: { kind: Kind }) {
                     </div>
                 </Show>
                 <div class="tickets__actions">
-                    <Button disabled={busy() || !currentProject()} onClick={() => setCreating(true)}>
+                    <Button disabled={busy() || !currentProject()} disabledReason={denial('ticket:write', 'create this')} onClick={() => setCreating(true)}>
                         New {info().singular}
                     </Button>
                 </div>

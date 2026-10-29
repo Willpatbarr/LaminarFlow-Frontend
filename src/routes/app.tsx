@@ -4,7 +4,7 @@ import { createEffect, createMemo, createSignal, Show } from 'solid-js'
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
-import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
+import { can, logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import { KINDS, type Kind } from '@/features/hierarchy/kinds'
 import { clearMembers } from '@/features/members/members'
@@ -149,7 +149,7 @@ export function AppLayout(props: RouteSectionProps) {
                         projects={teams().length > 0 ? projectLinks() : undefined}
                         views={teams().length > 0 ? viewLinks() : undefined}
                         create={
-                            homeProject()
+                            homeProject() && can('ticket:write')
                                 ? (['epic', 'sprint', 'milestone'] as const).map((kind) => ({
                                       label: `New ${KINDS[kind].singular}`,
                                       onClick: () => setMaking(kind),
@@ -188,7 +188,7 @@ export function AppLayout(props: RouteSectionProps) {
                     <SessionUnreachable />
                 </Show>
             </AppShell>
-            <CommandPalette onNewTicket={homeProject() ? () => setCreatingTicket(true) : undefined} />
+            <CommandPalette onNewTicket={homeProject() && can('ticket:write') ? () => setCreatingTicket(true) : undefined} />
             <Show when={creatingTicket() && homeProject()}>
                 <NewTicketDialog
                     projectId={homeProject()!.id}

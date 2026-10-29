@@ -8,6 +8,7 @@ export {
     markExpired,
     recheckExpired,
     can,
+    denial,
 } from './session'
 export { watchExpiredSession } from './expiryWatch'
 export type { Me, SessionState, SessionStatus } from './session'

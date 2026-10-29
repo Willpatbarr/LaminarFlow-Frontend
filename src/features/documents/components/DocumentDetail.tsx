@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Match, Show, Switch, untrack } from 'solid-js'
 
+import { can } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Banner } from '@/components/ui/Banner'
 import { Input } from '@/components/ui/Input'
@@ -152,7 +153,7 @@ function DocumentEditor(props: DocumentEditorProps) {
         const found = head()
         return found?.state === 'failed' && found.error ? { entryId: found.id, message: refusal(found.error) } : null
     })
-    const locked = () => conflicted() !== null
+    const locked = () => conflicted() !== null || !can('ticket:write')
 
     // Typed in any aspect field and not yet saved.
     const [fieldDrafts, setFieldDrafts] = createSignal(0)

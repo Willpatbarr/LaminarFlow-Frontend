@@ -5,6 +5,7 @@ import { refresh } from '@/features/auth'
 import { createAppRouter } from '@/router'
 import { ME } from '@/sync/testing/harness'
 import { ok, problem, stubFetch } from '@/testing/fetch'
+import { ALL_PERMISSIONS } from '@/testing/permissions'
 
 // The whole app, the way the failure tests need it: the real route tree on a
 // memory history, the real session, store and engine on fake-indexeddb, with
@@ -16,7 +17,7 @@ export const ME_BODY = {
     email: 'ada@example.com',
     display_name: 'Ada Lovelace',
     workspace_id: 'ws-1',
-    permissions: [],
+    permissions: ALL_PERMISSIONS,
 }
 
 export type Routes = Parameters<typeof stubFetch>[0]

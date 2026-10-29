@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router'
 import { createMemo, createSignal, Show } from 'solid-js'
 
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -180,18 +181,19 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             </div>
 
             <div class="hierarchy__fields">
-                <Input label="Name" value={name.value()} onInput={name.input} onBlur={saveName} count={nameCount(name.value())} error={nameOver()} />
+                <Input label="Name" readOnly={!can('ticket:write')} value={name.value()} onInput={name.input} onBlur={saveName} count={nameCount(name.value())} error={nameOver()} />
                 <Show when={props.kind === 'sprint'}>
-                    <Input label="Start date" type="date" value={start.value()} onInput={start.input} onBlur={saveDates} />
-                    <Input label="End date" type="date" value={end.value()} onInput={end.input} onBlur={saveDates} error={backwards()} />
+                    <Input label="Start date" readOnly={!can('ticket:write')} type="date" value={start.value()} onInput={start.input} onBlur={saveDates} />
+                    <Input label="End date" readOnly={!can('ticket:write')} type="date" value={end.value()} onInput={end.input} onBlur={saveDates} error={backwards()} />
                 </Show>
                 <Show when={props.kind === 'milestone'}>
-                    <Input label="Target date" type="date" value={target.value()} onInput={target.input} onBlur={saveTarget} />
+                    <Input label="Target date" readOnly={!can('ticket:write')} type="date" value={target.value()} onInput={target.input} onBlur={saveTarget} />
                 </Show>
             </div>
             <Show when={props.kind !== 'sprint'}>
                 <TextArea
                     label="Description"
+                    readOnly={!can('ticket:write')}
                     value={description.value()}
                     onInput={description.input}
                     onBlur={saveDescription}
@@ -226,7 +228,7 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             />
 
             <div>
-                <Button variant="danger" onClick={() => setDeleting(true)}>
+                <Button variant="danger" disabledReason={denial('ticket:write', 'delete this')} onClick={() => setDeleting(true)}>
                     Delete {info().singular}
                 </Button>
             </div>

@@ -3,7 +3,7 @@ import { createEffect, createSignal, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { session } from '@/features/auth'
+import { can, session } from '@/features/auth'
 import { viewUrl } from '@/features/tickets/savedViews/savedView'
 import {
     boardById,
@@ -51,7 +51,7 @@ export function ViewsPage() {
                                         {view().layout === 'board' ? 'Board' : 'List'} · {view().is_shared ? 'Team' : 'Private'}
                                         {teamName(view().team_id) ? ` · ${teamName(view().team_id)}` : ''}
                                     </span>
-                                    <Show when={canEditSavedView(view(), viewer().accountId)}>
+                                    <Show when={can('ticket:write') && canEditSavedView(view(), viewer().accountId)}>
                                         <Button
                                             variant="ghost"
                                             size="sm"

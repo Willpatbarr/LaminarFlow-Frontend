@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from '@solidjs/router'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -315,6 +316,7 @@ export function Board(props: BoardProps) {
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                disabledReason={denial('ticket:write', 'change this board')}
                                 aria-label={`Show column ${column().name}`}
                                 onClick={() => save(setVisible(props.board.columns, column().id, true))}
                             >
@@ -420,7 +422,7 @@ type CardProps = {
 function Card(props: CardProps) {
     const id = () => props.ticket.id
     // A parked conflict or archive is decided on the ticket's page first.
-    const locked = () => ticketHead(id())?.state === 'conflict' || archiveOnHold(id())
+    const locked = () => ticketHead(id())?.state === 'conflict' || archiveOnHold(id()) || !can('ticket:write')
     const status = () => sync.statuses.find((candidate) => candidate.id === props.ticket.status_id)
     return (
         <li
@@ -510,6 +512,7 @@ function ColumnMenu(props: ColumnMenuProps) {
                         variant="secondary"
                         size="sm"
                         disabled={props.first}
+                        disabledReason={denial('ticket:write', 'change this board')}
                         aria-label={`Move ${props.column.name} left`}
                         onClick={() => save(moveColumn(props.board.columns, props.column.id, -1))}
                     >
@@ -519,6 +522,7 @@ function ColumnMenu(props: ColumnMenuProps) {
                         variant="secondary"
                         size="sm"
                         disabled={props.last}
+                        disabledReason={denial('ticket:write', 'change this board')}
                         aria-label={`Move ${props.column.name} right`}
                         onClick={() => save(moveColumn(props.board.columns, props.column.id, 1))}
                     >
@@ -527,6 +531,7 @@ function ColumnMenu(props: ColumnMenuProps) {
                     <Button
                         variant="secondary"
                         size="sm"
+                        disabledReason={denial('ticket:write', 'change this board')}
                         aria-label={`Hide column ${props.column.name}`}
                         onClick={() => save(setVisible(props.board.columns, props.column.id, false))}
                     >
@@ -558,7 +563,7 @@ function ColumnMenu(props: ColumnMenuProps) {
                         )}
                     </For>
                 </fieldset>
-                <Button variant="ghost" size="sm" onClick={props.onEditStatuses}>
+                <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'edit statuses')} onClick={props.onEditStatuses}>
                     Edit statuses…
                 </Button>
             </div>

@@ -1,0 +1,25 @@
+.tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip__text {
+  position: absolute;
+  top: calc(100% + var(--s-4));
+  right: 0;
+  z-index: 10;
+  width: max-content;
+  max-width: 260px;
+  padding: var(--s-4) var(--s-8);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-control);
+  background: var(--bg-overlay);
+  color: var(--text);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.tooltip:hover .tooltip__text,
+.tooltip:focus-within .tooltip__text {
+  visibility: visible;
+}

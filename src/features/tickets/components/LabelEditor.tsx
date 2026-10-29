@@ -1,5 +1,6 @@
 import { createSignal, For, Show } from 'solid-js'
 
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -118,6 +119,7 @@ function LabelRow(props: { label: Label; onDelete: () => void }) {
                     value={name()}
                     onInput={setDraft}
                     onBlur={commit}
+                    readOnly={!can('ticket:write')}
                     error={tooLong()}
                 />
             </form>
@@ -129,7 +131,7 @@ function LabelRow(props: { label: Label; onDelete: () => void }) {
                 onChange={(value) => value && void updateLabel(props.label.id, { color: value })}
             />
             <span class="status-editor__actions">
-                <Button variant="ghost" size="sm" aria-label={`Delete ${props.label.name}`} onClick={() => props.onDelete()}>
+                <Button variant="ghost" size="sm" disabledReason={denial('ticket:write', 'delete labels')} aria-label={`Delete ${props.label.name}`} onClick={() => props.onDelete()}>
                     Delete
                 </Button>
             </span>
@@ -190,7 +192,7 @@ export function NewLabel(props: NewLabelProps) {
                 <Input label="New label name" value={name()} onInput={setName} error={tooLong()} />
             </div>
             <Select label="Label colour" value={colour()} options={COLOURS} onChange={setColour} />
-            <Button type="button" disabled={blocked()} onClick={() => void add()}>
+            <Button type="button" disabled={blocked()} disabledReason={denial('ticket:write', 'add labels')} onClick={() => void add()}>
                 {taken() ? `Use “${taken()!.name}”` : props.confirm}
             </Button>
         </div>

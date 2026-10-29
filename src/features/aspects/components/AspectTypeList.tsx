@@ -1,5 +1,6 @@
 import { createEffect, createSignal, createUniqueId, For, Show } from 'solid-js'
 
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Banner } from '@/components/ui/Banner'
 import { Input } from '@/components/ui/Input'
@@ -90,7 +91,11 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
                 )}
             </Show>
             <div>
-                <Button variant="secondary" onClick={() => document.getElementById(fileId)?.click()}>
+                <Button
+                    variant="secondary"
+                    disabledReason={denial('aspect:write', 'import aspect types')}
+                    onClick={() => document.getElementById(fileId)?.click()}
+                >
                     Import
                 </Button>
                 <input
@@ -133,8 +138,8 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
                     void create()
                 }}
             >
-                <Input label="New aspect type name" value={name()} onInput={setName} error={tooLong()} />
-                <Button type="submit" disabled={blocked()}>
+                <Input label="New aspect type name" readOnly={!can('aspect:write')} value={name()} onInput={setName} error={tooLong()} />
+                <Button type="submit" disabled={blocked()} disabledReason={denial('aspect:write', 'add aspect types')}>
                     Add aspect type
                 </Button>
             </form>
