@@ -211,6 +211,9 @@ export type Comment = {
     review_status: 'pending' | 'approved' | 'changes_requested' | null
     created_at: string
     updated_at: string
+    /** When the body was last edited (LAM-132); null if never. A review status change moves
+     *  `updated_at` but not this, so "(edited)" reads this. Absent on rows saved before it existed. */
+    edited_at?: string | null
     version: number
 }
 

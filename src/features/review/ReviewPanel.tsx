@@ -9,7 +9,7 @@ import { createComment, resolveId, type Comment } from '@/sync'
 
 import { textAt } from './anchor'
 import { decideReviewRequest, type ReviewStatus } from './api'
-import { detailOf, loadDetails, openRequestsFor } from './feed'
+import { detailOf, loadDetails, openRequestsFor, remember, requestsFor } from './feed'
 import './review.css'
 
 /*
@@ -18,14 +18,26 @@ import './review.css'
 ├─ out ───────────────────────────────────────────
 │      OpenRequestsCount   <OpenRequestsCount documentId />   "2 open review requests", jumps between them
 │      ReviewPanel         <ReviewPanel documentId accountId fieldText disabled onAnnounce />
+│      outcomeText(status, name)   "Riley approved" · "Riley requested changes"
 */
 // Everything is worded as a request and an answer, never a verdict: "Approve",
 // "Request changes" and "Comment" are the three things a reviewer can do, and
 // a refusal says what the server said without blame. Approve and Request
 // changes are a PUT; Comment is an ordinary comment on the document, because
 // replies are not threaded.
+//
+// A decided request stays on the page (LAM-132): its card keeps its place in the
+// list and folds to a one-line summary that says what was decided and by whom,
+// with the note under it. Folding is the reader's choice (a native <details>);
+// nothing is removed. Request changes asks for a short note first, which can be
+// left empty.
 
 const cardId = (id: string) => `review-${id}`
+
+/** "Riley approved", "You requested changes": what happened, with no verdict on anyone. */
+export function outcomeText(status: 'approved' | 'changes_requested', name: string): string {
+    return `${name} ${status === 'approved' ? 'approved' : 'requested changes'}`
+}
 
 function who(id: string | null): string {
     return id === null ? 'Someone whose account was deleted' : (memberName(id) ?? 'Someone')
@@ -66,38 +78,43 @@ type PanelProps = {
 
 export function ReviewPanel(props: PanelProps) {
     const open = createMemo(() => openRequestsFor(props.documentId))
+    const all = createMemo(() => requestsFor(props.documentId))
 
     // Reviewers and quotes are asked for when a request shows that has none yet.
     createEffect(
-        () => open().filter((request) => !detailOf(request.id)).length,
-        (missing) => {
-            if (missing > 0) void loadDetails({ documentId: resolveId(props.documentId) })
+        () => ({ missing: all().filter((request) => !detailOf(request.id)).length, documentId: resolveId(props.documentId) }),
+        ({ missing, documentId }) => {
+            if (missing > 0) void loadDetails({ documentId })
         },
     )
-    // A request that went back to open carries why (`stale_reason`), which the
-    // comment row does not: ask again when one of them changes after the first look.
+    // A request that went back to open carries why (`stale_reason`), and a decided one
+    // carries who decided and the note; the comment row has neither: ask again when
+    // one of them changes after the first look.
     createEffect(
-        () => `${resolveId(props.documentId)}|${open().map((request) => `${request.id}@${request.updated_at}`).join(',')}`,
+        () => `${resolveId(props.documentId)}|${all().map((request) => `${request.id}@${request.updated_at}`).join(',')}`,
         (stamp, previous) => {
             const [documentId, requests] = [stamp.slice(0, stamp.indexOf('|')), stamp.slice(stamp.indexOf('|') + 1)]
             if (previous !== undefined && requests !== '') void loadDetails({ documentId })
         },
     )
     createEffect(
-        () => open().length,
+        () => all().length,
         (n) => {
             if (n > 0) void loadMembers()
         },
     )
 
     return (
-        <Show when={open().length > 0}>
+        <Show when={all().length > 0}>
             <section class="review" aria-labelledby="review-title">
                 <h2 id="review-title" class="t-section">
-                    Review requests <span class="comments__meta">({open().length})</span>
+                    Review requests{' '}
+                    <span class="comments__meta">
+                        ({all().length === open().length ? open().length : `${open().length} open · ${all().length - open().length} decided`})
+                    </span>
                 </h2>
                 <ol class="review__list">
-                    <For each={open()} keyed={(request) => request.id}>
+                    <For each={all()} keyed={(request) => request.id}>
                         {(request) => <RequestCard request={request()} {...props} />}
                     </For>
                 </ol>
@@ -122,26 +139,60 @@ function RequestCard(props: PanelProps & { request: Comment }) {
 
     const staleNote = () => {
         const reason = detail()?.stale_reason
-        if (!reason) return null
+        if (!reason || status() !== 'pending') return null
         // Said as what happened to the text, not as a verdict on anyone's work.
         return reason === 'anchored text changed'
             ? 'This is open again because the text it points at was edited.'
             : `This is open again: ${reason}.`
     }
 
+    // Our own answer to a decision is held at once; the row follows when the change
+    // feed delivers it. Whichever is newer says what the status is, so the card
+    // changes in place the moment the server has said yes.
+    const status = () => {
+        const held = detail()
+        return held && held.updated_at > props.request.updated_at ? held.review_status : props.request.review_status
+    }
+    const decided = () => (status() === 'approved' || status() === 'changes_requested' ? (status() as 'approved' | 'changes_requested') : null)
+    // Who decided and the note come from the request itself, and only once it is the
+    // one that matches the status: the copy held from before the decision says neither.
+    const decision = () => {
+        const held = detail()
+        return held && held.review_status === status() ? held : null
+    }
+    const decidedBy = () => {
+        const held = decision()
+        if (!held) return null
+        if (held.decided_by === props.accountId) return 'You'
+        return held.decided_by ? who(held.decided_by) : 'A reviewer'
+    }
+    const summary = () => {
+        const status = decided()
+        if (!status) return ''
+        const name = decidedBy()
+        // Until the details arrive the outcome alone is true; the name follows.
+        return name ? outcomeText(status, name) : status === 'approved' ? 'Approved' : 'Changes requested'
+    }
+
     const [busy, setBusy] = createSignal(false)
     const [problem, setProblem] = createSignal('')
     const [commenting, setCommenting] = createSignal(false)
     const [reply, setReply] = createSignal('')
+    const [noting, setNoting] = createSignal(false)
+    const [note, setNote] = createSignal('')
 
-    async function decide(status: ReviewStatus, done: string) {
+    async function decide(status: ReviewStatus, done: string, text = '') {
         if (busy()) return
         setBusy(true)
         setProblem('')
-        const result = await decideReviewRequest(props.request.id, status)
+        const result = await decideReviewRequest(props.request.id, status, text)
         setBusy(false)
-        if (result.ok) props.onAnnounce(done)
-        else setProblem(result.message)
+        if (result.ok) {
+            remember([result.data])
+            setNoting(false)
+            setNote('')
+            props.onAnnounce(done)
+        } else setProblem(result.message)
     }
 
     async function postComment() {
@@ -153,12 +204,24 @@ function RequestCard(props: PanelProps & { request: Comment }) {
         props.onAnnounce('Comment posted.')
     }
 
-    return (
-        <li class="review__card" id={cardId(props.request.id)} tabindex="-1" data-request-id={props.request.id}>
-            <div class="review__head t-meta">
-                <span class="review__author">Review requested by {props.request.author_id === props.accountId ? 'you' : who(props.request.author_id)}</span>
-                <RelativeTime at={props.request.created_at} />
-            </div>
+    const head = () => (
+        <>
+            <span class="review__author">Review requested by {props.request.author_id === props.accountId ? 'you' : who(props.request.author_id)}</span>
+            <RelativeTime at={props.request.created_at} />
+        </>
+    )
+
+    const body = () => (
+        <>
+            <Show when={decided()}>
+                <Show when={decision()?.decision_note}>
+                    {(text) => (
+                        <p class="review__decision-note t-body" data-testid="decision-note">
+                            {text()}
+                        </p>
+                    )}
+                </Show>
+            </Show>
             <Show when={quote()}>
                 {(text) => <blockquote class="review-quote t-body">{text()}</blockquote>}
             </Show>
@@ -170,24 +233,86 @@ function RequestCard(props: PanelProps & { request: Comment }) {
             <Show when={asked().length > 0}>
                 <p class="t-meta">Asked: {asked().map((id) => (id === props.accountId ? 'you' : who(id))).join(', ')}</p>
             </Show>
+        </>
+    )
 
-            <Show when={isReviewer()}>
-                <div class="review__actions">
+    const actions = () => (
+        <Show when={isReviewer()}>
+            <div class="review__actions">
+                <Show when={decided() !== 'approved'}>
                     <Button size="sm" disabled={busy() || props.disabled} onClick={() => void decide('approved', 'Approved.')}>
                         Approve
                     </Button>
+                </Show>
+                <Show when={decided() !== 'changes_requested'}>
                     <Button
                         size="sm"
                         variant="secondary"
                         disabled={busy() || props.disabled}
-                        onClick={() => void decide('changes_requested', 'Changes requested.')}
+                        onClick={() => setNoting(!noting())}
                     >
                         Request changes
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={props.disabled} onClick={() => setCommenting(!commenting())}>
-                        Comment
+                </Show>
+                <Show when={decided()}>
+                    <Button size="sm" variant="ghost" disabled={busy() || props.disabled} onClick={() => void decide('pending', 'Reopened.')}>
+                        Reopen
                     </Button>
-                </div>
+                </Show>
+                <Button size="sm" variant="ghost" disabled={props.disabled} onClick={() => setCommenting(!commenting())}>
+                    Comment
+                </Button>
+            </div>
+        </Show>
+    )
+
+    return (
+        <li
+            class="review__card"
+            id={cardId(props.request.id)}
+            tabindex="-1"
+            data-request-id={props.request.id}
+            data-status={status() ?? undefined}
+        >
+            <Show
+                when={decided()}
+                fallback={
+                    <>
+                        <div class="review__head t-meta">{head()}</div>
+                        {body()}
+                    </>
+                }
+            >
+                <details class="review__decided" open>
+                    <summary class="review__summary">
+                        <span class="review__outcome">
+                            {summary()}
+                        </span>
+                        <RelativeTime at={decision()?.decided_at ?? props.request.updated_at} />
+                    </summary>
+                    <div class="review__head t-meta">{head()}</div>
+                    {body()}
+                </details>
+            </Show>
+            {actions()}
+            <Show when={noting()}>
+                <form
+                    class="review__reply"
+                    onSubmit={(event) => {
+                        event.preventDefault()
+                        void decide('changes_requested', 'Changes requested.', note())
+                    }}
+                >
+                    <TextArea label="What would help? (optional)" rows={3} value={note()} onInput={setNote} />
+                    <div class="review__actions">
+                        <Button type="submit" size="sm" disabled={busy()}>
+                            Request changes
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setNoting(false)}>
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
             </Show>
             <Show when={commenting()}>
                 <form

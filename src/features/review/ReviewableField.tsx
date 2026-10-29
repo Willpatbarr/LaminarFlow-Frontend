@@ -1,10 +1,14 @@
 import type { Editor } from '@tiptap/core'
-import { createSignal, Show } from 'solid-js'
+import { createSignal, For, Show } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import type { ImageUpload } from '@/components/editor/images'
 import { Button } from '@/components/ui/Button'
+import { memberName } from '@/features/members/members'
 import type { Comment } from '@/sync'
+
+import { detailOf } from './feed'
+import { outcomeText } from './ReviewPanel'
 
 import { anchorOfSelection } from './anchor'
 import { RequestReviewDialog } from './RequestReviewDialog'
@@ -29,6 +33,8 @@ export type ReviewContext = {
     canRequest: boolean
     /** The open requests on this field. */
     open: Comment[]
+    /** The approved and changes-requested ones: the mark stays, saying what was decided (LAM-132). */
+    decided: Comment[]
     onAsked: (announcement: string) => void
 }
 
@@ -71,14 +77,34 @@ export function ReviewableField(props: Props) {
     }
 
     const count = () => props.open.length
+    // "Riley approved"; one line per decided request, so nothing a reviewer said is lost to a count.
+    const outcomes = () =>
+        props.decided.map((request) => {
+            const status = request.review_status as 'approved' | 'changes_requested'
+            const held = detailOf(request.id)
+            const who = held && held.review_status === status ? (held.decided_by ? memberName(held.decided_by) ?? 'Someone' : 'A reviewer') : null
+            const me = held?.decided_by === props.accountId
+            return { id: request.id, status, text: who === null ? (status === 'approved' ? 'Approved' : 'Changes requested') : outcomeText(status, me ? 'You' : who) }
+        })
 
     return (
-        <div class="reviewable" data-open={count() > 0 ? 'true' : undefined}>
+        <div
+            class="reviewable"
+            data-open={count() > 0 ? 'true' : undefined}
+            data-decided={count() === 0 && props.decided.length > 0 ? 'true' : undefined}
+        >
             <Show when={count() > 0}>
                 <span class="reviewable__margin t-meta" role="note">
                     {count() === 1 ? '1 open review request' : `${count()} open review requests`}
                 </span>
             </Show>
+            <For each={outcomes()} keyed={(outcome) => outcome.id}>
+                {(outcome) => (
+                    <span class="reviewable__margin reviewable__margin--decided t-meta" role="note" data-outcome={outcome().status}>
+                        {outcome().text}
+                    </span>
+                )}
+            </For>
             <MarkdownEditor
                 label={props.label}
                 placeholder={props.placeholder}

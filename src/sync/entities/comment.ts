@@ -40,6 +40,7 @@ export const toComment = (body: CommentBody): Comment => ({
     review_status: body.review_status,
     created_at: body.created_at,
     updated_at: body.updated_at,
+    edited_at: body.edited_at ?? null,
     version: 1,
 })
 
@@ -138,9 +139,10 @@ export const commentEntity: Entity<'comment'> = {
             review_status: null,
             created_at: at,
             updated_at: at,
+            edited_at: null,
             version: 1,
         }),
-        edit: (base, fields, { at }) => ({ ...base, ...fields, updated_at: at }),
+        edit: (base, fields, { at }) => ({ ...base, ...fields, updated_at: at, edited_at: at }),
         // A comment cannot be unarchived; the engine never asks.
         restore: (archived) => archived,
         copyOf: (row) => ({ ...commentFieldsOf(row), ticket_id: row.ticket_id, document_id: row.document_id }),

@@ -1157,7 +1157,7 @@ export interface paths {
         get?: never;
         /**
          * Approve, request changes on, or reopen a review request (reviewers only)
-         * @description Sets `review_status` to `approved`, `changes_requested` or `pending`. Only an account listed in `reviewers` may; anyone else who can see the request gets 403 `not_a_reviewer`. There is one status for the whole request, not one per reviewer: the last reviewer to act decides it. Setting the status it already has is a 200 that writes and publishes nothing. A change bumps `updated_at` and publishes `review_request.updated`.
+         * @description Sets `review_status` to `approved`, `changes_requested` or `pending`. Only an account listed in `reviewers` may; anyone else who can see the request gets 403 `not_a_reviewer`. There is one status for the whole request, not one per reviewer: the last reviewer to act decides it. Setting the status it already has is a 200 that writes and publishes nothing. A change bumps `updated_at`, records `decided_by`, `decided_at` and `decision_note` (approved or changes_requested; reopening keeps them) and publishes `review_request.updated`. It does not set `edited_at`.
          */
         put: operations["update-review-request"];
         post?: never;
@@ -1939,6 +1939,11 @@ export interface components {
             created_at: string;
             /** @description The document commented on. */
             document_id: string | null;
+            /**
+             * Format: date-time
+             * @description When the body was last edited, null if it never was. Show "(edited)" from this, not from updated_at: a review status change moves updated_at and not this.
+             */
+            edited_at: string | null;
             /** @description The aspect field of the document the comment is anchored to; null for a whole-document or ticket comment, and after that field is removed from the type. */
             field_id: string | null;
             id: string;
@@ -1961,7 +1966,7 @@ export interface components {
             ticket_id: string | null;
             /**
              * Format: date-time
-             * @description When the body last changed.
+             * @description When the row last changed: its body, or for a review request also its review_status. Not an edit marker; use edited_at.
              */
             updated_at: string;
         };
@@ -3291,7 +3296,24 @@ export interface components {
             body: string;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When that decision was made. Null if never decided.
+             */
+            decided_at: string | null;
+            /**
+             * Format: uuid
+             * @description Who last approved or requested changes. Kept when the request goes back to pending, so a client can say who approved before it went stale. Null if it was never decided, was decided before this was recorded, or that account was deleted.
+             */
+            decided_by: string | null;
+            /** @description The optional note that came with that decision. Null if none was given. */
+            decision_note: string | null;
             document_id: string;
+            /**
+             * Format: date-time
+             * @description When the note (body) was last edited, null if never. A status change does not set it.
+             */
+            edited_at: string | null;
             /** @description The aspect field the request is anchored to. Null for a normal document (the range is in its content), and after the field was removed from the aspect type; the request and its offsets are kept. */
             field_id: string | null;
             id: string;
@@ -3315,7 +3337,7 @@ export interface components {
             stale_reason: string | null;
             /**
              * Format: date-time
-             * @description When the body or the review_status last changed.
+             * @description When the body or the review_status last changed (or it went stale). Not an edit marker: use edited_at.
              */
             updated_at: string;
         };
@@ -3758,6 +3780,8 @@ export interface components {
              * @example https://example.com/api/v1/schemas/UpdateReviewRequestInputBody.json
              */
             readonly $schema?: string;
+            /** @description Optional short note for the requester, sent with approved or changes_requested and stored as decision_note (blank means none). 422 at body.decision_note with pending. Ignored, like the rest of the call, when the request already has that status, so a retry is safe. */
+            decision_note?: string;
             /**
              * @description The new overall state. Only a listed reviewer may set it. Null is not accepted.
              * @enum {string}

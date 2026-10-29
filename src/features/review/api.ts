@@ -9,7 +9,7 @@ import type { Result } from '@/features/aspects/api'
 │      ReviewRequest · ReviewStatus
 │      createReviewRequest(input)       POST /review-requests, safe to retry (Idempotency-Key)
 │      listReviewRequests(filter)       every page of POST /review-requests/list
-│      decideReviewRequest(id, status)  PUT /review-requests/{id}
+│      decideReviewRequest(id, status, note?)  PUT /review-requests/{id}, with the optional note
 │      reviewMessage(code, fallback)    the neutral sentence for a refusal
 */
 // Creating and deciding are requests whose answer the screen shows, not outbox
@@ -77,6 +77,11 @@ export async function createReviewRequest(input: NewReviewRequest): Promise<Resu
 export async function listReviewRequests(filter: { documentId?: string; reviewerId?: string }): Promise<Result<ReviewRequest[]>> {
     const conditions = [
         ...(filter.documentId ? [{ field: 'document_id', op: 'eq' as const, value: filter.documentId }] : []),
+        // The server lists only pending requests unless the filter names the status; a document's
+        // screen wants the decided ones too (LAM-132). "Needs my review" stays pending.
+        ...(filter.documentId
+            ? [{ field: 'review_status', op: 'in' as const, value: ['pending', 'approved', 'changes_requested'] }]
+            : []),
         ...(filter.reviewerId ? [{ field: 'reviewer_id', op: 'eq' as const, value: filter.reviewerId }] : []),
     ]
     try {
@@ -96,11 +101,11 @@ export async function listReviewRequests(filter: { documentId?: string; reviewer
     }
 }
 
-export async function decideReviewRequest(id: string, status: ReviewStatus): Promise<Result<ReviewRequest>> {
+export async function decideReviewRequest(id: string, status: ReviewStatus, note = ''): Promise<Result<ReviewRequest>> {
     try {
         const { data, error } = await api.PUT('/api/v1/review-requests/{id}', {
             params: { path: { id } },
-            body: { review_status: status },
+            body: { review_status: status, ...(note.trim() !== '' ? { decision_note: note.trim() } : {}) },
         })
         return data ? { ok: true, data } : failed(error)
     } catch {

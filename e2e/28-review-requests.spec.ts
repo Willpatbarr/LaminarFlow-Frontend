@@ -1,8 +1,8 @@
 import { connectionIs, expect, newAccount, projectOf, signedInAs, test } from './support/app'
 
 // LAM-121: select text, ask for a review, and the second user answers it. The
-// marker shows for both while the request is open and clears for both once it
-// is approved.
+// marker shows for both while the request is open; once it is approved the
+// marker stays and says so, for both (LAM-132).
 
 async function documentWith(owner: Awaited<ReturnType<typeof newAccount>>, projectId: string, content: string) {
     const made = await owner.api.POST('/api/v1/documents', {
@@ -13,7 +13,7 @@ async function documentWith(owner: Awaited<ReturnType<typeof newAccount>>, proje
     return made.data!.id
 }
 
-test('one user requests a review on a paragraph, a second user approves it, and the marker clears', async ({
+test('one user requests a review on a paragraph, a second user approves it, and the outcome stays visible', async ({
     page,
     context,
     browser,
@@ -70,12 +70,61 @@ test('one user requests a review on a paragraph, a second user approves it, and 
     await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0)
     await bobPage.getByRole('button', { name: 'Approve' }).click()
 
-    // The marker clears on both screens, and the server agrees.
+    // Nothing is open any more, but nothing vanished: both screens say who approved,
+    // and the note is not marked edited (B8).
     await expect(bobPage.getByRole('button', { name: /open review request/ })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /open review request/ })).toHaveCount(0)
-    await expect(page.getByRole('note')).toHaveCount(0)
+    await expect(page.getByRole('note')).toHaveText(`${bob.displayName} approved`)
+    await expect(bobPage.getByRole('note')).toHaveText('You approved')
+    await expect(page.getByRole('region', { name: /Review requests/ })).toContainText(`${bob.displayName} approved`)
+    await expect(page.getByText('(edited)')).toHaveCount(0)
+    await expect(bobPage.getByText('(edited)')).toHaveCount(0)
     await expect(bobPage.getByRole('link', { name: /Needs my review/ })).not.toContainText('1')
     await expect.poll(async () => (await alice.api.POST('/api/v1/review-requests/list', { body: { filter: { op: 'and', conditions: [{ field: 'document_id', op: 'eq', value: documentId }, { field: 'review_status', op: 'eq', value: 'approved' }] } } })).data?.items?.length).toBe(1)
+})
+
+test('Request changes asks for a note, confirms in place, and the requester sees the note', async ({ page, context, browser, baseURL }) => {
+    const alice = await newAccount('alice-note')
+    const bob = await newAccount('bob-note')
+    const world = await projectOf(alice)
+    const documentId = await documentWith(alice, world.projectId, 'Tighten this sentence up.')
+    const made = await alice.api.POST('/api/v1/review-requests', {
+        params: { header: { 'Idempotency-Key': crypto.randomUUID() } },
+        body: { document_id: documentId, region_start: 0, region_end: 12, body: 'Thoughts?', reviewer_ids: [bob.accountId] },
+    })
+    expect(made.response.ok).toBe(true)
+
+    await signedInAs(context, alice, baseURL!)
+    const bobContext = await browser.newContext()
+    await signedInAs(bobContext, bob, baseURL!)
+    const bobPage = await bobContext.newPage()
+    for (const p of [page, bobPage]) {
+        await p.goto(`/documents/${documentId}`)
+        await expect(p.getByLabel('Title')).toHaveValue('Launch plan')
+        await connectionIs(p, 'Live')
+    }
+
+    // One click only opens the note; nothing is sent yet.
+    await bobPage.getByRole('button', { name: 'Request changes' }).click()
+    const note = bobPage.getByRole('textbox', { name: /What would help/ })
+    await note.fill('Could this be one shorter sentence?')
+    const card = bobPage.locator('.review__card')
+    const before = await card.boundingBox()
+    await bobPage.locator('form.review__reply').getByRole('button', { name: 'Request changes' }).click()
+
+    // Confirmation is in the same card, in place.
+    await expect(card.locator('.review__outcome')).toHaveText('You requested changes')
+    await expect(card.getByTestId('decision-note')).toHaveText('Could this be one shorter sentence?')
+    const after = await card.boundingBox()
+    expect(Math.abs(after!.y - before!.y)).toBeLessThan(2)
+
+    // Alice sees the outcome, who, and the note, live; the note she wrote is not "(edited)".
+    await expect(page.getByRole('region', { name: /Review requests/ })).toContainText(`${bob.displayName} requested changes`)
+    await expect(page.getByTestId('decision-note')).toHaveText('Could this be one shorter sentence?')
+    await expect(page.getByRole('note')).toHaveText(`${bob.displayName} requested changes`)
+    await expect(page.getByText('(edited)')).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByTestId('decision-note')).toHaveText('Could this be one shorter sentence?')
 })
 
 test('offsets count characters, not UTF-16 units: a selection after emoji lands on the right words', async ({ page, context, baseURL }) => {
