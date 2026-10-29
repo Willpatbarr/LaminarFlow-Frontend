@@ -27,6 +27,7 @@ import {
     type Sprint,
 } from '@/sync'
 
+import { createAutosave } from '../documents/autosave'
 import { descriptionCount, nameCount, overMessage } from '../tickets/limits'
 import type { Viewer } from '../tickets/viewer'
 import { AddTicketsToSprint } from './AddTicketsToSprint'
@@ -39,21 +40,6 @@ type Row = Epic | Sprint | Milestone
 
 const lookup = (kind: Kind, id: string): Row | undefined =>
     kind === 'epic' ? epicById(id) : kind === 'sprint' ? sprintById(id) : milestoneById(id)
-
-// A text field that saves when focus leaves it, and shows the draft until the
-// store shows what was typed (a sync landing mid-word cannot overwrite it).
-function draftOf(saved: () => string) {
-    const [draft, setDraft] = createSignal<string | null>(null)
-    return {
-        value: () => draft() ?? saved(),
-        input: (value: string) => setDraft(value),
-        take(): string | null {
-            const value = draft()
-            setDraft(null)
-            return value !== null && value !== saved() ? value : null
-        },
-    }
-}
 
 // /epics/:id, /sprints/:id, /milestones/:id: the item's fields, how far along
 // its tickets are, and the tickets themselves. Every edit is a write to the
@@ -110,11 +96,50 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
     }
 
     const as = <T extends Row>() => props.row as T
-    const name = draftOf(() => props.row.name)
-    const description = draftOf(() => (props.kind === 'sprint' ? '' : as<Epic>().description))
-    const start = draftOf(() => (props.kind === 'sprint' ? (as<Sprint>().start_date ?? '') : ''))
-    const end = draftOf(() => (props.kind === 'sprint' ? (as<Sprint>().end_date ?? '') : ''))
-    const target = draftOf(() => (props.kind === 'milestone' ? (as<Milestone>().target_date ?? '') : ''))
+    // The name and description save while typing (about a second after the last
+    // key), on blur, on leaving the page and on closing the tab. `context.base` is
+    // the version the edit began from; `context.key` the row it began on.
+    const name = createAutosave(
+        () => props.row.name,
+        (value, context) => write({ name: value.trim() }, context.key),
+        {
+            delay: 1000,
+            base: () => props.row.version,
+            key: id,
+            canSave: (value) => value.trim() !== '' && !overMessage('Name', nameCount(value)),
+        },
+    )
+    const description = createAutosave(
+        () => (props.kind === 'sprint' ? '' : as<Epic>().description),
+        (value, context) => write({ description: value }, context.key),
+        {
+            delay: 1000,
+            base: () => props.row.version,
+            key: id,
+            canSave: (value) => !overMessage('Description', descriptionCount(value)),
+        },
+    )
+    // Dates save like the text fields: about a second after the last change, not
+    // on every valid value typing passes through (0002-, 0020-, 0202-, 2026-).
+    // A range that ends before it starts is never saved.
+    const date = (saved: () => string, field: string, canSave: (value: string) => boolean = () => true) =>
+        createAutosave(saved, (value, context) => write({ [field]: value || null }, context.key), {
+            delay: 1000,
+            base: () => props.row.version,
+            key: id,
+            canSave,
+        })
+    const start = date(
+        () => (props.kind === 'sprint' ? (as<Sprint>().start_date ?? '') : ''),
+        'start_date',
+        (value) => value === '' || end.value() === '' || end.value() >= value,
+    )
+    const end = date(
+        () => (props.kind === 'sprint' ? (as<Sprint>().end_date ?? '') : ''),
+        'end_date',
+        (value) => value === '' || start.value() === '' || value >= start.value(),
+    )
+    const target = date(() => (props.kind === 'milestone' ? (as<Milestone>().target_date ?? '') : ''), 'target_date')
 
     const nameOver = () => overMessage('Name', nameCount(name.value()))
     const descriptionOver = () => overMessage('Description', descriptionCount(description.value()))
@@ -125,33 +150,21 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
 
     // Nothing blank or over its limit is queued; the text stays in the field.
     function saveName() {
-        if (nameOver() || name.value().trim() === '') return
-        const value = name.take()
-        if (value === null) return
-        const text = value.trim()
-        if (text === props.row.name) return
-        write({ name: text })
+        void name.flush()
     }
     function saveDescription() {
-        if (descriptionOver()) return
-        const value = description.take()
-        if (value !== null) write({ description: value })
+        void description.flush()
     }
-    function saveDates() {
-        if (backwards()) return
-        const from = start.take()
-        const to = end.take()
-        if (from !== null) write({ start_date: from || null })
-        if (to !== null) write({ end_date: to || null })
+    const saveDates = () => {
+        void start.flush()
+        void end.flush()
     }
-    function saveTarget() {
-        const value = target.take()
-        if (value !== null) write({ target_date: value || null })
-    }
-    function write(patch: Record<string, string | null>) {
-        if (props.kind === 'epic') void updateEpic(id(), patch)
-        else if (props.kind === 'sprint') void updateSprint(id(), patch)
-        else void updateMilestone(id(), patch)
+    const saveTarget = () => void target.flush()
+    function write(patch: Record<string, string | null>, rowId: string | null = null) {
+        const target = rowId ?? id()
+        if (props.kind === 'epic') return updateEpic(target, patch)
+        if (props.kind === 'sprint') return updateSprint(target, patch)
+        return updateMilestone(target, patch)
     }
 
     async function remove() {

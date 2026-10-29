@@ -45,6 +45,7 @@ import type { Kind } from '@/features/hierarchy/kinds'
 import { ActivityFeed } from '@/features/activity/ActivityFeed'
 import { AttachmentList } from '@/features/attachments/AttachmentList'
 import { imageUploader } from '@/features/attachments/upload'
+import { createAutosave } from '@/features/documents/autosave'
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedDocuments } from '@/features/links/LinkedDocuments'
 import { describeFailure } from '../entryFailure'
@@ -263,29 +264,8 @@ function PlaceholderField(props: PlaceholderFieldProps) {
     )
 }
 
-// A text field that saves when focus leaves it. While the user is typing, the
-// field shows their draft and ignores the store, so a sync landing mid-word
-// cannot overwrite it; once the store shows what was typed, the draft is
-// dropped and the field follows the store again.
-function createDraft(saved: () => string, save: (value: string) => Promise<unknown>) {
-    const [draft, setDraft] = createSignal<string | null>(null)
-    return {
-        value: () => draft() ?? saved(),
-        input: (value: string) => {
-            setDraft(value)
-        },
-        async commit() {
-            const value = draft()
-            if (value === null) return
-            if (value !== saved()) await save(value)
-            // Unless they have started typing again in the meantime.
-            if (draft() === value) setDraft(null)
-        },
-        reset: () => {
-            setDraft(null)
-        },
-    }
-}
+// About a second of quiet after the last keystroke.
+const TICKET_AUTOSAVE_DELAY = 1000
 
 type Announce = (text: string, options?: { focus?: boolean }) => void
 
@@ -298,8 +278,9 @@ type TicketEditorProps = {
     announce: Announce
 }
 
-// HOW IT SAVES: there is no Save button. Title and description save when focus
-// leaves the field (and the title also on Enter); status and assignee save the
+// HOW IT SAVES: there is no Save button. Title and description save about a
+// second after the typing stops, when focus leaves the field (the title also on
+// Enter), when the page is left and when the tab is closed or reloaded; status and assignee save the
 // moment they change. Every save is a write to the local store, so it never
 // waits and never fails here - what the server makes of it shows in the marker.
 //
@@ -329,13 +310,30 @@ function TicketEditor(props: TicketEditorProps) {
     let titleEl: HTMLInputElement | undefined
     let statusEl: HTMLSelectElement | undefined
 
-    const title = createDraft(
+    // Typing saves ~1 s after the last keystroke, and again on blur, on leaving
+    // the page and on closing the tab. `context.base` is the ticket's version when
+    // the edit began (kept for the conflict check, LAM-131).
+    const title = createAutosave(
         () => props.ticket.title,
-        (value) => updateTicket(id(), { title: value.trim() }),
+        (value, context) => updateTicket(context.key ?? props.routeId, { title: value.trim() }),
+        {
+            delay: TICKET_AUTOSAVE_DELAY,
+            base: () => props.ticket.version,
+            key: () => props.routeId,
+            same: (a, b) => resolveTicketId(a) === resolveTicketId(b),
+            canSave: (value) => value.trim() !== '' && !overMessage('Title', titleCount(value)),
+        },
     )
-    const description = createDraft(
+    const description = createAutosave(
         () => props.ticket.description,
-        (value) => updateTicket(id(), { description: value }),
+        (value, context) => updateTicket(context.key ?? props.routeId, { description: value }),
+        {
+            delay: TICKET_AUTOSAVE_DELAY,
+            base: () => props.ticket.version,
+            key: () => props.routeId,
+            same: (a, b) => resolveTicketId(a) === resolveTicketId(b),
+            canSave: (value) => !overMessage('Description', descriptionCount(value)),
+        },
     )
 
     // Nothing over its limit, and no blank title, is ever queued. The text
@@ -351,19 +349,18 @@ function TicketEditor(props: TicketEditorProps) {
         refused()?.fields.title
     const descriptionError = () => descriptionOver() ?? refused()?.fields.description
 
+    // A ticket with no title is a row nobody can find again, so a blank one is
+    // never saved - not while typing, not on blur.
     function commitTitle() {
-        // A ticket with no title is a row nobody can find again.
         if (title.value().trim() === '') {
             setBlankTried(true)
             return
         }
-        if (titleOver()) return
-        void title.commit()
+        void title.flush()
     }
 
     function commitDescription() {
-        if (descriptionOver()) return
-        void description.commit()
+        void description.flush()
     }
 
     const statusOptions = () => {
