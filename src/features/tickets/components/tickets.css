@@ -11,6 +11,10 @@
   gap: var(--s-16);
 }
 
+.tickets--list {
+  max-width: 1080px;
+}
+
 .tickets__picker {
   width: 220px;
 }
@@ -248,4 +252,81 @@
   align-items: center;
   gap: var(--s-8);
   min-width: 0;
+}
+
+/* A group's header is a button: it folds the group. Plain, so it reads as the
+ * heading it is. */
+.tickets__group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tickets__group-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tickets__chevron {
+  width: 1ch;
+  color: var(--text-3);
+}
+
+/* The list controls: search, group, sort, then the two panels. */
+.list-controls {
+  display: grid;
+  gap: var(--s-8);
+}
+
+.list-controls__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-12);
+}
+
+.list-controls__search {
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+
+.list-controls__select {
+  width: 170px;
+}
+
+.list-controls__advanced {
+  color: var(--text-2);
+}
+
+.list-controls__panel > summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.list-controls__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-16);
+  margin-top: var(--s-8);
+}
+
+.list-controls__fieldset {
+  display: grid;
+  gap: var(--s-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.list-controls__check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
 }

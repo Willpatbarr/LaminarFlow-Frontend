@@ -82,8 +82,10 @@
   gap: var(--s-4);
 }
 
-/* A row being edited holds fields, which are taller than a read-only line. */
+/* A row being edited holds fields, which are taller than a read-only line.
+ * Title, status, then the buttons: it does not follow the view's columns. */
 .table__row--editing {
+  grid-template-columns: minmax(0, 1fr) 132px auto;
   height: auto;
   padding-block: var(--s-8);
   align-items: start;
