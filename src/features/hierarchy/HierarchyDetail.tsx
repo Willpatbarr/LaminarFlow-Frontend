@@ -41,28 +41,6 @@ type Row = Epic | Sprint | Milestone
 const lookup = (kind: Kind, id: string): Row | undefined =>
     kind === 'epic' ? epicById(id) : kind === 'sprint' ? sprintById(id) : milestoneById(id)
 
-// A date field: saves when a date is picked or focus leaves it (typing into a
-// date makes passing values, so it is not saved while typing). It shows the
-// draft until the store shows what was typed (a sync landing mid-edit cannot
-// overwrite it). The draft belongs to the row it was typed on: when the page is
-// reused for another row it is not shown there and not saved into it.
-function draftOf(saved: () => string, rowId: () => string) {
-    const [draft, setDraft] = createSignal<{ id: string; value: string } | null>(null)
-    const mine = () => {
-        const d = draft()
-        return d && d.id === rowId() ? d.value : null
-    }
-    return {
-        value: () => mine() ?? saved(),
-        input: (value: string) => setDraft({ id: rowId(), value }),
-        take(): string | null {
-            const value = mine()
-            setDraft(null)
-            return value !== null && value !== saved() ? value : null
-        },
-    }
-}
-
 // /epics/:id, /sprints/:id, /milestones/:id: the item's fields, how far along
 // its tickets are, and the tickets themselves. Every edit is a write to the
 // local store, so it is as offline-proof as a ticket edit.
@@ -141,9 +119,27 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             canSave: (value) => !overMessage('Description', descriptionCount(value)),
         },
     )
-    const start = draftOf(() => (props.kind === 'sprint' ? (as<Sprint>().start_date ?? '') : ''), id)
-    const end = draftOf(() => (props.kind === 'sprint' ? (as<Sprint>().end_date ?? '') : ''), id)
-    const target = draftOf(() => (props.kind === 'milestone' ? (as<Milestone>().target_date ?? '') : ''), id)
+    // Dates save like the text fields: about a second after the last change, not
+    // on every valid value typing passes through (0002-, 0020-, 0202-, 2026-).
+    // A range that ends before it starts is never saved.
+    const date = (saved: () => string, field: string, canSave: (value: string) => boolean = () => true) =>
+        createAutosave(saved, (value, context) => write({ [field]: value || null }, context.key), {
+            delay: 1000,
+            base: () => props.row.version,
+            key: id,
+            canSave,
+        })
+    const start = date(
+        () => (props.kind === 'sprint' ? (as<Sprint>().start_date ?? '') : ''),
+        'start_date',
+        (value) => value === '' || end.value() === '' || end.value() >= value,
+    )
+    const end = date(
+        () => (props.kind === 'sprint' ? (as<Sprint>().end_date ?? '') : ''),
+        'end_date',
+        (value) => value === '' || start.value() === '' || value >= start.value(),
+    )
+    const target = date(() => (props.kind === 'milestone' ? (as<Milestone>().target_date ?? '') : ''), 'target_date')
 
     const nameOver = () => overMessage('Name', nameCount(name.value()))
     const descriptionOver = () => overMessage('Description', descriptionCount(description.value()))
@@ -159,17 +155,11 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
     function saveDescription() {
         void description.flush()
     }
-    function saveDates() {
-        if (backwards()) return
-        const from = start.take()
-        const to = end.take()
-        if (from !== null) write({ start_date: from || null })
-        if (to !== null) write({ end_date: to || null })
+    const saveDates = () => {
+        void start.flush()
+        void end.flush()
     }
-    function saveTarget() {
-        const value = target.take()
-        if (value !== null) write({ target_date: value || null })
-    }
+    const saveTarget = () => void target.flush()
     function write(patch: Record<string, string | null>, rowId: string | null = null) {
         const target = rowId ?? id()
         if (props.kind === 'epic') return updateEpic(target, patch)
@@ -206,11 +196,11 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             <div class="hierarchy__fields">
                 <Input label="Name" readOnly={!can('ticket:write')} value={name.value()} onInput={name.input} onBlur={saveName} count={nameCount(name.value())} error={nameOver()} />
                 <Show when={props.kind === 'sprint'}>
-                    <Input label="Start date" readOnly={!can('ticket:write')} type="date" value={start.value()} onInput={start.input} onChange={saveDates} onBlur={saveDates} />
-                    <Input label="End date" readOnly={!can('ticket:write')} type="date" value={end.value()} onInput={end.input} onChange={saveDates} onBlur={saveDates} error={backwards()} />
+                    <Input label="Start date" readOnly={!can('ticket:write')} type="date" value={start.value()} onInput={start.input} onBlur={saveDates} />
+                    <Input label="End date" readOnly={!can('ticket:write')} type="date" value={end.value()} onInput={end.input} onBlur={saveDates} error={backwards()} />
                 </Show>
                 <Show when={props.kind === 'milestone'}>
-                    <Input label="Target date" readOnly={!can('ticket:write')} type="date" value={target.value()} onInput={target.input} onChange={saveTarget} onBlur={saveTarget} />
+                    <Input label="Target date" readOnly={!can('ticket:write')} type="date" value={target.value()} onInput={target.input} onBlur={saveTarget} />
                 </Show>
             </div>
             <Show when={props.kind !== 'sprint'}>

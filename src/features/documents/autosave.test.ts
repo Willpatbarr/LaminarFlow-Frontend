@@ -156,4 +156,16 @@ describe('createAutosave', () => {
         expect(save).toHaveBeenCalledTimes(1)
         setTexts({ a: 'A typed', b: 'B saved' })
     })
+
+    it('typing a year digit by digit makes exactly one save, of the final value', async () => {
+        const { save, type } = setup()
+        for (const value of ['0002-10-29', '0020-10-29', '0202-10-29', '2026-10-29']) {
+            type(value)
+            await vi.advanceTimersByTimeAsync(200)
+        }
+        expect(save).not.toHaveBeenCalled()
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(save).toHaveBeenCalledTimes(1)
+        expect(save.mock.calls[0][0]).toBe('2026-10-29')
+    })
 })
