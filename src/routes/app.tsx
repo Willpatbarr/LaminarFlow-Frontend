@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, type RouteSectionProps } from '@solidjs/router'
-import { createMemo, createSignal, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, Show } from 'solid-js'
 
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
@@ -7,6 +7,8 @@ import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import { KINDS, type Kind } from '@/features/hierarchy/kinds'
+import { clearMembers } from '@/features/members/members'
+import { clearReviewFeed, loadNeedsMine, needsMine, pendingSignature } from '@/features/review/feed'
 import { useEditorLinks } from '@/features/links/editorLinks'
 import { CommandPalette } from '@/features/search/CommandPalette'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
@@ -23,6 +25,7 @@ const LINKS: SideNavLink[] = [
     { label: 'Sprints', href: '/sprints', icon: ICONS.sprint },
     { label: 'Milestones', href: '/milestones', icon: ICONS.milestone },
     { label: 'Documents', href: '/documents', icon: ICONS.document },
+    { label: 'Needs my review', href: '/reviews', icon: ICONS.review },
     { label: 'Views', href: '/views', icon: ICONS.views },
     { label: 'API tokens', href: '/settings/tokens', icon: ICONS.key },
 ]
@@ -49,6 +52,19 @@ export function AppLayout(props: RouteSectionProps) {
     const [making, setMaking] = createSignal<Kind | null>(null)
     // The ticket being made from the search palette's command (LAM-115).
     const [creatingTicket, setCreatingTicket] = createSignal(false)
+    // "Needs my review": asked for once there is an account, and again whenever
+    // a review request appears or changes state (they arrive on the change feed).
+    createEffect(
+        () => ({ me: session.me?.account_id ?? '', changed: pendingSignature(), live: sync.active }),
+        ({ me, live }) => {
+            if (me && live) void loadNeedsMine(me)
+        },
+    )
+    const links = createMemo(() =>
+        LINKS.map((link) =>
+            link.href === '/reviews' && needsMine().length > 0 ? { ...link, note: String(needsMine().length) } : link,
+        ),
+    )
     // The first /auth/me got no usable answer: nothing more to wait for, and
     // the content area says so instead of showing a placeholder for ever.
     const unreachable = () => session.status === 'unknown' && session.loadFailure !== null
@@ -103,6 +119,8 @@ export function AppLayout(props: RouteSectionProps) {
     async function leave() {
         setConfirmingLogout(false)
         await logout()
+        clearMembers()
+        clearReviewFeed()
         navigate('/login', { replace: true })
     }
 
@@ -118,7 +136,7 @@ export function AppLayout(props: RouteSectionProps) {
             <AppShell
                 nav={
                     <SideNav
-                        links={LINKS}
+                        links={links()}
                         teams={
                             teams().length > 0 && activeTeamId()
                                 ? {

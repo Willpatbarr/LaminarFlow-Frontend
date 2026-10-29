@@ -8,6 +8,7 @@ import { HomePage } from '@/routes/index'
 import { DocumentPage, DocumentsPage } from '@/routes/documents'
 import { LoginPage } from '@/routes/login'
 import { NotFoundPage } from '@/routes/not-found'
+import { ReviewsPage } from '@/routes/reviews'
 import { ProjectDocumentsPage, ProjectPage } from '@/routes/project'
 import { SignUpPage } from '@/routes/signup'
 import { TeamPage } from '@/routes/team'
@@ -47,6 +48,7 @@ const routes = defineRoutes([
             { path: '/milestones/:id', component: MilestonePage },
             { path: '/documents', component: DocumentsPage },
             { path: '/documents/:id', component: DocumentPage },
+            { path: '/reviews', component: ReviewsPage },
             { path: '/views', component: ViewsPage },
             { path: '/views/:id', component: ViewPage },
             { path: '/settings/tokens', component: TokensPage },

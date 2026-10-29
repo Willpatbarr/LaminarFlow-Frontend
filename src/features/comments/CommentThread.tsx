@@ -1,8 +1,9 @@
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, onSettled, Show } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { loadMembers, memberName } from '@/features/members/members'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import {
     commentHead,
@@ -32,9 +33,10 @@ import './comments.css'
 // and Delete; the server enforces it too (403 `comment_not_author`), and that
 // answer is shown on the comment if it ever arrives.
 //
-// There is no endpoint that lists accounts, so a comment says "You" for the
-// viewer's own and "Someone else" for anyone else's - as an assignee does.
-// `author_id` null is a deleted account.
+// A comment says "You" for the viewer's own and the author's display name for
+// anyone else's, from the workspace member list (LAM-121). Until that list has
+// loaded, or if it cannot (offline), it says "Someone else". `author_id` null is
+// a deleted account.
 //
 // A comment cannot name a ticket or document the server has not heard of yet, so
 // the composer waits (and says so) while the parent still has a temporary id.
@@ -66,6 +68,10 @@ export function CommentThread(props: CommentThreadProps) {
     const comments = createMemo(() => commentsFor(parentId(props.parent)))
     const unsent = () => isTempId(resolveId(parentId(props.parent)))
     const noun = () => (props.parent.ticketId !== undefined ? 'ticket' : 'document')
+
+    onSettled(() => {
+        void loadMembers()
+    })
 
     const [draft, setDraft] = createSignal('')
     const count = () => commentCount(draft())
@@ -159,7 +165,7 @@ function CommentItem(props: CommentItemProps) {
         if (found.kind === 'archive') return 'Deleting…'
         return found.attempts > 0 ? 'Saved on this device. Not synced yet' : 'Sending…'
     }
-    const author = () => (props.mine ? 'You' : props.comment.author_id === null ? 'Deleted account' : 'Someone else')
+    const author = () => (props.mine ? 'You' : props.comment.author_id === null ? 'Deleted account' : (memberName(props.comment.author_id) ?? 'Someone else'))
     const edited = () => props.comment.updated_at !== props.comment.created_at
 
     function startEdit() {

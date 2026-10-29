@@ -1,7 +1,6 @@
 import { useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Match, Show, Switch, untrack } from 'solid-js'
 
-import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
 import { Banner } from '@/components/ui/Banner'
 import { Input } from '@/components/ui/Input'
@@ -26,6 +25,9 @@ import type { EntryError } from '@/sync'
 
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
+import { openRequestsFor } from '@/features/review/feed'
+import { OpenRequestsCount, ReviewPanel } from '@/features/review/ReviewPanel'
+import { ReviewableField, type ReviewContext } from '@/features/review/ReviewableField'
 
 import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
@@ -169,6 +171,13 @@ function DocumentEditor(props: DocumentEditorProps) {
         }
     }
 
+    // A range is measured against the text the server holds, so a review can be
+    // asked for only once everything typed has been saved and sent.
+    const synced = () =>
+        !title.dirty() && !content.dirty() && fieldDrafts() === 0 && documentSyncState(id()) === 'synced' && !locked()
+    const openOn = (fieldId: string | null) => openRequestsFor(props.routeId).filter((r) => (r.field_id ?? null) === fieldId)
+    const storedText = (fieldId: string | null) => props.doc.body[fieldId ?? CONTENT_KEY] ?? ''
+
     async function keepTheirs() {
         const found = conflicted()
         if (!found) return
@@ -214,6 +223,8 @@ function DocumentEditor(props: DocumentEditorProps) {
             <div class="document__status t-meta" role="status">
                 {status()}
             </div>
+
+            <OpenRequestsCount documentId={props.routeId} />
 
             <Show when={refused()}>
                 {(failure) => (
@@ -272,13 +283,20 @@ function DocumentEditor(props: DocumentEditorProps) {
                             saved={() => props.doc.body[field().id] ?? ''}
                             locked={locked()}
                             onDirty={(dirty) => setFieldDrafts((n) => n + (dirty ? 1 : -1))}
+                            review={{
+                                documentId: props.routeId,
+                                accountId: props.accountId,
+                                canRequest: synced(),
+                                open: openOn(field().id),
+                                onAsked: props.announce,
+                            }}
                         />
                     )}
                 </For>
             </Show>
 
             <Show when={!isAspect()}>
-                <MarkdownEditor
+                <ReviewableField
                     label="Text"
                     placeholder="Write, or type Markdown: # for a heading, - for a list…"
                     value={content.value()}
@@ -287,6 +305,13 @@ function DocumentEditor(props: DocumentEditorProps) {
                         if (!locked()) content.input(value)
                     }}
                     onBlur={() => void content.flush()}
+                    documentId={props.routeId}
+                    fieldId={null}
+                    stored={() => storedText(null)}
+                    canRequest={synced()}
+                    accountId={props.accountId}
+                    open={openOn(null)}
+                    onAsked={props.announce}
                 />
                 <MakeAspect
                     doc={props.doc}
@@ -298,6 +323,14 @@ function DocumentEditor(props: DocumentEditorProps) {
                     }}
                 />
             </Show>
+
+            <ReviewPanel
+                documentId={props.routeId}
+                accountId={props.accountId}
+                fieldText={storedText}
+                disabled={locked()}
+                onAnnounce={props.announce}
+            />
 
             <LinkedTickets documentId={props.routeId} disabled={locked()} />
 
@@ -312,6 +345,7 @@ type AspectFieldEditorProps = {
     saved: () => string
     locked: boolean
     onDirty: (dirty: boolean) => void
+    review: ReviewContext
 }
 
 // One field of an aspect: its label above an editor of its own. Saved like the
@@ -332,7 +366,12 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
         },
     )
     return (
-        <MarkdownEditor
+        <ReviewableField
+            documentId={props.review.documentId}
+            accountId={props.review.accountId}
+            canRequest={props.review.canRequest}
+            open={props.review.open}
+            onAsked={props.review.onAsked}
             label={props.field.label}
             placeholder="Write, or type Markdown…"
             value={value.value()}
@@ -341,6 +380,8 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
                 if (!props.locked) value.input(markdown)
             }}
             onBlur={() => void value.flush()}
+            fieldId={props.field.id}
+            stored={props.saved}
         />
     )
 }

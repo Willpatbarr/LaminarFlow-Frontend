@@ -77,8 +77,41 @@ function readComment(frame: Record<string, unknown>): Comment | null {
 
 const EVENTS = { created: 'created', updated: 'updated', deleted: 'archived' } as const
 
+// A review request is a comment with a status (LAM-113), and has two events of
+// its own: `review_request.created` and `.updated`, carrying the whole request
+// as `review_request` and the request's id as `comment_id`. They are applied to
+// the same row a `comment.*` frame would be, so one list serves the thread and
+// the review screens. Reviewers and the quoted text are not kept on the row;
+// the review feature asks for them (features/review/feed.ts).
+function readReviewRequest(frame: Record<string, unknown>): Comment | null {
+    const body = frame.review_request
+    if (typeof body !== 'object' || body === null) return null
+    const row = body as Record<string, unknown>
+    if (
+        !isString(row.id) ||
+        !isString(row.document_id) ||
+        !isNullableString(row.field_id) ||
+        !isNullableString(row.author_id) ||
+        !isNullableInt(row.region_start) ||
+        !isNullableInt(row.region_end) ||
+        !isString(row.body) ||
+        !isString(row.review_status) ||
+        !isString(row.created_at) ||
+        !isString(row.updated_at) ||
+        frame.comment_id !== row.id
+    ) {
+        return null
+    }
+    return toComment({ ticket_id: null, ...row } as unknown as CommentBody)
+}
+
 function parseCommentEvent(frame: Record<string, unknown>): RemoteEvent<'comment', Comment> | null {
-    if (!isString(frame.type) || !frame.type.startsWith('comment.')) return null
+    if (!isString(frame.type)) return null
+    if (frame.type === 'review_request.created' || frame.type === 'review_request.updated') {
+        const row = readReviewRequest(frame)
+        return row ? { entity: 'comment', type: frame.type === 'review_request.created' ? 'created' : 'updated', row } : null
+    }
+    if (!frame.type.startsWith('comment.')) return null
     const type = EVENTS[frame.type.slice('comment.'.length) as keyof typeof EVENTS]
     if (!type) return null
     const row = readComment(frame)
