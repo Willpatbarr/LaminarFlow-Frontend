@@ -151,6 +151,15 @@ and the ticket entity sends an update that names a `position` as `POST /tickets/
 (an ordinary edit stays a `PUT`). `/boards/:id` is `features/tickets/components/Board.tsx`;
 its arithmetic (which cards a column shows, where a drop lands) is `features/tickets/board.ts`.
 
+**Comments (LAM-112)** are the tenth entity, unversioned like labels (no `If-Match`, no
+409; the feed is applied by upsert and remove on the id, and `comment.deleted` is the
+entity's archive). The create sends its stored `Idempotency-Key`; an edit changes `body`
+only; edit and delete are the author's, and a 403 `comment_not_author` parks the entry as
+`failed`. Hydration lists every comment the account can see. `CommentThread`
+(`features/comments`) is the thread at the foot of the ticket and document pages; it holds
+the composer back while the parent still has a temporary id, because a comment cannot name
+a ticket or document the server has not heard of.
+
 **The model.** Two ticket tables (and the same pair for every other entity): `server_tickets` is the server's copy, and
 `tickets` is what the screen shows - always *the server's copy with that
 ticket's outbox entries replayed on top*. A user action appends to (or amends)

@@ -51,6 +51,10 @@ import type {
     OutboxEntry,
     Project,
     SavedView,
+    Comment,
+    CommentEntry,
+    CommentFields,
+    NewComment,
     SavedViewEntry,
     SavedViewFields,
     NewSavedView,
@@ -122,6 +126,8 @@ export type SyncState = {
     labels: Label[]
     /** The account's own private views and its teams' shared ones (LAM-118). */
     savedViews: SavedView[]
+    /** Every comment on a live ticket or document (LAM-112), unsent ones included. */
+    comments: Comment[]
     /** Every ticket, as the user should see it: unsent edits included. */
     tickets: Ticket[]
     /** Every document, as the user should see it: unsent edits included. */
@@ -152,6 +158,7 @@ function empty(): SyncState {
         milestones: [],
         labels: [],
         savedViews: [],
+        comments: [],
         tickets: [],
         documents: [],
         outbox: [],
@@ -198,7 +205,8 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             draft.aliases[from] = to
             const row =
                 draft.tickets.find((ticket) => ticket.id === from) ??
-                draft.documents.find((document) => document.id === from)
+                draft.documents.find((document) => document.id === from) ??
+                draft.comments.find((comment) => comment.id === from)
             if (row) row.id = to
         }
     })
@@ -219,6 +227,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             reconcile(snapshot.milestones, 'id')(draft.milestones)
             reconcile(snapshot.labels, 'id')(draft.labels)
             reconcile(snapshot.savedViews, 'id')(draft.savedViews)
+            reconcile(snapshot.comments, 'id')(draft.comments)
             reconcile(snapshot.tickets, 'id')(draft.tickets)
             reconcile(snapshot.documents, 'id')(draft.documents)
             reconcile(snapshot.outbox, 'id')(draft.outbox)
@@ -523,6 +532,22 @@ export function savedViewById(id: string): SavedView | undefined {
     return state.savedViews.find((view) => view.id === resolved)
 }
 
+/** The comments on one ticket or document, oldest first. A temporary id of the
+ *  parent works. */
+export function commentsFor(parentId: string): Comment[] {
+    const resolved = resolveId(parentId)
+    return state.comments
+        .filter((comment) => comment.ticket_id === resolved || comment.document_id === resolved)
+        .toSorted((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+}
+
+/** The entry at the head of this comment's queue, or undefined when it is in
+ *  sync. A failed one carries the server's reason in `error`. */
+export function commentHead(id: string): CommentEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'comment' ? head : undefined
+}
+
 /** A team's saved views, by name: the sidebar's list. The server already left
  *  out other people's private ones. */
 export function savedViewsForTeam(teamId: string): SavedView[] {
@@ -788,6 +813,27 @@ export async function updateSavedView(id: string, patch: Partial<SavedViewFields
 
 export async function deleteSavedView(id: string): Promise<boolean> {
     const found = await running().engine.archive('saved_view', resolveId(id))
+    await caughtUp()
+    return found
+}
+
+/** Posts a comment. Resolves with the row under its temporary id; the engine
+ *  sends it and swaps the id. The parent must already be the server's (not a
+ *  temporary id): the screens hold the composer back until it is. */
+export async function createComment(comment: NewComment): Promise<Comment> {
+    const created = await running().engine.create('comment', plain(comment))
+    await caughtUp()
+    return created
+}
+
+export async function updateComment(id: string, patch: Partial<CommentFields>): Promise<boolean> {
+    const found = await running().engine.update('comment', resolveId(id), plain(patch))
+    await caughtUp()
+    return found
+}
+
+export async function deleteComment(id: string): Promise<boolean> {
+    const found = await running().engine.archive('comment', resolveId(id))
     await caughtUp()
     return found
 }

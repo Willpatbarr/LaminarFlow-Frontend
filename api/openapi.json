@@ -223,6 +223,105 @@
         ],
         "type": "object"
       },
+      "CommentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CommentBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "author_id": {
+            "description": "Null when the author's account has been deleted: render an authorless comment.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "document_id": {
+            "description": "The document commented on.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field_id": {
+            "description": "The aspect field of the document the comment is anchored to; null for a whole-document or ticket comment, and after that field is removed from the type.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "region_end": {
+            "description": "End of the range; equal to region_start for a caret.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "region_start": {
+            "description": "Start of the highlighted range, a character offset into the anchored content. Null with region_end, or both set.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "review_status": {
+            "description": "Null for a plain comment, which is everything these endpoints create. A non-null value marks a review request (LAM-113).",
+            "enum": [
+              "pending",
+              "approved",
+              "changes_requested"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ticket_id": {
+            "description": "The ticket commented on. Exactly one of ticket_id and document_id is set.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "description": "When the body last changed.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ticket_id",
+          "document_id",
+          "field_id",
+          "region_start",
+          "region_end",
+          "author_id",
+          "body",
+          "review_status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "Condition": {
         "additionalProperties": false,
         "properties": {
@@ -334,6 +433,71 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "CreateCommentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateCommentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "body": {
+            "description": "Up to 50,000 characters (not bytes); not blank.",
+            "maxLength": 50000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "document_id": {
+            "description": "The document to comment on.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field_id": {
+            "description": "Anchor the comment to one aspect field. Documents only, and the field must belong to the document's aspect type: 422 at body.field_id otherwise.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region_end": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "region_start": {
+            "description": "With region_end, the range the comment is about. Both or neither; 0 \u003c= region_start \u003c= region_end (equal is a caret).",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "ticket_id": {
+            "description": "The ticket to comment on. Exactly one of ticket_id and document_id.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "body"
         ],
         "type": "object"
       },
@@ -1652,6 +1816,45 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/BoardBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeCommentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeCommentBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommentBody"
             },
             "type": [
               "array",
@@ -3658,6 +3861,30 @@
         },
         "type": "object"
       },
+      "UpdateCommentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateCommentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "body": {
+            "description": "The new text, up to 50,000 characters; not blank. The only thing an edit changes.",
+            "maxLength": 50000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
       "UpdateDocumentInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5088,6 +5315,193 @@
           }
         },
         "summary": "Set the statuses a column holds"
+      }
+    },
+    "/api/v1/comments": {
+      "post": {
+        "description": "A plain comment: `review_status` is null and not accepted here. Send exactly one of `ticket_id` and `document_id`. `field_id` anchors it to one field of a document and must belong to the document's aspect type; `region_start`/`region_end` mark a range, both or neither. A target the caller cannot see (absent, archived, another workspace) is a 404. The comment is indexed for search in the same transaction. Send `Idempotency-Key` to make the create safe to retry after a lost response: the first request with a key creates the comment and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original comment, same status 200. A replay publishes nothing on the change feed and ignores its body.",
+        "operationId": "create-comment",
+        "parameters": [
+          {
+            "description": "Makes the create safe to retry. The same key from the same account returns the comment the first call created instead of creating another, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and live as long as the comment: once it is deleted the key is free again. A replay ignores the body it carries. Omit it for a plain create.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "Makes the create safe to retry. The same key from the same account returns the comment the first call created instead of creating another, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and live as long as the comment: once it is deleted the key is free again. A replay ignores the body it carries. Omit it for a plain create.",
+              "examples": [
+                "2b0a7c9e-5d1f-4c8e-9a53-0f2f8d6b1e47"
+              ],
+              "maxLength": 128,
+              "pattern": "^[ -~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Idempotent-Replayed": {
+                "schema": {
+                  "description": "Only when Idempotency-Key was sent. true: that key had been used, nothing was created, and the body is the original comment as it is now. false: this request created the comment.",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Comment on a ticket or a document (safe to retry with Idempotency-Key)"
+      }
+    },
+    "/api/v1/comments/list": {
+      "post": {
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `author_id` (uuid)\n- `created_at` (time)\n- `document_id` (uuid)\n- `field_id` (uuid)\n- `ticket_id` (uuid)\n\nPage size defaults to 50 and may not exceed 200.",
+        "operationId": "list-comments",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeCommentBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List comments (a read - see the description for why it is a POST)"
+      }
+    },
+    "/api/v1/comments/{id}": {
+      "delete": {
+        "description": "A hard delete: a comment has no archive state. Removed from search in the same transaction.",
+        "operationId": "delete-comment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a comment (author only)"
+      },
+      "put": {
+        "description": "Changes `body` and nothing else; the target, anchor and region are fixed at creation. A comment whose author's account was deleted can be edited by nobody. Reindexed for search in the same transaction.",
+        "operationId": "update-comment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Edit a comment's body (author only)"
       }
     },
     "/api/v1/documents": {

@@ -32,6 +32,7 @@ it("shows a 'can't reach the server' state with a working Retry when the first /
         'POST /api/v1/projects/list': () => ok({ items: [], next_cursor: null, has_more: false }),
         'POST /api/v1/tickets/list': () => ok({ items: [], next_cursor: null, has_more: false }),
         'POST /api/v1/documents/list': () => ok({ items: [], next_cursor: null, has_more: false }),
+        'POST /api/v1/comments/list': () => ok({ items: [], next_cursor: null, has_more: false }),
     })
     const history = memoryHistory('/')
     const Router = createAppRouter(history)

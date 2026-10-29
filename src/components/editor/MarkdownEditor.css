@@ -104,3 +104,13 @@
 .lf-chip[data-lf-kind='ticket']::before { content: '#'; color: var(--text-3); margin-right: 0.25em; }
 .lf-chip[data-lf-kind='document']::before { content: '\25A4'; color: var(--text-3); margin-right: 0.25em; }
 .lf-chip[data-lf-kind='project']::before { content: '\25C6'; color: var(--text-3); margin-right: 0.25em; }
+
+/* `labelHidden`: the label still names the field for screen readers. */
+.md-editor .input__label[data-hidden='true'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

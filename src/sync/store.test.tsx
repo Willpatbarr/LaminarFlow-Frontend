@@ -78,6 +78,7 @@ describe('the reactive store', () => {
             'POST /api/v1/projects/list': () => ok({ items: null, next_cursor: null, has_more: false }),
             'POST /api/v1/tickets/list': () => ok({ items: [], next_cursor: null, has_more: false }),
             'POST /api/v1/documents/list': () => ok({ items: [], next_cursor: null, has_more: false }),
+            'POST /api/v1/comments/list': () => ok({ items: [], next_cursor: null, has_more: false }),
         })
         await startSync(ME, { dbName: freshName() })
         await settled(() => expect(needsSetup()).toBe(true))
@@ -257,6 +258,7 @@ describe('data is per account', () => {
                 milestones: [],
                 labels: [],
                 savedViews: [],
+                comments: [],
                 outbox: [],
             })
             expect(await db.getMeta('account_id')).toBeUndefined()

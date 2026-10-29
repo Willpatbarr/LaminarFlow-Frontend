@@ -10,6 +10,7 @@ import {
 import {
     newIdempotencyKey,
     type Board,
+    type Comment,
     type Epic,
     type Label,
     type Milestone,
@@ -66,6 +67,8 @@ interface Schema extends DBSchema {
     server_labels: { key: string; value: Label }
     saved_views: { key: string; value: SavedView }
     server_saved_views: { key: string; value: SavedView }
+    comments: { key: string; value: Comment }
+    server_comments: { key: string; value: Comment }
     outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
 
@@ -80,6 +83,7 @@ const ENTITY_STORES = {
     milestone: { rows: 'milestones', server: 'server_milestones' },
     label: { rows: 'labels', server: 'server_labels' },
     saved_view: { rows: 'saved_views', server: 'server_saved_views' },
+    comment: { rows: 'comments', server: 'server_comments' },
 } as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
@@ -104,6 +108,8 @@ const STORES = [
     'server_labels',
     'saved_views',
     'server_saved_views',
+    'comments',
+    'server_comments',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
@@ -130,6 +136,8 @@ type RowStore =
     | 'server_labels'
     | 'saved_views'
     | 'server_saved_views'
+    | 'comments'
+    | 'server_comments'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -190,6 +198,7 @@ export type Snapshot = {
     milestones: Milestone[]
     labels: Label[]
     savedViews: SavedView[]
+    comments: Comment[]
     outbox: OutboxEntry[]
 }
 
@@ -226,7 +235,8 @@ export const DB_NAME = 'laminarflow'
 //    and `sprint_ids`; the ones on disk have none until the next hydration, and
 //    every reader treats a missing one as "none".
 // 7  saved views are an entity too (LAM-118): `saved_views` / `server_saved_views`.
-export const DB_VERSION = 7
+// 8  comments are an entity too (LAM-112): `comments` / `server_comments`.
+export const DB_VERSION = 8
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -350,6 +360,10 @@ export async function openSyncDb(
                 upgrading.createObjectStore('saved_views', { keyPath: 'id' })
                 upgrading.createObjectStore('server_saved_views', { keyPath: 'id' })
             }
+            if (oldVersion < 8) {
+                upgrading.createObjectStore('comments', { keyPath: 'id' })
+                upgrading.createObjectStore('server_comments', { keyPath: 'id' })
+            }
             // One chain, one step after another: each step is a cursor over the
             // same store and they must not interleave.
             const steps: ((store: OldStore) => Promise<void>)[] = []
@@ -389,9 +403,10 @@ export async function openSyncDb(
                 'milestones',
                 'labels',
                 'saved_views',
+                'comments',
                 'outbox',
             ])
-            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, outbox] = await Promise.all([
+            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, comments, outbox] = await Promise.all([
                 tx.objectStore('teams').getAll(),
                 tx.objectStore('projects').getAll(),
                 tx.objectStore('statuses').getAll(),
@@ -403,10 +418,11 @@ export async function openSyncDb(
                 tx.objectStore('milestones').getAll(),
                 tx.objectStore('labels').getAll(),
                 tx.objectStore('saved_views').getAll(),
+                tx.objectStore('comments').getAll(),
                 tx.objectStore('outbox').getAll(),
             ])
             await tx.done
-            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, outbox }
+            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, comments, outbox }
         },
 
         async write(fn) {

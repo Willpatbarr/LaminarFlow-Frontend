@@ -50,6 +50,9 @@ type MarkdownEditorProps = {
     placeholder?: string
     /** Shows the text and lets it be selected, but not changed. */
     readOnly?: boolean
+    /** Keeps the label for screen readers only: for an editor that sits under
+     *  a heading of its own (a comment), where a visible label repeats it. */
+    labelHidden?: boolean
     /** Marks the field invalid and renders the message under it. */
     error?: string
     /** A limit on the text, counted by the caller (see ui/count). Nothing is
@@ -160,7 +163,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
 
     return (
         <div class="md-editor" data-readonly={props.readOnly ? 'true' : undefined}>
-            <span class="input__label t-body" id={labelId}>
+            <span class="input__label t-body" data-hidden={props.labelHidden ? 'true' : undefined} id={labelId}>
                 {props.label}
             </span>
             <div class="md-editor__box" ref={(el) => {

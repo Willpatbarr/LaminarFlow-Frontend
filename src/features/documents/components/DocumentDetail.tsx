@@ -24,6 +24,7 @@ import {
 } from '@/sync'
 import type { EntryError } from '@/sync'
 
+import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
 
 import { createAutosave } from '../autosave'
@@ -34,6 +35,8 @@ import './documents.css'
 type DocumentDetailProps = {
     /** From the URL. May be a temporary id, or one that has since been replaced. */
     id: string
+    /** The signed-in account's id: comments are theirs to edit and delete. */
+    accountId: string
     /** Force the placeholder, whatever the store says. */
     loading?: boolean
 }
@@ -81,7 +84,7 @@ export function DocumentDetail(props: DocumentDetailProps) {
                     </div>
                 </Match>
                 <Match when={doc()}>
-                    {(found) => <DocumentEditor doc={found()} routeId={props.id} announce={setNotice} />}
+                    {(found) => <DocumentEditor doc={found()} routeId={props.id} accountId={props.accountId} announce={setNotice} />}
                 </Match>
             </Switch>
         </section>
@@ -92,6 +95,7 @@ type DocumentEditorProps = {
     doc: Doc
     /** The id from the URL: it outlives the row, which the store may drop under the page. */
     routeId: string
+    accountId: string
     announce: (text: string) => void
 }
 
@@ -296,6 +300,8 @@ function DocumentEditor(props: DocumentEditorProps) {
             </Show>
 
             <LinkedTickets documentId={props.routeId} disabled={locked()} />
+
+            <CommentThread parent={{ documentId: props.routeId }} accountId={props.accountId} disabled={locked()} />
         </div>
     )
 }

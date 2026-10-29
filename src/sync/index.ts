@@ -8,6 +8,10 @@ export { isTempId } from './types'
 export type { ConnectionState } from './socket'
 export type {
     Board,
+    Comment,
+    CommentEntry,
+    CommentFields,
+    NewComment,
     BoardColumn,
     BoardEntry,
     BoardFields,
