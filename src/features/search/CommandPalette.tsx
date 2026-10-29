@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router'
 import { Portal } from '@solidjs/web'
 import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show } from 'solid-js'
 
+import { makeDocument } from '@/features/documents/newDocument'
 import { sync } from '@/sync'
 
 import { MAX_QUERY, searchServer, type SearchItem } from './api'
@@ -189,6 +190,15 @@ function Palette(props: PaletteProps & { onClose: () => void }) {
         const out: Row[] = []
         const w = words()
         const asked = answer()
+        if (w.every((word) => 'new document'.includes(word))) {
+            out.push({
+                key: 'command:new-document',
+                kind: 'command',
+                run: () => void makeDocument(navigate),
+                label: [{ text: 'New document', mark: false }],
+                detail: [],
+            })
+        }
         if (props.onNewTicket && w.every((word) => 'new ticket'.includes(word))) {
             out.push({
                 key: 'command:new-ticket',

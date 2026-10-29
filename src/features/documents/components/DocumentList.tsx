@@ -5,9 +5,9 @@ import { api } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
-import { createDocument, isLoading, sync, type Doc } from '@/sync'
+import { isLoading, sync, type Doc } from '@/sync'
 
-import { CONTENT_KEY } from '../content'
+import { makeDocument } from '../newDocument'
 import './documents.css'
 
 type DocumentListProps = {
@@ -85,15 +85,7 @@ export function DocumentList(props: DocumentListProps) {
         setCreating(true)
         try {
             const target = props.projectId ?? (project() !== ALL && project() !== NONE ? project() : null)
-            const document = await createDocument({
-                title: '',
-                type: aspectTypeId ? 'aspect' : 'normal',
-                aspect_type_id: aspectTypeId,
-                team_id: null,
-                project_id: target,
-                body: aspectTypeId ? {} : { [CONTENT_KEY]: '' },
-            })
-            navigate(`/documents/${document.id}`)
+            await makeDocument(navigate, { aspectTypeId, projectId: target })
         } finally {
             setCreating(false)
         }

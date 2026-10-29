@@ -125,4 +125,13 @@ describe('Command palette', () => {
         await user.keyboard('{Enter}')
         expect(await screen.findByRole('dialog', { name: 'New ticket' })).toBeInTheDocument()
     })
+
+    it('runs New document as a command: a document is made and opened', async () => {
+        const routes = world(() => ok({ items: [] }))
+        const { user, history, box } = await palette(routes)
+        await user.type(box, 'new doc')
+        await user.keyboard('{Enter}')
+        await waitFor(() => expect(history.get()).toMatch(/^\/documents\/.+/))
+        expect(screen.queryByRole('dialog', { name: 'Search' })).not.toBeInTheDocument()
+    })
 })

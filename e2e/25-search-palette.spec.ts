@@ -89,3 +89,17 @@ test('Escape closes it and the New ticket command opens the dialog', async ({ pa
     await page.keyboard.press('Enter')
     await expect(page.getByRole('dialog', { name: 'New ticket' })).toBeVisible()
 })
+
+test('the New document command makes a document and opens it', async ({ page, context, baseURL }) => {
+    const account = await newAccount('palette4')
+    await projectOf(account)
+    await signedInAs(context, account, baseURL!)
+    await page.goto('/')
+    await listLoaded(page)
+
+    await page.keyboard.press('Control+k')
+    await page.keyboard.type('new doc')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/documents\/[^/]+$/)
+    await expect(page.getByRole('textbox', { name: 'Text' })).toBeVisible()
+})
