@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, untrack } from 'solid-js'
+import { createEffect, createSignal, onCleanup, untrack } from 'solid-js'
 
 /*
 ┌─ documents ─────────────────────────────────────
@@ -18,14 +18,22 @@ export type AutosaveOptions = {
     delay?: number
     /** False while the draft must not be saved (blank, over a limit). The text
      *  stays in the field and nothing is queued; the next flush tries again. */
-    canSave?: () => boolean
+    canSave?: (value: string) => boolean
     /** The version of the row the edit starts from. Read on the first keystroke
      *  after the field was idle, kept until the draft has been saved, and given to
      *  `save` so a conflict check can name the version the user actually saw. */
     base?: () => number | null
+    /** What the field is editing (a row id). Read on the first keystroke and kept
+     *  with the draft: the save goes to that row even if the page has since been
+     *  reused for another, and when it changes the draft is saved to the old row
+     *  and dropped, so it never shows up on, or is written into, the new one. */
+    key?: () => string
+    /** Whether two keys name the same row (a new row's temporary id and its
+     *  real one do). Defaults to equality. */
+    same?: (a: string, b: string) => boolean
 }
 
-export type AutosaveContext = { base: number | null }
+export type AutosaveContext = { base: number | null; key: string | null }
 
 /** While the user is typing the field shows their draft and ignores the store,
  *  so a sync landing mid-word cannot overwrite it; once the store shows what
@@ -38,24 +46,47 @@ export function createAutosave(
     save: (value: string, context: AutosaveContext) => Promise<unknown>,
     options: AutosaveOptions | number = {},
 ) {
-    const { delay = AUTOSAVE_DELAY, canSave, base } = typeof options === 'number' ? { delay: options } : options
+    const { delay = AUTOSAVE_DELAY, canSave, base, key, same = (a: string, b: string) => a === b } = typeof options === 'number' ? { delay: options } : options
     const [draft, setDraft] = createSignal<string | null>(null)
     let timer: ReturnType<typeof setTimeout> | undefined
     // Undefined while idle; set on the first keystroke of an edit.
     let editBase: number | null | undefined
+    let editKey: string | null = null
+    const sameRow = (k: string | null) => k !== null && same(k, untrack(key!))
+    const current = () => draft() !== null && (!key || (editKey !== null && same(editKey, key())))
 
     async function flush() {
         clearTimeout(timer)
         timer = undefined
         const value = draft()
         if (value === null) return
-        if (canSave && !canSave()) return
-        if (value !== saved()) await save(value, { base: editBase ?? null })
+        if (canSave && !canSave(value)) return
+        if (value !== saved()) await save(value, { base: editBase ?? null, key: editKey })
         // Unless they have started typing again in the meantime.
         if (draft() === value) {
             setDraft(null)
             editBase = undefined
+            editKey = null
         }
+    }
+
+    // The page was reused for another row: the old row gets the words, the new
+    // one starts clean.
+    if (key) {
+        createEffect(key, (next, previous) => {
+            if (previous === undefined || next === previous) return
+            untrack(() => {
+                const value = draft()
+                if (value === null || (editKey !== null && same(editKey, next))) return
+                const context = { base: editBase ?? null, key: editKey }
+                clearTimeout(timer)
+                timer = undefined
+                setDraft(null)
+                editBase = undefined
+                editKey = null
+                if (!canSave || canSave(value)) void save(value, context).catch(() => {})
+            })
+        })
     }
 
     // Leaving the page must not lose the last words. A read of the store here
@@ -79,11 +110,14 @@ export function createAutosave(
     }
 
     return {
-        value: () => draft() ?? saved(),
+        value: () => (current() ? draft()! : saved()),
         /** Typed, not yet saved. */
-        dirty: () => draft() !== null && draft() !== saved(),
+        dirty: () => current() && draft() !== saved(),
         input(value: string) {
-            if (draft() === null && editBase === undefined) editBase = untrack(() => base?.() ?? null)
+            if (draft() === null || (key && !sameRow(editKey))) {
+                editBase = untrack(() => base?.() ?? null)
+                editKey = key ? untrack(key) : null
+            }
             setDraft(value)
             clearTimeout(timer)
             timer = setTimeout(() => void flush(), delay)
@@ -95,6 +129,7 @@ export function createAutosave(
             timer = undefined
             setDraft(null)
             editBase = undefined
+            editKey = null
         },
     }
 }

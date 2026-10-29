@@ -315,20 +315,24 @@ function TicketEditor(props: TicketEditorProps) {
     // the edit began (kept for the conflict check, LAM-131).
     const title = createAutosave(
         () => props.ticket.title,
-        (value) => updateTicket(id(), { title: value.trim() }),
+        (value, context) => updateTicket(context.key ?? props.routeId, { title: value.trim() }),
         {
             delay: TICKET_AUTOSAVE_DELAY,
             base: () => props.ticket.version,
-            canSave: () => titleSavable(),
+            key: () => props.routeId,
+            same: (a, b) => resolveTicketId(a) === resolveTicketId(b),
+            canSave: (value) => value.trim() !== '' && !overMessage('Title', titleCount(value)),
         },
     )
     const description = createAutosave(
         () => props.ticket.description,
-        (value) => updateTicket(id(), { description: value }),
+        (value, context) => updateTicket(context.key ?? props.routeId, { description: value }),
         {
             delay: TICKET_AUTOSAVE_DELAY,
             base: () => props.ticket.version,
-            canSave: () => !descriptionOver(),
+            key: () => props.routeId,
+            same: (a, b) => resolveTicketId(a) === resolveTicketId(b),
+            canSave: (value) => !overMessage('Description', descriptionCount(value)),
         },
     )
 
@@ -347,8 +351,6 @@ function TicketEditor(props: TicketEditorProps) {
 
     // A ticket with no title is a row nobody can find again, so a blank one is
     // never saved - not while typing, not on blur.
-    const titleSavable = () => title.value().trim() !== '' && !titleOver()
-
     function commitTitle() {
         if (title.value().trim() === '') {
             setBlankTried(true)

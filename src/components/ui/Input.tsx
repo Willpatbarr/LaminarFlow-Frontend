@@ -16,6 +16,8 @@ type InputProps = {
     onInput: (value: string) => void
     /** Focus left the control. For a field that saves when you leave it. */
     onBlur?: () => void
+    /** The browser's `change`: for a date, the moment a date is picked. */
+    onChange?: () => void
     type?: 'text' | 'email' | 'password' | 'date'
     name?: string
     autocomplete?: 'email' | 'current-password' | 'new-password' | 'given-name' | 'family-name'
@@ -62,6 +64,7 @@ export function Input(props: InputProps) {
                 aria-describedby={describedBy(props, errorId, countId)}
                 onInput={(event) => props.onInput(event.currentTarget.value)}
                 onBlur={() => props.onBlur?.()}
+                onChange={() => props.onChange?.()}
             />
             <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>

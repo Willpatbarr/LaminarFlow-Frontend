@@ -15,7 +15,7 @@ function setup(options: Parameters<typeof createAutosave>[2] = { delay: 1000 }) 
         setVersionSignal(value)
         flushSignals()
     }
-    const save = vi.fn(async (value: string, _context: { base: number | null }) => {
+    const save = vi.fn(async (value: string, _context: { base: number | null; key: string | null }) => {
         setStored(value)
         flushSignals()
     })
@@ -100,18 +100,18 @@ describe('createAutosave', () => {
         await vi.advanceTimersByTimeAsync(500)
         type('ab')
         await vi.advanceTimersByTimeAsync(1000)
-        expect(save.mock.calls[0][1]).toEqual({ base: 4 })
+        expect(save.mock.calls[0][1]).toMatchObject({ base: 4 })
     })
 
     it('captures a fresh base when a new edit starts after the draft was saved', async () => {
         const { save, setVersion, type } = setup()
         type('one')
         await vi.advanceTimersByTimeAsync(1000)
-        expect(save.mock.calls[0][1]).toEqual({ base: 4 })
+        expect(save.mock.calls[0][1]).toMatchObject({ base: 4 })
         setVersion(6)
         type('one two')
         await vi.advanceTimersByTimeAsync(1000)
-        expect(save.mock.calls[1][1]).toEqual({ base: 6 })
+        expect(save.mock.calls[1][1]).toMatchObject({ base: 6 })
     })
 
     it('shows the draft, not the store, while typing, and does not revert after the save lands', async () => {
@@ -134,5 +134,26 @@ describe('createAutosave', () => {
         await vi.advanceTimersByTimeAsync(1000)
         expect(save).toHaveBeenCalledTimes(2)
         expect(field.value()).toBe('abc')
+    })
+
+    it('when the page is reused for another row, the old row gets the draft and the new one is untouched', async () => {
+        const [row, setRow] = createSignal('a')
+        const [texts, setTexts] = createSignal<Record<string, string>>({ a: 'A saved', b: 'B saved' })
+        const save = vi.fn(async (_value: string, _context: { base: number | null; key: string | null }) => {})
+        const field = createRoot(() => createAutosave(() => texts()[row()], save, { delay: 1000, key: row }))
+        field.input('A typed')
+        flushSignals()
+        await vi.advanceTimersByTimeAsync(300)
+        setRow('b')
+        flushSignals()
+        await vi.advanceTimersByTimeAsync(0)
+        expect(save).toHaveBeenCalledTimes(1)
+        expect(save.mock.calls[0][0]).toBe('A typed')
+        expect(save.mock.calls[0][1].key).toBe('a')
+        // B shows its own text, and the old timer saves nothing more.
+        expect(field.value()).toBe('B saved')
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(save).toHaveBeenCalledTimes(1)
+        setTexts({ a: 'A typed', b: 'B saved' })
     })
 })

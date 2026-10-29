@@ -42,10 +42,12 @@ test('a milestone description typed without leaving the field survives a reload'
     await expect(page.getByRole('heading', { name: 'v1.0' })).toBeVisible()
     await connectionIs(page, 'Live')
 
+    await page.getByLabel('Name').fill('v1.0 final')
     await page.getByLabel('Description').fill('Ship it in March')
     await page.waitForTimeout(2000)
     await page.reload()
 
+    await expect(page.getByLabel('Name')).toHaveValue('v1.0 final')
     await expect(page.getByLabel('Description')).toHaveValue('Ship it in March')
     await expect
         .poll(async () => {
@@ -53,4 +55,27 @@ test('a milestone description typed without leaving the field survives a reload'
             return list.find((m) => m.id === milestone.id)?.description
         })
         .toBe('Ship it in March')
+})
+
+test('text typed in one ticket and left within a second goes to that ticket, not the next', async ({ page, context, baseURL }) => {
+    const account = await newAccount('typingnav')
+    const world = await projectOf(account)
+    const a = await serverCreate(account, world.projectId, fields('Ticket A'))
+    const b = await serverCreate(account, world.projectId, fields('Ticket B'))
+    await signedInAs(context, account, baseURL!)
+    await openTicket(page, a.id, 'Ticket A')
+    await connectionIs(page, 'Live')
+
+    await page.getByLabel('Title').fill('Ticket A, edited')
+    // Straight to the other ticket in the same page (no reload, no blur).
+    await page.evaluate((path) => {
+        history.pushState({}, '', path)
+        dispatchEvent(new PopStateEvent('popstate'))
+    }, `/tickets/${b.id}`)
+    await expect(page.getByLabel('Title')).toHaveValue('Ticket B')
+
+    await expect.poll(async () => (await serverTicket(account, a.id))?.title).toBe('Ticket A, edited')
+    await page.waitForTimeout(2000)
+    expect((await serverTicket(account, b.id))?.title).toBe('Ticket B')
+    await expect(page.getByLabel('Title')).toHaveValue('Ticket B')
 })
