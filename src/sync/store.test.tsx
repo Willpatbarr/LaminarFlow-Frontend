@@ -10,6 +10,9 @@ import { connectSyncToSession } from './session'
 import {
     archiveDocument,
     createDocument,
+    createEpic,
+    epicById,
+    resolveId,
     createTicket,
     discard,
     documentById,
@@ -131,6 +134,26 @@ describe('the reactive store', () => {
         // And the old id still finds it, for a URL or selection that held it.
         expect(ticketById(created.id)?.id).toBe('t-9')
         expect(ticketSyncState(created.id)).toBe('synced')
+    })
+
+    it('remembers a temporary id -> real id across a restart, for any kind of row (LAM-133)', async () => {
+        const dbName = freshName()
+        stubFetch({
+            ...listRoutes(),
+            'POST /api/v1/epics': () =>
+                ok({ id: 'e-9', project_id: 'p-1', name: 'Checkout', description: '', version: 1, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }),
+        })
+        await startSync(ME, { dbName })
+        await settled(() => expect(sync.hydrated).toBe(true))
+        const created = await createEpic({ project_id: 'p-1', name: 'Checkout', description: '' })
+        await settled(() => expect(sync.outbox).toEqual([]))
+        expect(resolveId(created.id)).toBe('e-9')
+        await stopSync()
+
+        stubFetch({ 'POST /api/v1/teams/list': () => new Promise<Response>(() => {}) })
+        await startSync(ME, { dbName })
+        expect(resolveId(created.id)).toBe('e-9')
+        expect(epicById(created.id)?.id).toBe('e-9')
     })
 
     it('lists parked entries, and discard() puts the row back', async () => {
