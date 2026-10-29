@@ -23,6 +23,8 @@ export type SideNavLink = {
     href: string
     /** An SVG path (24px grid). Home when absent. */
     icon?: string
+    /** A word after the label, such as "Private". Quiet, and read out with it. */
+    note?: string
 }
 
 /** The team switcher: the teams the account has and the one in view. */
@@ -38,6 +40,9 @@ type SideNavProps = {
     teams?: SideNavTeams
     /** The active team's projects, one link each. */
     projects?: SideNavLink[]
+    /** The active team's saved views, one link each (LAM-118). Absent until the
+     *  account has a team; an empty list says so. */
+    views?: SideNavLink[]
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
@@ -137,6 +142,22 @@ export function SideNav(props: SideNavProps) {
                                     </For>
                                 </ul>
                             </Show>
+                            <Show when={props.views !== undefined}>
+                                <h2 class="side-nav__heading t-meta">Saved views</h2>
+                                <ul class="side-nav__list" aria-label="Saved views">
+                                    <For
+                                        each={props.views}
+                                        fallback={<li class="side-nav__empty t-meta">No saved views yet</li>}
+                                    >
+                                        {(link) => (
+                                            <NavLink
+                                                link={{ ...link, icon: link.icon ?? ICONS.views }}
+                                                collapsed={collapsed()}
+                                            />
+                                        )}
+                                    </For>
+                                </ul>
+                            </Show>
                         </nav>
                         <div class="side-nav__foot">
                             {props.status}
@@ -211,6 +232,10 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
                     />
                 </svg>
                 <span class="side-nav__label">{props.link.label}</span>
+                <Show when={props.link.note}>
+                    {' '}
+                    <span class="side-nav__note t-meta">{props.link.note}</span>
+                </Show>
             </a>
         </li>
     )

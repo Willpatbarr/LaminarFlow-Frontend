@@ -4,6 +4,7 @@ import { documentEntity } from './document'
 import { epicEntity, milestoneEntity, sprintEntity } from './hierarchy'
 import { labelEntity } from './label'
 import type { Entity, LooseRules } from './entity'
+import { savedViewEntity } from './savedView'
 import { statusEntity } from './status'
 import { ticketEntity } from './ticket'
 
@@ -23,6 +24,7 @@ export const ENTITIES: readonly Entity[] = [
     sprintEntity,
     milestoneEntity,
     labelEntity,
+    savedViewEntity,
 ] as unknown as readonly Entity[]
 
 /** The registered entity called `name`. */

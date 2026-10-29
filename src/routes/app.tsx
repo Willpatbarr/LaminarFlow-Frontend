@@ -9,7 +9,7 @@ import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
-import { currentProject, sync, unsyncedCount } from '@/sync'
+import { boardById, currentProject, savedViewsForTeam, sync, unsyncedCount } from '@/sync'
 
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [
@@ -40,16 +40,22 @@ export function AppLayout(props: RouteSectionProps) {
     // The first /auth/me is still on its way.
     const stillAsking = () => session.status === 'unknown' && session.loadFailure === null
 
-    // The team in view comes from the URL, so a link to a team or a project
-    // always shows the right sidebar: /teams/:id names it, /projects/:id names
-    // a project and so its team, and anywhere else it is the picked project's.
+    // The team in view comes from the URL, so a link to a team, a project or a
+    // board always shows the right sidebar: /teams/:id names it, /projects/:id
+    // and /boards/:id name a project and so its team, and anywhere else it is
+    // the picked project's.
     const activeTeamId = createMemo(() => {
         const path = location.pathname
         const team = /^\/teams\/([^/]+)/.exec(path)
         if (team) return decodeURIComponent(team[1])
         const project = /^\/projects\/([^/]+)/.exec(path)
         const projectId = project ? decodeURIComponent(project[1]) : undefined
-        const found = projectId ? sync.projects.find((p) => p.id === projectId) : currentProject()
+        // A board names its project too, so its sidebar is its team's (the saved
+        // views listed there are the ones this board's own team shares).
+        const board = /^\/boards\/([^/]+)/.exec(path)
+        const boardProject = board ? boardById(decodeURIComponent(board[1]))?.project_id : undefined
+        const named = projectId ?? boardProject
+        const found = named ? sync.projects.find((p) => p.id === named) : currentProject()
         return found?.team_id ?? currentProject()?.team_id ?? sync.teams[0]?.id
     })
     const teams = createMemo(() => sync.teams.toSorted((a, b) => a.name.localeCompare(b.name)))
@@ -58,6 +64,15 @@ export function AppLayout(props: RouteSectionProps) {
             .filter((project) => project.team_id === activeTeamId())
             .toSorted((a, b) => a.name.localeCompare(b.name))
             .map((project) => ({ label: project.name, href: `/projects/${project.id}` }))
+
+    // The team's saved views, one link each. A private one is marked: the server
+    // sends a person only their own, so the mark is a reminder, not a filter.
+    const viewLinks = () =>
+        savedViewsForTeam(activeTeamId() ?? '').map((view) => ({
+            label: view.name,
+            href: `/views/${view.id}`,
+            note: view.is_shared ? undefined : 'Private',
+        }))
 
     // `logout` does not reject: the store is cleared even if the request
     // failed, so landing on /login is unconditional. The guard has already
@@ -92,6 +107,7 @@ export function AppLayout(props: RouteSectionProps) {
                                 : undefined
                         }
                         projects={teams().length > 0 ? projectLinks() : undefined}
+                        views={teams().length > 0 ? viewLinks() : undefined}
                         userName={session.me?.display_name}
                         loading={stillAsking()}
                         status={

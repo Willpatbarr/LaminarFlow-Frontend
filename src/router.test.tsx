@@ -164,17 +164,10 @@ describe('section routes', () => {
         ['/documents', 'Documents'],
         ['/documents/d1', 'Document'],
         ['/views', 'Views'],
-        ['/views/v1', 'View'],
     ])('%s is reachable by URL', async (url, heading) => {
         mount(url)
 
         expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
-    })
-
-    it('says the placeholder pages are placeholders', async () => {
-        mount('/views')
-
-        expect(await screen.findByText(/Placeholder/)).toBeInTheDocument()
     })
 })
 

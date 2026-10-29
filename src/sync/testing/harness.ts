@@ -172,18 +172,19 @@ export function page(items: unknown[], next_cursor: string | null = null) {
     return ok({ items, next_cursor, has_more: next_cursor !== null })
 }
 
-/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`, and the epics, sprints, milestones and labels in `hierarchy` (none by default). */
+/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`, and the epics, sprints, milestones, labels and saved views in `hierarchy` (none by default). */
 export function listRoutes(
     tickets: Ticket[] = [],
     documents: Doc[] = [],
     boards: unknown[] = [],
-    hierarchy: { epics?: unknown[]; sprints?: unknown[]; milestones?: unknown[]; labels?: unknown[] } = {},
+    hierarchy: { epics?: unknown[]; sprints?: unknown[]; milestones?: unknown[]; labels?: unknown[]; savedViews?: unknown[] } = {},
 ) {
     return {
         'POST /api/v1/epics/list': () => page(hierarchy.epics ?? []),
         'POST /api/v1/sprints/list': () => page(hierarchy.sprints ?? []),
         'POST /api/v1/milestones/list': () => page(hierarchy.milestones ?? []),
         'POST /api/v1/labels/list': () => page(hierarchy.labels ?? []),
+        'POST /api/v1/saved-views/list': () => page(hierarchy.savedViews ?? []),
         'POST /api/v1/boards/list': () => page(boards),
         'POST /api/v1/teams/list': () => page([TEAM]),
         'POST /api/v1/projects/list': () => page([PROJECT]),

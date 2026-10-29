@@ -34,6 +34,9 @@ type ListControlsProps = {
     onChange: (config: ListViewConfig) => void
     project: Project
     viewer: Viewer
+    /** Only the search and the filter panel: a board has its columns on the
+     *  board itself, and its cards in their own order (LAM-118). */
+    filterOnly?: boolean
 }
 
 const TEXT_DELAY_MS = 250
@@ -148,7 +151,7 @@ export function ListControls(props: ListControlsProps) {
     }
 
     return (
-        <div class="list-controls" role="group" aria-label="List view">
+        <div class="list-controls" role="group" aria-label={props.filterOnly ? 'Board filter' : 'List view'}>
             <div class="list-controls__row">
                 <Show
                     when={model()}
@@ -168,38 +171,40 @@ export function ListControls(props: ListControlsProps) {
                         />
                     </div>
                 </Show>
-                <div class="list-controls__select">
-                    <Select
-                        label="Group by"
-                        value={props.config.group ?? ''}
-                        options={[
-                            { value: '', label: 'No grouping' },
-                            ...GROUP_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
-                        ]}
-                        onChange={(value) => set({ group: value === '' ? undefined : value })}
-                    />
-                </div>
-                <div class="list-controls__select">
-                    <Select
-                        label="Sort by"
-                        value={sortKey()?.field ?? ''}
-                        options={[
-                            { value: '', label: 'Recently updated' },
-                            ...COLUMN_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
-                        ]}
-                        onChange={pickSort}
-                    />
-                </div>
-                <Show when={sortKey()}>
-                    {(key) => (
-                        <Button
-                            variant="secondary"
-                            aria-label={`Sort direction: ${key().desc ? 'descending' : 'ascending'}`}
-                            onClick={() => set({ sort: [{ field: key().field, desc: !key().desc }] })}
-                        >
-                            {key().desc ? 'Descending' : 'Ascending'}
-                        </Button>
-                    )}
+                <Show when={!props.filterOnly}>
+                    <div class="list-controls__select">
+                        <Select
+                            label="Group by"
+                            value={props.config.group ?? ''}
+                            options={[
+                                { value: '', label: 'No grouping' },
+                                ...GROUP_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
+                            ]}
+                            onChange={(value) => set({ group: value === '' ? undefined : value })}
+                        />
+                    </div>
+                    <div class="list-controls__select">
+                        <Select
+                            label="Sort by"
+                            value={sortKey()?.field ?? ''}
+                            options={[
+                                { value: '', label: 'Recently updated' },
+                                ...COLUMN_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
+                            ]}
+                            onChange={pickSort}
+                        />
+                    </div>
+                    <Show when={sortKey()}>
+                        {(key) => (
+                            <Button
+                                variant="secondary"
+                                aria-label={`Sort direction: ${key().desc ? 'descending' : 'ascending'}`}
+                                onClick={() => set({ sort: [{ field: key().field, desc: !key().desc }] })}
+                            >
+                                {key().desc ? 'Descending' : 'Ascending'}
+                            </Button>
+                        )}
+                    </Show>
                 </Show>
                 <Show when={props.config.filter !== undefined}>
                     <Button variant="ghost" onClick={() => set({ filter: undefined })}>
@@ -259,32 +264,34 @@ export function ListControls(props: ListControlsProps) {
                         </details>
                     )}
                 </Show>
-                <details class="list-controls__panel" onToggle={(event) => setColumnsOpen(event.currentTarget.open)}>
-                    <summary class="t-body">Columns</summary>
-                    <Show when={columnsOpen()}>
-                        <fieldset class="list-controls__fieldset">
-                            <legend class="visually-hidden">Visible columns</legend>
-                            <For each={COLUMN_FIELDS}>
-                                {(field) => (
-                                    <label class="list-controls__check t-body">
-                                        <input
-                                            type="checkbox"
-                                            checked={columns().includes(field)}
-                                            disabled={field === 'title'}
-                                            onChange={(event) => pickColumn(field, event.currentTarget.checked)}
-                                        />
-                                        {fieldLabel(field)}
-                                    </label>
-                                )}
-                            </For>
-                            <Show when={props.config.columns !== undefined}>
-                                <Button variant="ghost" size="sm" onClick={() => set({ columns: undefined })}>
-                                    Reset columns
-                                </Button>
-                            </Show>
-                        </fieldset>
-                    </Show>
-                </details>
+                <Show when={!props.filterOnly}>
+                    <details class="list-controls__panel" onToggle={(event) => setColumnsOpen(event.currentTarget.open)}>
+                        <summary class="t-body">Columns</summary>
+                        <Show when={columnsOpen()}>
+                            <fieldset class="list-controls__fieldset">
+                                <legend class="visually-hidden">Visible columns</legend>
+                                <For each={COLUMN_FIELDS}>
+                                    {(field) => (
+                                        <label class="list-controls__check t-body">
+                                            <input
+                                                type="checkbox"
+                                                checked={columns().includes(field)}
+                                                disabled={field === 'title'}
+                                                onChange={(event) => pickColumn(field, event.currentTarget.checked)}
+                                            />
+                                            {fieldLabel(field)}
+                                        </label>
+                                    )}
+                                </For>
+                                <Show when={props.config.columns !== undefined}>
+                                    <Button variant="ghost" size="sm" onClick={() => set({ columns: undefined })}>
+                                        Reset columns
+                                    </Button>
+                                </Show>
+                            </fieldset>
+                        </Show>
+                    </details>
+                </Show>
             </div>
         </div>
     )

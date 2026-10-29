@@ -6,6 +6,7 @@ import type { components } from '@/api/schema'
 ├─ out ───────────────────────────────────────────
 │      Ticket, TicketFields, Epic, Sprint, Milestone, Label, Doc, DocFields, Team, Project, Status, StatusFields, NewStatus
 │      Board, BoardColumn, BoardFields, NewBoard, BoardConflict
+│      SavedView, SavedViewConfig, SavedViewFields, NewSavedView
 │      EntityName, EntityRows, EntryOf, OutboxEntry, EntryState, TicketConflict, DocConflict, TicketSyncState
 */
 // Written out rather than aliased to the generated schema types: these are
@@ -162,6 +163,35 @@ export type SprintFields = Pick<Sprint, 'name' | 'start_date' | 'end_date'>
 export type MilestoneFields = Pick<Milestone, 'name' | 'description' | 'target_date'>
 export type LabelFields = Pick<Label, 'name' | 'color'>
 
+/** A saved list or board setup (LAM-118). `config` is the API's `Config` as it
+ *  is: the list view's filter, group, sort and columns. The server keeps no
+ *  version for one (no `If-Match`, no 409) and announces nothing on the change
+ *  feed, so `version` is always 1 and a teammate's new view arrives with the
+ *  next hydration. */
+export type SavedViewConfig = components['schemas']['Config']
+export type SavedView = {
+    id: string
+    team_id: string
+    /** Null for a view of the whole team. */
+    project_id: string | null
+    /** Set exactly when `layout` is `board`. */
+    board_id: string | null
+    layout: 'list' | 'board'
+    name: string
+    /** False is private to the owner; true is visible to the whole team. */
+    is_shared: boolean
+    /** Null for a team's own view, which any member may edit. */
+    owner_account_id: string | null
+    config: SavedViewConfig
+    version: number
+}
+
+/** What a user edits. The layout and the scope are fixed when it is saved. */
+export type SavedViewFields = Pick<SavedView, 'name' | 'is_shared' | 'config'>
+
+export type NewSavedView = SavedViewFields &
+    Pick<SavedView, 'team_id' | 'project_id' | 'board_id' | 'layout'>
+
 /** Read-only entities answer no 409; the type exists so the maps are complete. */
 export type ReadOnlyConflict<Row> = { code: 'read_only_conflict'; current: Row; changed_at: string }
 
@@ -210,7 +240,7 @@ export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 /** Every kind of thing the sync engine carries. Adding one means adding it to
  *  the four maps below and registering it (`entities/index.ts`). */
-export type EntityName = 'ticket' | 'document' | 'status' | 'board' | 'epic' | 'sprint' | 'milestone' | 'label'
+export type EntityName = 'ticket' | 'document' | 'status' | 'board' | 'epic' | 'sprint' | 'milestone' | 'label' | 'saved_view'
 
 /** The row each entity keeps locally. */
 export type EntityRows = {
@@ -222,6 +252,7 @@ export type EntityRows = {
     sprint: Sprint
     milestone: Milestone
     label: Label
+    saved_view: SavedView
 }
 /** What a user edits; `PUT` replaces all of it. */
 export type EntityFields = {
@@ -233,6 +264,7 @@ export type EntityFields = {
     sprint: SprintFields
     milestone: MilestoneFields
     label: LabelFields
+    saved_view: SavedViewFields
 }
 /** What a create carries. */
 export type EntityCreates = {
@@ -244,6 +276,7 @@ export type EntityCreates = {
     sprint: SprintFields & Pick<Sprint, 'project_id'>
     milestone: MilestoneFields & Pick<Milestone, 'project_id'>
     label: LabelFields & Pick<Label, 'team_id'>
+    saved_view: NewSavedView
 }
 /** What an archive carries. A ticket or document archive needs nothing; deleting
  *  a status says where its tickets go (`move_to`, a status of the same team). */
@@ -256,6 +289,7 @@ export type EntityArchives = {
     sprint: null
     milestone: null
     label: null
+    saved_view: null
 }
 /** The body of a 409, kept on the entry so LAM-71 can show both sides. */
 export type EntityConflicts = {
@@ -267,6 +301,7 @@ export type EntityConflicts = {
     sprint: ReadOnlyConflict<Sprint>
     milestone: ReadOnlyConflict<Milestone>
     label: ReadOnlyConflict<Label>
+    saved_view: ReadOnlyConflict<SavedView>
 }
 
 type EntryBase<N extends EntityName> = {
@@ -320,6 +355,7 @@ export type DocEntry = EntryOf<'document'>
 export type StatusEntry = EntryOf<'status'>
 export type BoardEntry = EntryOf<'board'>
 export type LabelEntry = EntryOf<'label'>
+export type SavedViewEntry = EntryOf<'saved_view'>
 
 /** An entry before IndexedDB has numbered it. */
 export type NewOutboxEntry = OutboxEntry extends infer E ? (E extends unknown ? Omit<E, 'id'> : never) : never

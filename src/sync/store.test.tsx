@@ -256,6 +256,7 @@ describe('data is per account', () => {
                 sprints: [],
                 milestones: [],
                 labels: [],
+                savedViews: [],
                 outbox: [],
             })
             expect(await db.getMeta('account_id')).toBeUndefined()
