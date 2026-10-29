@@ -93,7 +93,7 @@ export async function newAccount(label = 'user'): Promise<Account> {
 
 type Data<T> = T extends { data?: infer D } ? NonNullable<D> : never
 
-function must<T extends { data?: unknown; error?: unknown; response: Response }>(label: string, result: T): Data<T> {
+export function must<T extends { data?: unknown; error?: unknown; response: Response }>(label: string, result: T): Data<T> {
   if (result.data === undefined) {
     throw new Error(`${label} failed: ${result.response.status} ${JSON.stringify(result.error)}`)
   }

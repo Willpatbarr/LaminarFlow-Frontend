@@ -23,9 +23,9 @@ import type { Entity } from './entity'
 //    ones, per team; this entity lists every team the account has.
 //  - editing and deleting are owner-only: a 403 `saved_view_not_owner` parks the
 //    entry as failed. The screens only offer them where `canEdit` says so.
-//  - the create takes no Idempotency-Key. A name is not unique, so a create whose
-//    answer was lost and is sent again would make a second view; this is the
-//    one duplicate the entity cannot prevent.
+//  - the create sends its stored `Idempotency-Key` (LAM-127). A name is not
+//    unique, so the key is what stops a create whose answer was lost from making
+//    a second view.
 
 type SavedViewBody = components['schemas']['SavedViewBody']
 
@@ -118,6 +118,7 @@ export const savedViewEntity: Entity<'saved_view'> = {
                     entry,
                     () =>
                         api.POST('/api/v1/saved-views', {
+                            params: { header: { 'Idempotency-Key': entry.idempotency_key } },
                             body: {
                                 team_id,
                                 layout,

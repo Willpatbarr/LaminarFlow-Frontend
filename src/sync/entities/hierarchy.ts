@@ -107,9 +107,8 @@ type Hierarchy = 'epic' | 'sprint' | 'milestone'
 type Send<N extends Hierarchy> = Entity<N>['remote']['send']
 
 // Shared by the three: nothing here is specific to one.
-//  - the create takes no Idempotency-Key (the API has none for these), so a
-//    create whose answer was lost and is sent again makes a second row; the
-//    change feed brings it, and nothing is lost.
+//  - the create sends its stored `Idempotency-Key` (LAM-127), so a create whose
+//    answer was lost and is sent again returns the first row, not a second.
 //  - an unarchive is never asked for: a delete is final.
 function writable<N extends Hierarchy>(
     name: N,
@@ -163,7 +162,7 @@ export const epicEntity = writable<'epic'>(
         const codec = codecOf(toEpic)
         if (entry.kind === 'create') {
             const { project_id, name, description } = entry.payload
-            return answer(entry, () => api.POST('/api/v1/epics', { body: { project_id, name, description } }), codec)
+            return answer(entry, () => api.POST('/api/v1/epics', { params: { header: { 'Idempotency-Key': entry.idempotency_key } }, body: { project_id, name, description } }), codec)
         }
         const path = { id: entry.entity_id }
         if (entry.kind === 'archive') return answer(entry, () => api.DELETE('/api/v1/epics/{id}', { params: { path } }), codec)
@@ -192,6 +191,7 @@ export const sprintEntity = writable<'sprint'>(
                 entry,
                 () =>
                     api.POST('/api/v1/sprints', {
+                        params: { header: { 'Idempotency-Key': entry.idempotency_key } },
                         body: { project_id, name, start_date: start_date ?? undefined, end_date: end_date ?? undefined },
                     }),
                 codec,
@@ -224,6 +224,7 @@ export const milestoneEntity = writable<'milestone'>(
                 entry,
                 () =>
                     api.POST('/api/v1/milestones', {
+                        params: { header: { 'Idempotency-Key': entry.idempotency_key } },
                         body: { project_id, name, description, target_date: target_date ?? undefined },
                     }),
                 codec,

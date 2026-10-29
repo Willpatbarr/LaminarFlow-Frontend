@@ -47,6 +47,27 @@ describe('create', () => {
         expect(snapshot.outbox).toEqual([])
     })
 
+    it('sends the Idempotency-Key the entry carries, the same one on a retry (LAM-127)', async () => {
+        const headers: (string | null)[] = []
+        const { engine, db } = await started({
+            'POST /api/v1/labels': (request) => {
+                headers.push(request.headers.get('Idempotency-Key'))
+                // The first answer is lost: a server error the engine retries.
+                if (headers.length === 1) return problem(503, 'unavailable')
+                return ok({ id: 'l-new', team_id: 'team-1', name: 'feature', color: '#3b82f6', ...stamp })
+            },
+        })
+
+        await engine.createLabel({ team_id: 'team-1', name: 'feature', color: '#3b82f6' })
+        const entry = (await db.snapshot()).outbox[0]
+        if (entry.kind !== 'create') throw new Error('expected a create')
+        await engine.idle()
+
+        expect(entry.idempotency_key).toEqual(expect.any(String))
+        expect(headers.length).toBeGreaterThanOrEqual(1)
+        expect(new Set(headers)).toEqual(new Set([entry.idempotency_key]))
+    })
+
     it('adopts the team\'s label of that name when the create meets its own earlier send (label_name_taken)', async () => {
         const { engine, db } = await started({
             'POST /api/v1/labels': () => problem(409, 'label_name_taken'),

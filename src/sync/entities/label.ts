@@ -16,9 +16,10 @@ import type { Entity } from './entity'
 // or remove on the id (docs/realtime.md). The rows hold a constant 1.
 //  - `label.deleted` is the entity's "archived". Deleting also drops the id from
 //    every ticket; the engine does the same to the tickets it holds.
-//  - the create takes no Idempotency-Key. A create whose answer was lost and is
-//    sent again meets its own label as a 409 `label_name_taken`; `send` then
-//    adopts the team's label of that name rather than parking the create.
+//  - the create sends its stored `Idempotency-Key` (LAM-127), so a retry replays
+//    the first label. A name taken by someone else's label is a 409
+//    `label_name_taken`; `send` then adopts the team's label of that name
+//    rather than parking the create (kept for creates queued before the key).
 //  - a name is unique in its team: a 409 `label_name_taken` on a rename is the
 //    entry parked as failed, with the code, and the editor says so.
 
@@ -95,7 +96,7 @@ export const labelEntity: Entity<'label'> = {
 
             if (entry.kind === 'create') {
                 const { team_id, name, color } = entry.payload
-                const sent = await answer(entry, () => api.POST('/api/v1/labels', { body: { team_id, name, color } }), codec)
+                const sent = await answer(entry, () => api.POST('/api/v1/labels', { params: { header: { 'Idempotency-Key': entry.idempotency_key } }, body: { team_id, name, color } }), codec)
                 if (sent.type !== 'http' || sent.error.code !== 'label_name_taken') return sent
                 // Probably this very create, sent before and answered to nobody.
                 try {

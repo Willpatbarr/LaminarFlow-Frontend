@@ -808,6 +808,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export everything as a zip
+         * @description Session only: a token caller gets 403 `insufficient_scope` (token export waits for an `export:read` permission). `application/zip` holding one JSON file per table (`tickets.json`, `documents.json` without bodies, `teams.json`, `projects.json`, `settings.json`, `aspect_types.json`, and so on), `documents/<id>.md` with each document's body as Markdown (aspect documents get one section per field, headed by the field's label), and `manifest.json` with the schema version, time and row counts. Archived records are included. Passwords, API tokens and sessions are not. Attachment records are in `attachments.json`; the file bytes are not in the zip (use `scripts/backup.sh`). All of it is read in one transaction, so the files agree with each other. This is an export for people and scripts, not a backup.
+         */
+        post: operations["export-data"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labels": {
         parameters: {
             query?: never;
@@ -3929,7 +3949,10 @@ export interface operations {
     "create-aspect-type": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3942,6 +3965,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -3962,7 +3986,10 @@ export interface operations {
     "import-aspect-type": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3975,6 +4002,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -4092,7 +4120,10 @@ export interface operations {
     "add-aspect-type-field": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 id: string;
             };
@@ -4107,6 +4138,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -4772,7 +4804,10 @@ export interface operations {
     "add-column": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 id: string;
             };
@@ -4787,6 +4822,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -5322,7 +5358,10 @@ export interface operations {
     "create-epic": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5335,6 +5374,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -5480,10 +5520,44 @@ export interface operations {
             };
         };
     };
-    "create-label": {
+    "export-data": {
         parameters: {
             query?: never;
             header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The zip. */
+            200: {
+                headers: {
+                    /** @description attachment; filename="laminarflow-export-<UTC timestamp>.zip" */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-label": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5496,6 +5570,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -5677,7 +5752,10 @@ export interface operations {
     "create-milestone": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5690,6 +5768,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -5867,7 +5946,10 @@ export interface operations {
     "create-project": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5880,6 +5962,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -5964,7 +6047,10 @@ export interface operations {
     "create-board": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description The project. */
                 id: string;
@@ -5980,6 +6066,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -6105,7 +6192,10 @@ export interface operations {
     "create-saved-view": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6118,6 +6208,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -6446,7 +6537,10 @@ export interface operations {
     "create-sprint": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6459,6 +6553,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -6670,7 +6765,10 @@ export interface operations {
     "create-team": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6683,6 +6781,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {
@@ -6767,7 +6866,10 @@ export interface operations {
     "create-status": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 id: string;
             };
@@ -6782,6 +6884,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {

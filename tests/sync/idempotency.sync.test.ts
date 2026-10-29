@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { eventually, localTicket, outbox, startClient, type Rig, type RequestLog } from './support/rig'
-import { fields, newAccount, newWorld, serverArchive, serverTickets, serverUpdate, type World } from './support/stack'
+import { fields, must, newAccount, newWorld, serverArchive, serverTickets, serverUpdate, type World } from './support/stack'
 
 // A create whose response is lost (LAM-76), against the real server. The
 // question: does the retry make a second ticket, and does it reconcile to the
@@ -207,5 +207,29 @@ describe('one key per create', () => {
       'A different ticket',
       'Before the restart',
     ])
+  })
+})
+
+// LAM-127: the same for an entity that is not a ticket. Every create sends its stored
+// key, so a lost answer on an epic's create does not make a second epic.
+describe('a non-ticket create whose response is lost (LAM-127)', () => {
+  it('is retried with the same key and yields exactly one epic on the server', async () => {
+    const { me, world, rig } = await setup()
+    const isEpicCreate = (r: RequestLog) => r.method === 'POST' && r.path === '/api/v1/epics'
+    rig.loseNextResponse(isEpicCreate)
+
+    await rig.engine.createEpic({ project_id: world.projectId, name: 'Only once', description: '' })
+    await eventually('the retry is answered', async () => ((await outbox(rig)).length === 0 ? true : undefined))
+
+    const posts = rig.requests.filter(isEpicCreate)
+    expect(posts).toHaveLength(2)
+    expect(posts[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/)
+    expect(posts[1].idempotencyKey).toBe(posts[0].idempotencyKey)
+
+    const listed = must(
+      'list epics',
+      await me.api.POST('/api/v1/epics/list', { body: { project_id: world.projectId } }),
+    )
+    expect((listed.items ?? []).map((e) => e.name)).toEqual(['Only once'])
   })
 })
