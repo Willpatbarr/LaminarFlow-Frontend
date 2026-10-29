@@ -1,0 +1,33 @@
+/* Fixed, so it is placed against the viewport and no scroll area clips it.
+ * Position and max-height are set from script once it is measured. */
+.popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  background: var(--bg-overlay);
+  color: var(--text-1);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  animation: popover-in 120ms ease-out;
+}
+
+.popover:focus {
+  outline: none;
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}

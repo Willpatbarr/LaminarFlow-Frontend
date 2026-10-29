@@ -6,6 +6,7 @@ import { useScope } from '@/features/shortcuts/registry'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { Popover } from '@/components/ui/Popover'
 import { StatusPill } from '@/components/ui/StatusPill'
 import {
     archiveOnHold,
@@ -473,9 +474,10 @@ type ColumnMenuProps = {
     onEditStatuses: () => void
 }
 
-// The column's settings, in a native disclosure: it opens and closes from the
-// keyboard with nothing written for it. Every change is a new `columns` for the
-// board, written through the sync engine.
+// The column's settings, in a Popover (the disclosure pattern, not a menu: it
+// holds a text field and checkboxes). It renders in a portal so the column's
+// scroll area cannot clip it. Every change is a new `columns` for the board,
+// written through the sync engine.
 function ColumnMenu(props: ColumnMenuProps) {
     const [draft, setDraft] = createSignal<string | null>(null)
     const name = () => draft() ?? props.column.name
@@ -492,85 +494,108 @@ function ColumnMenu(props: ColumnMenuProps) {
     }
 
     return (
-        <details class="board__menu">
-            <summary class="board__menu-button" aria-label={`Options for column ${props.column.name}`}>
-                ⋯
-            </summary>
-            <div class="board__menu-panel" role="group" aria-label={`Column ${props.column.name}`}>
-                <form
-                    onSubmit={(event) => {
-                        event.preventDefault()
-                        commit()
-                    }}
-                >
-                    <Input
-                        label={`Name of column ${props.column.name}`}
-                        value={name()}
-                        onInput={setDraft}
-                        onBlur={commit}
-                        error={tooLong()}
-                    />
-                </form>
-                <div class="board__menu-row">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={props.first}
-                        disabledReason={denial('ticket:write', 'change this board')}
-                        aria-label={`Move ${props.column.name} left`}
-                        onClick={() => save(moveColumn(props.board.columns, props.column.id, -1))}
+        <Popover
+            label={`Column ${props.column.name}`}
+            trigger={(trigger) => (
+                <button type="button" class="board__menu-button" aria-label={`Column options for ${props.column.name}`} {...trigger}>
+                    ⋯
+                </button>
+            )}
+        >
+            {(close) => (
+                <div class="board__menu-panel">
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault()
+                            commit()
+                        }}
                     >
-                        ← Left
-                    </Button>
+                        <Input
+                            label={`Name of column ${props.column.name}`}
+                            value={name()}
+                            onInput={setDraft}
+                            onBlur={commit}
+                            error={tooLong()}
+                        />
+                    </form>
+                    <div class="board__menu-row">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={props.first}
+                            disabledReason={denial('ticket:write', 'change this board')}
+                            aria-label={`Move ${props.column.name} left`}
+                            onClick={() => {
+                                close()
+                                save(moveColumn(props.board.columns, props.column.id, -1))
+                            }}
+                        >
+                            ← Left
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={props.last}
+                            disabledReason={denial('ticket:write', 'change this board')}
+                            aria-label={`Move ${props.column.name} right`}
+                            onClick={() => {
+                                close()
+                                save(moveColumn(props.board.columns, props.column.id, 1))
+                            }}
+                        >
+                            Right →
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabledReason={denial('ticket:write', 'change this board')}
+                            aria-label={`Hide column ${props.column.name}`}
+                            onClick={() => {
+                                close()
+                                save(setVisible(props.board.columns, props.column.id, false))
+                            }}
+                        >
+                            Hide
+                        </Button>
+                    </div>
+                    <fieldset class="board__statuses">
+                        <legend class="t-meta">Statuses shown in this column</legend>
+                        <For each={statuses()} keyed={(status) => status.id}>
+                            {(status) => (
+                                <label class="board__status t-body">
+                                    <input
+                                        type="checkbox"
+                                        checked={props.column.status_ids.includes(status().id)}
+                                        onChange={(event) =>
+                                            save(withStatusIn(props.board.columns, props.column.id, status().id, event.currentTarget.checked))
+                                        }
+                                    />{' '}
+                                    {status().name}
+                                    <Show
+                                        when={
+                                            !props.column.status_ids.includes(status().id) &&
+                                            columnOfStatus(props.board, status().id)
+                                        }
+                                    >
+                                        {(other) => <span class="t-meta"> (now in {other().name})</span>}
+                                    </Show>
+                                </label>
+                            )}
+                        </For>
+                    </fieldset>
                     <Button
-                        variant="secondary"
+                        variant="ghost"
                         size="sm"
-                        disabled={props.last}
-                        disabledReason={denial('ticket:write', 'change this board')}
-                        aria-label={`Move ${props.column.name} right`}
-                        onClick={() => save(moveColumn(props.board.columns, props.column.id, 1))}
+                        disabledReason={denial('team:write', 'edit statuses')}
+                        onClick={() => {
+                            close()
+                            props.onEditStatuses()
+                        }}
                     >
-                        Right →
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabledReason={denial('ticket:write', 'change this board')}
-                        aria-label={`Hide column ${props.column.name}`}
-                        onClick={() => save(setVisible(props.board.columns, props.column.id, false))}
-                    >
-                        Hide
+                        Edit statuses…
                     </Button>
                 </div>
-                <fieldset class="board__statuses">
-                    <legend class="t-meta">Statuses shown in this column</legend>
-                    <For each={statuses()} keyed={(status) => status.id}>
-                        {(status) => (
-                            <label class="board__status t-body">
-                                <input
-                                    type="checkbox"
-                                    checked={props.column.status_ids.includes(status().id)}
-                                    onChange={(event) =>
-                                        save(withStatusIn(props.board.columns, props.column.id, status().id, event.currentTarget.checked))
-                                    }
-                                />{' '}
-                                {status().name}
-                                <Show
-                                    when={
-                                        !props.column.status_ids.includes(status().id) &&
-                                        columnOfStatus(props.board, status().id)
-                                    }
-                                >
-                                    {(other) => <span class="t-meta"> (now in {other().name})</span>}
-                                </Show>
-                            </label>
-                        )}
-                    </For>
-                </fieldset>
-                <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'edit statuses')} onClick={props.onEditStatuses}>
-                    Edit statuses…
-                </Button>
-            </div>
-        </details>
+            )}
+        </Popover>
     )
 }

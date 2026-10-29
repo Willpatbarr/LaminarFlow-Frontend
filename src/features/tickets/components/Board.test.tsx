@@ -138,7 +138,7 @@ describe('the column menu', () => {
         })
         await waitFor(() => expect(titles('To Do')).toEqual(['First', 'Second']))
 
-        await user.click(screen.getByLabelText('Options for column To Do'))
+        await user.click(screen.getByLabelText('Column options for To Do'))
         const name = screen.getByLabelText('Name of column To Do')
         await user.clear(name)
         await user.type(name, 'Backlog')
@@ -146,6 +146,7 @@ describe('the column menu', () => {
         expect(await screen.findByRole('region', { name: 'Backlog' })).toBeInTheDocument()
         await waitFor(() => expect(bodies).toContainEqual({ name: 'Backlog', is_visible: true }))
 
+        await user.click(screen.getByLabelText('Column options for Done'))
         await user.click(screen.getByLabelText('Hide column Done'))
         await waitFor(() => expect(screen.queryByRole('region', { name: 'Done' })).not.toBeInTheDocument())
         expect(screen.getByRole('button', { name: 'Show column Done' })).toBeInTheDocument()
@@ -154,7 +155,7 @@ describe('the column menu', () => {
     it('opens the status editor in a dialog', async () => {
         const user = userEvent.setup()
         await open()
-        await user.click(await screen.findByLabelText('Options for column To Do'))
+        await user.click(await screen.findByLabelText('Column options for To Do'))
         await user.click(screen.getAllByRole('button', { name: 'Edit statuses…' })[0])
         expect(await screen.findByRole('dialog', { name: 'Statuses' })).toBeInTheDocument()
         expect(screen.getByRole('list', { name: 'Status order' })).toBeInTheDocument()

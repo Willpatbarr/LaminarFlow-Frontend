@@ -123,36 +123,30 @@
   color: var(--text-3);
 }
 
-.board__menu {
-  position: relative;
-  margin-left: auto;
-}
-
 .board__menu-button {
+  margin-left: auto;
   padding: 0 var(--s-8);
+  border: 0;
   border-radius: var(--r-control);
+  background: none;
   color: var(--text-2);
+  font: inherit;
   cursor: pointer;
-  list-style: none;
   user-select: none;
 }
 
-.board__menu-button::-webkit-details-marker {
-  display: none;
+.board__menu-button:hover,
+.board__menu-button[aria-expanded='true'] {
+  background: var(--row-hover);
+  color: var(--text-1);
 }
 
 .board__menu-panel {
-  position: absolute;
-  right: 0;
-  z-index: 5;
   display: grid;
   gap: var(--s-12);
   width: 260px;
-  margin-top: var(--s-4);
+  max-width: 100%;
   padding: var(--s-12);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-card);
-  background: var(--bg-overlay);
 }
 
 .board__menu-row {
