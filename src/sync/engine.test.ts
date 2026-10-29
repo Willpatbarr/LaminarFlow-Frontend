@@ -2073,3 +2073,109 @@ describe('while the browser says it is offline (LAM-76)', () => {
         expect(clock.nextDelay()).toBeNull()
     })
 })
+
+// LAM-107: a drop on the board is one write that sets the status and the
+// position, sent as a move.
+describe('move', () => {
+    it('shows the card in its new place at once and sends ONE move, on the version it was made on', async () => {
+        const answer = deferred()
+        const sent: { ifMatch: string | null; body: unknown }[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3, position: 1024 }), ticket({ id: 't-2', position: 2048 })]),
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                sent.push({ ifMatch: request.headers.get('If-Match'), body: await bodyOf(request) })
+                return answer.promise
+            },
+        })
+        const { engine, db } = await startEngine()
+
+        await engine.updateTicket('t-1', { status_id: 's-doing', position: 3072 })
+        expect((await local(db)).tickets.find((t) => t.id === 't-1')).toMatchObject({ status_id: 's-doing', position: 3072 })
+
+        answer.resolve(ok(ticket({ version: 4, status_id: 's-doing', position: 3072, updated_by: ME })))
+        await engine.idle()
+
+        expect(sent).toEqual([{ ifMatch: '"3"', body: { status_id: 's-doing', position: 3072 } }])
+        expect((await local(db)).outbox).toEqual([])
+        expect((await local(db)).tickets.find((t) => t.id === 't-1')).toMatchObject({ version: 4, position: 3072 })
+    })
+
+    it('folds several drops of one card before it is sent into one move', async () => {
+        const moves: unknown[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                moves.push(await bodyOf(request))
+                return ok(ticket({ version: 4, status_id: 's-done', position: 5000 }))
+            },
+        })
+        const { engine, net } = await startEngine()
+        net.goOffline()
+
+        await engine.updateTicket('t-1', { status_id: 's-doing', position: 3072 })
+        await engine.updateTicket('t-1', { status_id: 's-done', position: 5000 })
+        net.goOnline()
+        await engine.idle()
+
+        expect(moves).toEqual([{ status_id: 's-done', position: 5000 }])
+    })
+
+    it('sends an edit made together with the move as a PUT on the version the move returned, without a position', async () => {
+        const calls: string[] = []
+        let put: unknown
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'POST /api/v1/tickets/t-1/move': () => {
+                calls.push('move')
+                return ok(ticket({ version: 4, status_id: 's-doing', position: 3072 }))
+            },
+            'PUT /api/v1/tickets/t-1': async (request) => {
+                calls.push(`put ${request.headers.get('If-Match')}`)
+                put = await bodyOf(request)
+                return ok(ticket({ version: 5, title: 'Renamed', status_id: 's-doing', position: 3072 }))
+            },
+        })
+        const { engine, net } = await startEngine()
+        net.goOffline()
+        await engine.updateTicket('t-1', { status_id: 's-doing', position: 3072 })
+        await engine.updateTicket('t-1', { title: 'Renamed' })
+        net.goOnline()
+        await engine.idle()
+
+        expect(calls).toEqual(['move', 'put "4"'])
+        expect(put).toEqual({ title: 'Renamed', description: '', status_id: 's-doing', assignee_id: null })
+    })
+
+    it('leaves position out of an ordinary edit, which stays a PUT', async () => {
+        let put: unknown
+        stubFetch({
+            ...listRoutes([ticket({ version: 3, position: 1024 })]),
+            'PUT /api/v1/tickets/t-1': async (request) => {
+                put = await bodyOf(request)
+                return ok(ticket({ version: 4, title: 'Edited' }))
+            },
+        })
+        const { engine } = await startEngine()
+        await engine.updateTicket('t-1', { title: 'Edited' })
+        await engine.idle()
+        expect(put).toEqual({ title: 'Edited', description: '', status_id: 's-todo', assignee_id: null })
+    })
+
+    it('takes the renumbered neighbours and the mover from the feed in whatever order, by version', async () => {
+        stubFetch(listRoutes([ticket({ version: 1, position: 1024 }), ticket({ id: 't-2', position: 1025, version: 1 })]))
+        const { engine, db } = await startEngine()
+        await engine.idle()
+        const frame = (row: Ticket) => ({ type: 'ticket.updated', ticket_id: row.id, version: row.version, actor_id: 'acc-other', at: row.updated_at, ticket: row })
+
+        // docs/realtime.md: the renumbered ticket's event comes before the mover's.
+        await engine.applyRemote(frame(ticket({ id: 't-2', position: 2048, version: 2 })))
+        await engine.applyRemote(frame(ticket({ id: 't-1', position: 1536, version: 2, status_id: 's-doing' })))
+        // And a late echo of the older version changes nothing.
+        await engine.applyRemote(frame(ticket({ id: 't-2', position: 1025, version: 1 })))
+
+        expect((await local(db)).tickets.map((t) => [t.id, t.position, t.version])).toEqual([
+            ['t-1', 1536, 2],
+            ['t-2', 2048, 2],
+        ])
+    })
+})

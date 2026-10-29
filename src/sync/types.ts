@@ -5,6 +5,7 @@ import type { components } from '@/api/schema'
 │  the rows the local database holds, and the outbox entry
 ├─ out ───────────────────────────────────────────
 │      Ticket, TicketFields, Doc, DocFields, Team, Project, Status, StatusFields, NewStatus
+│      Board, BoardColumn, BoardFields, NewBoard, BoardConflict
 │      EntityName, EntityRows, EntryOf, OutboxEntry, EntryState, TicketConflict, DocConflict, TicketSyncState
 */
 // Written out rather than aliased to the generated schema types: these are
@@ -18,17 +19,24 @@ export type Ticket = {
     description: string
     status_id: string | null
     assignee_id: string | null
+    /** Order within a board column: ascending, not unique (ties break on id).
+     *  A ticket the server has not seen yet sorts last. */
+    position: number
     /** 0 for a ticket the server has not seen yet; the server starts at 1. */
     version: number
     updated_at: string
     updated_by: string | null
 }
 
-/** The four fields a user edits. `PUT /tickets/{id}` replaces all four, so an
- *  outbox payload always carries all four. */
-export type TicketFields = Pick<Ticket, 'title' | 'description' | 'status_id' | 'assignee_id'>
+/** What a user edits. `PUT /tickets/{id}` replaces the four fields and an
+ *  outbox payload always carries all four. `position` is there only when the
+ *  edit is a move (a drop on the board): it is then sent as
+ *  `POST /tickets/{id}/move`, which sets the status and the position in one
+ *  write (LAM-107). An edit that does not move a card leaves it out. */
+export type TicketFields = Pick<Ticket, 'title' | 'description' | 'status_id' | 'assignee_id'> & { position?: number }
 
-export type NewTicket = TicketFields & { project_id: string }
+/** A new ticket has no position of its own: the server puts it at the end. */
+export type NewTicket = Omit<TicketFields, 'position'> & { project_id: string }
 
 /** A document, as the local database holds it. Live documents only: an archived
  *  one is gone from this device, as an archived ticket is. */
@@ -80,6 +88,34 @@ export type StatusFields = Pick<Status, 'name' | 'color' | 'category' | 'positio
 
 export type NewStatus = StatusFields & { team_id: string }
 
+/** One column of a board. `status_ids` are the statuses whose tickets it shows. */
+export type BoardColumn = {
+    id: string
+    name: string
+    position: number
+    is_visible: boolean
+    status_ids: string[]
+}
+
+/** A board and its columns. The server keeps no version for a board (no
+ *  `If-Match`, none on a change feed frame), so `version` is always 1, as for a
+ *  status. */
+export type Board = {
+    id: string
+    project_id: string
+    name: string
+    group_by: string
+    columns: BoardColumn[]
+    version: number
+}
+
+/** What a user edits on a board. The columns go as a whole: the engine sends
+ *  the difference from the server's copy (a rename, a visibility change, a new
+ *  order, a new set of statuses), one call each. */
+export type BoardFields = Pick<Board, 'name' | 'columns'>
+
+export type NewBoard = BoardFields & { project_id: string }
+
 export type FieldError = NonNullable<components['schemas']['Error']['errors']>[number]
 
 /** Why the last attempt did not succeed. `status` 0 means no response at all. */
@@ -112,6 +148,9 @@ export type DocConflict = {
  *  the type exists so the maps are complete, and nothing ever builds one. */
 export type StatusConflict = { code: 'status_conflict'; current: Status; changed_at: string }
 
+/** Likewise: boards answer no 409. */
+export type BoardConflict = { code: 'board_conflict'; current: Board; changed_at: string }
+
 // pending       waiting to be sent, being sent, or waiting to be retried
 // unauthorized  the server answered 401; nothing is sent until resume()
 // conflict      the server answered 409; `conflict` holds its copy
@@ -122,19 +161,19 @@ export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 /** Every kind of thing the sync engine carries. Adding one means adding it to
  *  the four maps below and registering it (`entities/index.ts`). */
-export type EntityName = 'ticket' | 'document' | 'status'
+export type EntityName = 'ticket' | 'document' | 'status' | 'board'
 
 /** The row each entity keeps locally. */
-export type EntityRows = { ticket: Ticket; document: Doc; status: Status }
+export type EntityRows = { ticket: Ticket; document: Doc; status: Status; board: Board }
 /** What a user edits; `PUT` replaces all of it. */
-export type EntityFields = { ticket: TicketFields; document: DocFields; status: StatusFields }
+export type EntityFields = { ticket: TicketFields; document: DocFields; status: StatusFields; board: BoardFields }
 /** What a create carries. */
-export type EntityCreates = { ticket: NewTicket; document: NewDoc; status: NewStatus }
+export type EntityCreates = { ticket: NewTicket; document: NewDoc; status: NewStatus; board: NewBoard }
 /** What an archive carries. A ticket or document archive needs nothing; deleting
  *  a status says where its tickets go (`move_to`, a status of the same team). */
-export type EntityArchives = { ticket: null; document: null; status: { move_to: string | null } }
+export type EntityArchives = { ticket: null; document: null; status: { move_to: string | null }; board: null }
 /** The body of a 409, kept on the entry so LAM-71 can show both sides. */
-export type EntityConflicts = { ticket: TicketConflict; document: DocConflict; status: StatusConflict }
+export type EntityConflicts = { ticket: TicketConflict; document: DocConflict; status: StatusConflict; board: BoardConflict }
 
 type EntryBase<N extends EntityName> = {
     /** Auto-incremented by IndexedDB, so id order is the order things were done. */
@@ -185,6 +224,7 @@ export type OutboxEntry = { [N in EntityName]: EntryOf<N> }[EntityName]
 export type TicketEntry = EntryOf<'ticket'>
 export type DocEntry = EntryOf<'document'>
 export type StatusEntry = EntryOf<'status'>
+export type BoardEntry = EntryOf<'board'>
 
 /** An entry before IndexedDB has numbered it. */
 export type NewOutboxEntry = OutboxEntry extends infer E ? (E extends unknown ? Omit<E, 'id'> : never) : never

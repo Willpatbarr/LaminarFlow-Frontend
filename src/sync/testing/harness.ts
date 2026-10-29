@@ -108,6 +108,7 @@ export function ticket(overrides: Partial<Ticket> = {}): Ticket {
         description: '',
         status_id: 's-todo',
         assignee_id: null,
+        position: 1024,
         version: 1,
         updated_at: '2025-12-31T00:00:00Z',
         updated_by: 'acc-other',
@@ -148,15 +149,29 @@ export const TEAM = {
     ],
 }
 
+/** The project's default board as the server sends it: one column per status. */
+export const BOARD = {
+    id: 'b-1',
+    project_id: 'p-1',
+    name: 'Launch board',
+    group_by: 'status',
+    columns: [
+        { id: 'c-todo', board_id: 'b-1', name: 'To Do', position: 1, is_visible: true, status_ids: ['s-todo'] },
+        { id: 'c-doing', board_id: 'b-1', name: 'In Progress', position: 2, is_visible: true, status_ids: ['s-doing'] },
+        { id: 'c-done', board_id: 'b-1', name: 'Done', position: 3, is_visible: true, status_ids: ['s-done'] },
+    ],
+}
+
 export const PROJECT = { id: 'p-1', team_id: 'team-1', name: 'Launch', board_id: null, columns: [] }
 
 export function page(items: unknown[], next_cursor: string | null = null) {
     return ok({ items, next_cursor, has_more: next_cursor !== null })
 }
 
-/** The list routes, answering with one team, one project, `tickets` and `documents`. */
-export function listRoutes(tickets: Ticket[] = [], documents: Doc[] = []) {
+/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`. */
+export function listRoutes(tickets: Ticket[] = [], documents: Doc[] = [], boards: unknown[] = []) {
     return {
+        'POST /api/v1/boards/list': () => page(boards),
         'POST /api/v1/teams/list': () => page([TEAM]),
         'POST /api/v1/projects/list': () => page([PROJECT]),
         'POST /api/v1/tickets/list': () => page(tickets),

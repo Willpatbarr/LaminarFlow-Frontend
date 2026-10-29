@@ -1,0 +1,170 @@
+.board {
+  display: grid;
+  gap: var(--s-16);
+  min-width: 0;
+}
+
+.board__header {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.board__problem {
+  color: var(--rust-fg);
+}
+
+.board__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.board__columns {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-12);
+  overflow-x: auto;
+  padding-bottom: var(--s-8);
+}
+
+.board__column {
+  /* The colour of the top edge is set inline, from the column's first status. */
+  flex: 0 0 280px;
+  display: grid;
+  gap: var(--s-8);
+  padding: var(--s-8);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--slate);
+  border-radius: var(--r-card);
+  background: var(--bg-raised);
+}
+
+.board__column[data-over='true'] {
+  border-color: var(--accent);
+}
+
+.board__column[data-closed='true'] {
+  opacity: 0.8;
+}
+
+.board__column-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.board__column-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  margin: 0;
+  font: inherit;
+  min-width: 0;
+}
+
+.board__count {
+  color: var(--text-3);
+}
+
+.board__cards {
+  display: grid;
+  gap: var(--s-8);
+  min-height: 40px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board__card {
+  display: grid;
+  gap: var(--s-8);
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  background: var(--bg-overlay);
+  cursor: grab;
+}
+
+.board__card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.board__card[data-lifted='true'] {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+.board__card-title {
+  color: var(--text-1);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.board__card-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+/* Where the lifted card would land. */
+.board__slot {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.board__empty {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.board__menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.board__menu-button {
+  padding: 0 var(--s-8);
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.board__menu-button::-webkit-details-marker {
+  display: none;
+}
+
+.board__menu-panel {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--s-12);
+  width: 260px;
+  margin-top: var(--s-4);
+  padding: var(--s-12);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  background: var(--bg-overlay);
+}
+
+.board__menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.board__statuses {
+  display: grid;
+  gap: var(--s-6);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

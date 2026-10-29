@@ -439,6 +439,7 @@ describe('first-run setup', () => {
             'POST /api/v1/projects/list': () => (created ? page([PROJECT]) : none()),
             'POST /api/v1/tickets/list': none,
             'POST /api/v1/documents/list': none,
+            'POST /api/v1/boards/list': none,
             'POST /api/v1/teams': async (request) => {
                 calls.push({ path: 'teams', body: await bodyOf(request) })
                 return ok(TEAM)
@@ -477,6 +478,7 @@ describe('first-run setup', () => {
             'POST /api/v1/projects/list': () => (projectCreated ? page([PROJECT]) : none()),
             'POST /api/v1/tickets/list': none,
             'POST /api/v1/documents/list': none,
+            'POST /api/v1/boards/list': none,
             'POST /api/v1/teams': () => {
                 teamPosts += 1
                 teamCreated = true

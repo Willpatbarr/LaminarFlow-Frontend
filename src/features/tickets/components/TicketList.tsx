@@ -6,6 +6,7 @@ import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/
 import { StatusPill } from '@/components/ui/StatusPill'
 import { Table } from '@/components/ui/Table'
 import {
+    boardsForProject,
     currentProject,
     isLoading,
     loadFailed,
@@ -191,6 +192,15 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     </div>
                 </Show>
                 <div class="tickets__actions">
+                    <Show when={boardsForProject(props.project.id)[0]}>
+                        {(board) => (
+                            <>
+                                <a class="t-body" href={`/boards/${board().id}`}>
+                                    Board
+                                </a>{' '}
+                            </>
+                        )}
+                    </Show>
                     <a class="t-body" href={`/teams/${props.project.team_id}/settings`}>
                         Edit statuses
                     </a>{' '}

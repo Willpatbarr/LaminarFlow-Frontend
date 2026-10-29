@@ -141,6 +141,16 @@ the `status.*` feed by upsert and remove instead of by version. A delete is an
 state of its own, so team settings (`/teams/:teamId/settings`) and the board's column
 menu (LAM-107) mount the same component.
 
+**Boards (LAM-107)** are the fourth entity, unversioned like statuses, and a row
+holds its columns because the API serves and announces them that way. There is no
+call that writes a board whole, so an edit is the difference from the server's copy
+sent as the calls it takes (rename, a column's name or visibility, statuses leaving
+and then entering columns, one reorder) - see `entities/board.ts`. A card move is a
+*ticket* write: dropping a card queues `updateTicket(id, { status_id, position })`,
+and the ticket entity sends an update that names a `position` as `POST /tickets/{id}/move`
+(an ordinary edit stays a `PUT`). `/boards/:id` is `features/tickets/components/Board.tsx`;
+its arithmetic (which cards a column shows, where a drop lands) is `features/tickets/board.ts`.
+
 **The model.** Two ticket tables (and the same pair for every other entity): `server_tickets` is the server's copy, and
 `tickets` is what the screen shows - always *the server's copy with that
 ticket's outbox entries replayed on top*. A user action appends to (or amends)

@@ -9,6 +9,7 @@ import {
 
 import {
     newIdempotencyKey,
+    type Board,
     type Doc,
     type EntityName,
     type EntityRows,
@@ -48,6 +49,8 @@ interface Schema extends DBSchema {
     documents: { key: string; value: Doc }
     server_documents: { key: string; value: Doc }
     server_statuses: { key: string; value: Status }
+    boards: { key: string; value: Board }
+    server_boards: { key: string; value: Board }
     outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
 
@@ -56,6 +59,7 @@ const ENTITY_STORES = {
     ticket: { rows: 'tickets', server: 'server_tickets' },
     document: { rows: 'documents', server: 'server_documents' },
     status: { rows: 'statuses', server: 'server_statuses' },
+    board: { rows: 'boards', server: 'server_boards' },
 } as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
@@ -68,6 +72,8 @@ const STORES = [
     'documents',
     'server_documents',
     'server_statuses',
+    'boards',
+    'server_boards',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
@@ -82,6 +88,8 @@ type RowStore =
     | 'documents'
     | 'server_documents'
     | 'server_statuses'
+    | 'boards'
+    | 'server_boards'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -112,6 +120,8 @@ export type SyncTx = {
     serverTickets: Table<Ticket>
     documents: Table<Doc>
     serverDocuments: Table<Doc>
+    boards: Table<Board>
+    serverBoards: Table<Board>
     /** The pair of tables of one entity, for code that works on any of them. */
     entity<N extends EntityName>(name: N): EntityTables<EntityRows[N]>
     outbox: OutboxTable
@@ -130,6 +140,7 @@ export type Snapshot = {
     statuses: Status[]
     tickets: Ticket[]
     documents: Doc[]
+    boards: Board[]
     outbox: OutboxEntry[]
 }
 
@@ -158,7 +169,10 @@ export const DB_NAME = 'laminarflow'
 // 4  statuses are an entity too (LAM-95): `statuses` is what the screen shows
 //    and `server_statuses` the server's copy. Rows already in `statuses` have
 //    no `version`; the next hydration rewrites every one.
-export const DB_VERSION = 4
+// 5  boards are an entity too (LAM-107): `boards` / `server_boards`. Tickets
+//    gain `position`; the ones already on disk get 0 here and the next
+//    hydration rewrites every one.
+export const DB_VERSION = 5
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -198,6 +212,15 @@ async function migrateEntities(store: OldStore) {
         const { ticket_id, ...rest } = cursor.value as unknown as Stored
         if (ticket_id === undefined) continue
         await cursor.update({ ...rest, entity: 'ticket', entity_id: ticket_id } as unknown as OutboxEntry)
+    }
+}
+
+type AnyStore = { openCursor(): Promise<{ value: unknown; update(value: never): Promise<unknown>; continue(): Promise<any> } | null> }
+
+async function migratePositions(store: AnyStore) {
+    for (let cursor = await store.openCursor(); cursor; cursor = await cursor.continue()) {
+        const ticket = cursor.value as Stored
+        if (typeof ticket.position !== 'number') await cursor.update({ ...ticket, position: 0 } as never)
     }
 }
 
@@ -251,6 +274,10 @@ export async function openSyncDb(
                 outbox.createIndex('entity_id', 'entity_id')
             }
             if (oldVersion < 4) upgrading.createObjectStore('server_statuses', { keyPath: 'id' })
+            if (oldVersion < 5) {
+                upgrading.createObjectStore('boards', { keyPath: 'id' })
+                upgrading.createObjectStore('server_boards', { keyPath: 'id' })
+            }
             // One chain, one step after another: each step is a cursor over the
             // same store and they must not interleave.
             const steps: ((store: OldStore) => Promise<void>)[] = []
@@ -263,6 +290,10 @@ export async function openSyncDb(
                 steps.push((store) => migrateKeys(store, newKey))
             }
             if (oldVersion >= 1 && oldVersion < 3) steps.push(migrateEntities)
+            if (oldVersion >= 1 && oldVersion < 5) {
+                steps.push((_outbox) => migratePositions(transaction.objectStore('tickets')))
+                steps.push((_outbox) => migratePositions(transaction.objectStore('server_tickets')))
+            }
             if (steps.length > 0) {
                 const store = transaction.objectStore('outbox')
                 steps
@@ -274,17 +305,18 @@ export async function openSyncDb(
 
     return {
         async snapshot() {
-            const tx = db.transaction(['teams', 'projects', 'statuses', 'tickets', 'documents', 'outbox'])
-            const [teams, projects, statuses, tickets, documents, outbox] = await Promise.all([
+            const tx = db.transaction(['teams', 'projects', 'statuses', 'tickets', 'documents', 'boards', 'outbox'])
+            const [teams, projects, statuses, tickets, documents, boards, outbox] = await Promise.all([
                 tx.objectStore('teams').getAll(),
                 tx.objectStore('projects').getAll(),
                 tx.objectStore('statuses').getAll(),
                 tx.objectStore('tickets').getAll(),
                 tx.objectStore('documents').getAll(),
+                tx.objectStore('boards').getAll(),
                 tx.objectStore('outbox').getAll(),
             ])
             await tx.done
-            return { teams, projects, statuses, tickets, documents, outbox }
+            return { teams, projects, statuses, tickets, documents, boards, outbox }
         },
 
         async write(fn) {
@@ -299,6 +331,8 @@ export async function openSyncDb(
                     serverTickets: table(tx, 'server_tickets'),
                     documents: table(tx, 'documents'),
                     serverDocuments: table(tx, 'server_documents'),
+                    boards: table(tx, 'boards'),
+                    serverBoards: table(tx, 'server_boards'),
                     entity: (name) => {
                         const stores = ENTITY_STORES[name]
                         return { rows: table(tx, stores.rows), server: table(tx, stores.server) } as never

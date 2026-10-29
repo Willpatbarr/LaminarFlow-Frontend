@@ -1,6 +1,7 @@
 import { createRouter, defineRoutes, type RouterHistory } from '@solidjs/router'
 
 import { AppLayout } from '@/routes/app'
+import { BoardPage } from '@/routes/board'
 import { HomePage } from '@/routes/index'
 import { DocumentPage, DocumentsPage } from '@/routes/documents'
 import { LoginPage } from '@/routes/login'
@@ -28,6 +29,7 @@ const routes = defineRoutes([
         children: [
             { path: '/', component: HomePage },
             { path: '/tickets/:id', component: TicketPage },
+            { path: '/boards/:id', component: BoardPage },
             { path: '/teams/:teamId', component: TeamPage },
             { path: '/teams/:teamId/settings', component: TeamSettingsPage },
             { path: '/projects/:projectId', component: ProjectPage },

@@ -251,6 +251,7 @@ describe('data is per account', () => {
                 statuses: [],
                 tickets: [],
                 documents: [],
+                boards: [],
                 outbox: [],
             })
             expect(await db.getMeta('account_id')).toBeUndefined()
