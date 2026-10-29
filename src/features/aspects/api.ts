@@ -8,6 +8,7 @@ import type { components } from '@/api/schema'
 │      AspectType · AspectField   the server's bodies
 │      Result<T>                  { ok: true, data } or { ok: false, code, message }
 │      listAspectTypes · getAspectType · createAspectType · renameAspectType
+│      exportAspectType · importAspectType
 │      addField · renameField · removeField · fieldUsage · reorderFields
 */
 // Aspect types are not a sync entity: the server publishes no change for them,
@@ -77,3 +78,22 @@ export const fieldUsage = (id: string, fieldId: string) =>
 
 export const reorderFields = (id: string, fieldIds: string[]) =>
     settle(() => api.POST('/api/v1/aspect-types/{id}/reorder', { params: { path: { id } }, body: { field_ids: fieldIds } }))
+
+export type PortableType = components['schemas']['PortableBody']
+
+export const exportAspectType = (id: string) =>
+    settle(() => api.GET('/api/v1/aspect-types/{id}/export', { params: { path: { id } } }))
+
+/** Creates a NEW type from a checked file. A refusal names the field the server
+ *  objected to (`errors[0].location`), so the message leads with it. */
+export async function importAspectType(teamId: string, file: PortableType): Promise<Result<AspectType>> {
+    try {
+        const { data, error } = await api.POST('/api/v1/aspect-types/import', { body: { team_id: teamId, ...file } })
+        if (data !== undefined) return { ok: true, data }
+        const refused = failed(error)
+        const first = (error as { errors?: { location?: string }[] } | undefined)?.errors?.[0]
+        return first?.location ? { ...refused, message: `${first.location}: ${refused.message}` } : refused
+    } catch {
+        return offline
+    }
+}
