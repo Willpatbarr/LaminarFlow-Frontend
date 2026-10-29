@@ -24,6 +24,8 @@ import {
 import type { EntryError } from '@/sync'
 
 import { ActivityFeed } from '@/features/activity/ActivityFeed'
+import { AttachmentList } from '@/features/attachments/AttachmentList'
+import { imageUploader } from '@/features/attachments/upload'
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
 import { openRequestsFor } from '@/features/review/feed'
@@ -299,6 +301,7 @@ function DocumentEditor(props: DocumentEditorProps) {
             <Show when={!isAspect()}>
                 <ReviewableField
                     label="Text"
+                    images={imageUploader(() => ({ documentId: props.routeId }))}
                     placeholder="Write, or type Markdown: # for a heading, - for a list…"
                     value={content.value()}
                     readOnly={locked()}
@@ -334,6 +337,8 @@ function DocumentEditor(props: DocumentEditorProps) {
             />
 
             <LinkedTickets documentId={props.routeId} disabled={locked()} />
+
+            <AttachmentList parent={{ documentId: props.routeId }} disabled={locked()} />
 
             <CommentThread parent={{ documentId: props.routeId }} accountId={props.accountId} disabled={locked()} />
 
@@ -376,6 +381,7 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
             open={props.review.open}
             onAsked={props.review.onAsked}
             label={props.field.label}
+            images={imageUploader(() => ({ documentId: props.review.documentId }))}
             placeholder="Write, or type Markdown…"
             value={value.value()}
             readOnly={props.locked}

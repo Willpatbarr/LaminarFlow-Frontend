@@ -1,0 +1,59 @@
+/* The Attachments section of the ticket and document pages. */
+.attachments {
+  display: grid;
+  gap: var(--s-12);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--border);
+}
+
+.attachments__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-8);
+}
+
+.attachments__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-12);
+}
+
+.attachments__name {
+  overflow-wrap: anywhere;
+}
+
+.attachments__item > .button {
+  margin-left: auto;
+}
+
+.attachments__none {
+  color: var(--text-3);
+}
+
+.attachments__sending,
+.attachments__problems {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.attachments__upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.attachments__upload > progress {
+  flex: 1;
+  max-width: 240px;
+}
+
+.attachments__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8);
+}

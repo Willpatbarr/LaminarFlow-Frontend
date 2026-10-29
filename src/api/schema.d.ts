@@ -184,6 +184,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a file to a ticket or a document (safe to retry with Idempotency-Key)
+         * @description multipart/form-data with `ticket_id` or `document_id` (exactly one, a uuid) and `file`. **Send the owner field before `file`**: the owner is checked before a byte is stored, and a stream cannot be rewound. An owner the caller cannot see (absent, archived, another workspace) is a 404.
+         *
+         *     The size is limited per file (`MAX_ATTACHMENT_BYTES`, 25 MiB by default). It is enforced while the file is read, so an oversize upload is refused part-way through: `413 attachment_too_large`, with `limit_bytes` in the body.
+         *
+         *     The type is decided from the file's first bytes, not from the `Content-Type` the client put on the part, which only breaks ties between kinds of text and Office files. Stored types: png, jpeg, gif and webp images; pdf; plain text, csv, markdown and json; zip and gzip; Word, Excel and PowerPoint (.docx, .xlsx, .pptx); and application/octet-stream for other binary data. Anything else - HTML, SVG, XML, script, audio, video - is `415 attachment_type_not_allowed`. An empty file is a 422 at `body.file`.
+         *
+         *     `filename` is sanitised (directory part and control characters removed, 255 bytes at most) and used only to name the download. It is never part of a path on disk.
+         *
+         *     Send `Idempotency-Key` to make the upload safe to retry after a lost response: the first request with a key stores the file and answers `Idempotent-Replayed: false`; any later request with the same key from the same account stores nothing, does not read its body and answers `Idempotent-Replayed: true` with the original attachment, same status 200.
+         *
+         *     Needs a session or a token with the `ticket:write` scope.
+         */
+        post: operations["create-attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List attachments (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `content_type` (text)
+         *     - `created_at` (time)
+         *     - `created_by` (uuid)
+         *     - `document_id` (uuid)
+         *     - `ticket_id` (uuid)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-attachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a file
+         * @description The raw bytes, with the stored `Content-Type`. This is the stable address of the file - `url` on the attachment - and is what a Markdown image points at.
+         *
+         *     Always sent with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. `Content-Disposition` is `inline` for png, jpeg, gif and webp, so `<img src>` works, and `attachment` for every other type, with the name in `filename*` (RFC 6266). Nothing a user uploaded is ever served as a page: HTML and SVG cannot be stored at all.
+         *
+         *     Needs a session or a token with the `ticket:read` scope. 404 `not_found` for an attachment that does not exist or whose ticket or document the caller cannot see.
+         */
+        get: operations["download-attachment"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an attachment
+         * @description Removes the record, then the file. A file already missing from storage does not stop the record going. Any member who can see the ticket or document may delete its attachments. Needs a session or a token with the `ticket:write` scope.
+         */
+        delete: operations["delete-attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1646,6 +1736,96 @@ export interface components {
             readonly $schema?: string;
             items: components["schemas"]["AspectTypeBody"][] | null;
         };
+        AttachmentBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/AttachmentBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description What the server decided the file is, from its contents - not what the client claimed. Always one of the stored types listed on POST /attachments.
+             * @example image/png
+             */
+            content_type: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description The uploader. Null when their account has been deleted: render an attachment with no uploader.
+             */
+            created_by: string | null;
+            /**
+             * Format: uuid
+             * @description The document the file is attached to.
+             */
+            document_id: string | null;
+            /** @description What the uploader called the file, sanitised: no directory part, no control characters, at most 255 bytes. For display; the download names itself from it. */
+            filename: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            size_bytes: number;
+            /**
+             * Format: uuid
+             * @description The ticket the file is attached to. Exactly one of ticket_id and document_id is set.
+             */
+            ticket_id: string | null;
+            /**
+             * @description Where the bytes are, relative to the origin. Stable for the life of the attachment, so it is the address to put in a Markdown image: ![](url). Needs the same credential as the rest of the API; a browser sends the session cookie on its own.
+             * @example /api/v1/attachments/0b7d4a3e-6d5f-4c1e-9a53-2f8d6b1e4712
+             */
+            url: string;
+        };
+        AttachmentTooLarge: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/AttachmentTooLarge.json
+             */
+            readonly $schema?: string;
+            /**
+             * @example attachment_too_large
+             * @enum {string}
+             */
+            code: "attachment_too_large";
+            /**
+             * @description A human-readable explanation specific to this occurrence of the problem.
+             * @example Property foo is required but is missing.
+             */
+            detail?: string;
+            /** @description Optional list of individual error details */
+            errors?: components["schemas"]["ErrorDetail"][] | null;
+            /**
+             * Format: uri
+             * @description A URI reference that identifies the specific occurrence of the problem.
+             * @example https://example.com/error-log/abc123
+             */
+            instance?: string;
+            /**
+             * Format: int64
+             * @description The largest file this server accepts, in bytes.
+             */
+            limit_bytes: number;
+            /**
+             * Format: int64
+             * @description HTTP status code
+             * @example 400
+             */
+            status?: number;
+            /**
+             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+             * @example Bad Request
+             */
+            title?: string;
+            /**
+             * Format: uri
+             * @description A URI reference to human-readable documentation for the error.
+             * @default about:blank
+             * @example https://example.com/errors/example
+             */
+            type: string;
+        };
         BoardBody: {
             /**
              * Format: uri
@@ -2462,6 +2642,18 @@ export interface components {
             readonly $schema?: string;
             has_more: boolean;
             items: components["schemas"]["ActivityBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
+        ListEnvelopeAttachmentBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeAttachmentBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["AttachmentBody"][] | null;
             /** @description Pass back as cursor for the next page. Null when there is none. */
             next_cursor: string | null;
         };
@@ -3901,6 +4093,172 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AspectTypeBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-attachment": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the upload safe to retry. The same key from the same account returns the attachment the first call created instead of storing the file again, with Idempotent-Replayed: true, and the request body is not read. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and live as long as the attachment. Omit it for a plain upload. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: uuid
+                     * @description The document to attach to.
+                     */
+                    document_id?: string;
+                    /**
+                     * Format: binary
+                     * @description The file.
+                     */
+                    file: string;
+                    /**
+                     * Format: uuid
+                     * @description The ticket to attach to. Exactly one of ticket_id and document_id; send it before file.
+                     */
+                    ticket_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentBody"];
+                };
+            };
+            /** @description The file is over the size limit. Nothing was stored. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["AttachmentTooLarge"];
+                };
+            };
+            /** @description The file is of a type that is not stored (code attachment_type_not_allowed), or the request is not multipart/form-data. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeAttachmentBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "download-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file's bytes. */
+            200: {
+                headers: {
+                    /** @description inline for png, jpeg, gif and webp; attachment otherwise. */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

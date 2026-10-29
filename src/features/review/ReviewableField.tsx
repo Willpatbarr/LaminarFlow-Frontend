@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core'
 import { createSignal, Show } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
+import type { ImageUpload } from '@/components/editor/images'
 import { Button } from '@/components/ui/Button'
 import type { Comment } from '@/sync'
 
@@ -38,6 +39,8 @@ type Props = ReviewContext & {
     readOnly?: boolean
     onChange: (markdown: string) => void
     onBlur?: () => void
+    /** Pasted and dropped images (LAM-116). */
+    images?: ImageUpload
     /** The aspect field this editor holds; null for a normal document's text. */
     fieldId: string | null
     /** The field's Markdown as the server holds it. */
@@ -83,6 +86,7 @@ export function ReviewableField(props: Props) {
                 readOnly={props.readOnly}
                 onChange={props.onChange}
                 onBlur={props.onBlur}
+                images={props.images}
                 ref={capture}
             />
             <div class="reviewable__actions">

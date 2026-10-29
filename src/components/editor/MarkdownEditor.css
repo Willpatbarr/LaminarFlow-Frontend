@@ -114,3 +114,36 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.md-editor__content img.md-editor__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--r-control);
+}
+
+.md-editor__content img.md-editor__image.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+
+.md-editor__image-blocked {
+  color: var(--text-3);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.md-editor__uploads {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.md-editor__upload {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.md-editor__upload > progress {
+  flex: 1;
+  max-width: 240px;
+}
