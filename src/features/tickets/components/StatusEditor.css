@@ -92,3 +92,26 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* AspectTypeEditor / AspectTypeList (LAM-98): a handle, a label, three buttons. */
+.aspect-editor__row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.aspect-editor__type {
+  display: block;
+}
+
+.aspect-editor__new {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--s-12);
+}
+
+@media (max-width: 640px) {
+  .aspect-editor__row,
+  .aspect-editor__new {
+    grid-template-columns: 1fr;
+  }
+}

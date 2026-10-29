@@ -49,6 +49,11 @@ export function TeamSettingsPage() {
                                 How a ticket is marked as a bug, a feature or a task. Names are unique in the team.
                             </p>
                             <LabelEditor teamId={found().id} />
+                            <h2 class="t-section">Aspect types</h2>
+                            <p class="t-meta">The labeled fields a document can have.</p>
+                            <p class="t-body">
+                                <a href={`/teams/${found().id}/aspect-types`}>Edit aspect types</a>
+                            </p>
                         </>
                     )}
                 </Show>
