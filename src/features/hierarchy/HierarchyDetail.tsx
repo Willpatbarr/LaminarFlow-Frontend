@@ -27,6 +27,7 @@ import {
     type Sprint,
 } from '@/sync'
 
+import { createAutosave } from '../documents/autosave'
 import { descriptionCount, nameCount, overMessage } from '../tickets/limits'
 import type { Viewer } from '../tickets/viewer'
 import { AddTicketsToSprint } from './AddTicketsToSprint'
@@ -111,7 +112,14 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
 
     const as = <T extends Row>() => props.row as T
     const name = draftOf(() => props.row.name)
-    const description = draftOf(() => (props.kind === 'sprint' ? '' : as<Epic>().description))
+    // The description saves while typing (about a second after the last key), on
+    // blur, on leaving the page and on closing the tab. `context.base` is the
+    // version the edit began from.
+    const description = createAutosave(
+        () => (props.kind === 'sprint' ? '' : as<Epic>().description),
+        (value) => write({ description: value }),
+        { delay: 1000, base: () => props.row.version, canSave: () => !descriptionOver() },
+    )
     const start = draftOf(() => (props.kind === 'sprint' ? (as<Sprint>().start_date ?? '') : ''))
     const end = draftOf(() => (props.kind === 'sprint' ? (as<Sprint>().end_date ?? '') : ''))
     const target = draftOf(() => (props.kind === 'milestone' ? (as<Milestone>().target_date ?? '') : ''))
@@ -133,9 +141,7 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
         write({ name: text })
     }
     function saveDescription() {
-        if (descriptionOver()) return
-        const value = description.take()
-        if (value !== null) write({ description: value })
+        void description.flush()
     }
     function saveDates() {
         if (backwards()) return
@@ -149,9 +155,9 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
         if (value !== null) write({ target_date: value || null })
     }
     function write(patch: Record<string, string | null>) {
-        if (props.kind === 'epic') void updateEpic(id(), patch)
-        else if (props.kind === 'sprint') void updateSprint(id(), patch)
-        else void updateMilestone(id(), patch)
+        if (props.kind === 'epic') return updateEpic(id(), patch)
+        if (props.kind === 'sprint') return updateSprint(id(), patch)
+        return updateMilestone(id(), patch)
     }
 
     async function remove() {
