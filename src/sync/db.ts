@@ -10,6 +10,10 @@ import {
 import {
     newIdempotencyKey,
     type Board,
+    type Epic,
+    type Label,
+    type Milestone,
+    type Sprint,
     type Doc,
     type EntityName,
     type EntityRows,
@@ -51,6 +55,14 @@ interface Schema extends DBSchema {
     server_statuses: { key: string; value: Status }
     boards: { key: string; value: Board }
     server_boards: { key: string; value: Board }
+    epics: { key: string; value: Epic }
+    server_epics: { key: string; value: Epic }
+    sprints: { key: string; value: Sprint }
+    server_sprints: { key: string; value: Sprint }
+    milestones: { key: string; value: Milestone }
+    server_milestones: { key: string; value: Milestone }
+    labels: { key: string; value: Label }
+    server_labels: { key: string; value: Label }
     outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
 
@@ -60,6 +72,10 @@ const ENTITY_STORES = {
     document: { rows: 'documents', server: 'server_documents' },
     status: { rows: 'statuses', server: 'server_statuses' },
     board: { rows: 'boards', server: 'server_boards' },
+    epic: { rows: 'epics', server: 'server_epics' },
+    sprint: { rows: 'sprints', server: 'server_sprints' },
+    milestone: { rows: 'milestones', server: 'server_milestones' },
+    label: { rows: 'labels', server: 'server_labels' },
 } as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
@@ -74,6 +90,14 @@ const STORES = [
     'server_statuses',
     'boards',
     'server_boards',
+    'epics',
+    'server_epics',
+    'sprints',
+    'server_sprints',
+    'milestones',
+    'server_milestones',
+    'labels',
+    'server_labels',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
@@ -90,6 +114,14 @@ type RowStore =
     | 'server_statuses'
     | 'boards'
     | 'server_boards'
+    | 'epics'
+    | 'server_epics'
+    | 'sprints'
+    | 'server_sprints'
+    | 'milestones'
+    | 'server_milestones'
+    | 'labels'
+    | 'server_labels'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -122,6 +154,10 @@ export type SyncTx = {
     serverDocuments: Table<Doc>
     boards: Table<Board>
     serverBoards: Table<Board>
+    epics: Table<Epic>
+    sprints: Table<Sprint>
+    milestones: Table<Milestone>
+    labels: Table<Label>
     /** The pair of tables of one entity, for code that works on any of them. */
     entity<N extends EntityName>(name: N): EntityTables<EntityRows[N]>
     outbox: OutboxTable
@@ -141,6 +177,10 @@ export type Snapshot = {
     tickets: Ticket[]
     documents: Doc[]
     boards: Board[]
+    epics: Epic[]
+    sprints: Sprint[]
+    milestones: Milestone[]
+    labels: Label[]
     outbox: OutboxEntry[]
 }
 
@@ -172,7 +212,11 @@ export const DB_NAME = 'laminarflow'
 // 5  boards are an entity too (LAM-107): `boards` / `server_boards`. Tickets
 //    gain `position`; the ones already on disk get 0 here and the next
 //    hydration rewrites every one.
-export const DB_VERSION = 5
+// 6  epics, sprints, milestones and labels are entities too (LAM-103), each with
+//    its `server_` twin. A ticket gains `epic_id`, `milestone_id`, `label_ids`
+//    and `sprint_ids`; the ones on disk have none until the next hydration, and
+//    every reader treats a missing one as "none".
+export const DB_VERSION = 6
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -278,6 +322,20 @@ export async function openSyncDb(
                 upgrading.createObjectStore('boards', { keyPath: 'id' })
                 upgrading.createObjectStore('server_boards', { keyPath: 'id' })
             }
+            if (oldVersion < 6) {
+                for (const store of [
+                    'epics',
+                    'server_epics',
+                    'sprints',
+                    'server_sprints',
+                    'milestones',
+                    'server_milestones',
+                    'labels',
+                    'server_labels',
+                ] as const) {
+                    upgrading.createObjectStore(store, { keyPath: 'id' })
+                }
+            }
             // One chain, one step after another: each step is a cursor over the
             // same store and they must not interleave.
             const steps: ((store: OldStore) => Promise<void>)[] = []
@@ -305,18 +363,34 @@ export async function openSyncDb(
 
     return {
         async snapshot() {
-            const tx = db.transaction(['teams', 'projects', 'statuses', 'tickets', 'documents', 'boards', 'outbox'])
-            const [teams, projects, statuses, tickets, documents, boards, outbox] = await Promise.all([
+            const tx = db.transaction([
+                'teams',
+                'projects',
+                'statuses',
+                'tickets',
+                'documents',
+                'boards',
+                'epics',
+                'sprints',
+                'milestones',
+                'labels',
+                'outbox',
+            ])
+            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, outbox] = await Promise.all([
                 tx.objectStore('teams').getAll(),
                 tx.objectStore('projects').getAll(),
                 tx.objectStore('statuses').getAll(),
                 tx.objectStore('tickets').getAll(),
                 tx.objectStore('documents').getAll(),
                 tx.objectStore('boards').getAll(),
+                tx.objectStore('epics').getAll(),
+                tx.objectStore('sprints').getAll(),
+                tx.objectStore('milestones').getAll(),
+                tx.objectStore('labels').getAll(),
                 tx.objectStore('outbox').getAll(),
             ])
             await tx.done
-            return { teams, projects, statuses, tickets, documents, boards, outbox }
+            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, outbox }
         },
 
         async write(fn) {
@@ -333,6 +407,10 @@ export async function openSyncDb(
                     serverDocuments: table(tx, 'server_documents'),
                     boards: table(tx, 'boards'),
                     serverBoards: table(tx, 'server_boards'),
+                    epics: table(tx, 'epics'),
+                    sprints: table(tx, 'sprints'),
+                    milestones: table(tx, 'milestones'),
+                    labels: table(tx, 'labels'),
                     entity: (name) => {
                         const stores = ENTITY_STORES[name]
                         return { rows: table(tx, stores.rows), server: table(tx, stores.server) } as never

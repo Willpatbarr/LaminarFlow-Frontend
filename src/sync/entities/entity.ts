@@ -59,6 +59,11 @@ export type EntityRules<N extends EntityName> = {
      *  undoing the archive of something that was never sent. */
     copyOf(row: Row<N>): EntityCreates[N]
 
+    /** Optional: what a change-feed frame becomes when the row is already held.
+     *  For an entity whose frames lack something the row has (a ticket's
+     *  sprints), the held row's value is kept. */
+    carry?(incoming: Row<N>, known: Row<N>): Row<N>
+
     /** The server's copy in this 409 is archived. */
     conflictIsArchive(conflict: Conflict<N>): boolean
     /** The change this 409 describes was made by `accountId`, as far as the
@@ -107,6 +112,7 @@ export type LooseRules = {
     edit(base: any, fields: any, stamp: Stamp): any
     restore(archived: any, stamp: Stamp): any
     copyOf(row: any): any
+    carry?(incoming: any, known: any): any
     conflictIsArchive(conflict: any): boolean
     conflictIsBy(conflict: any, accountId: string): boolean
 }

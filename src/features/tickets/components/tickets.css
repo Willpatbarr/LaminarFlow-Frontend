@@ -173,3 +173,57 @@
   align-items: center;
   min-height: 1lh;
 }
+
+.ticket__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+}
+
+.ticket__labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8) var(--s-16);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.ticket__labels > .input__label {
+  flex-basis: 100%;
+  padding: 0;
+}
+
+.ticket__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.ticket__label-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.ticket__none {
+  color: var(--text-3);
+}
+
+/* The ticket as a side panel beside the list (?ticket=<id>). */
+.ticket-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: min(440px, 100vw);
+  overflow-y: auto;
+  padding: var(--s-16);
+  border-left: 1px solid var(--border);
+  background: var(--bg-overlay);
+  box-shadow: -16px 0 40px rgb(0 0 0 / 0.25);
+}

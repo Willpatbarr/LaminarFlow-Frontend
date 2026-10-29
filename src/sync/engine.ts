@@ -232,6 +232,19 @@ type Rows = EntityTables<any>
  *  whose archive carries nothing, one for one whose archive says more. */
 type ArchiveArgs<N extends EntityName> = EntityArchives[N] extends null ? [] : [payload: EntityArchives[N]]
 
+// How a deleted epic / milestone / label / sprint leaves a ticket (or a ticket's
+// queued write). Returns the same object when there is nothing to clear.
+type Filed = { epic_id?: string | null; milestone_id?: string | null; label_ids?: string[]; sprint_ids?: string[] }
+type Release = <T extends Filed>(ticket: T, gone: string) => T
+const RELEASES: Record<'epic' | 'milestone' | 'label' | 'sprint', Release> = {
+    epic: (ticket, gone) => (ticket.epic_id === gone ? { ...ticket, epic_id: null } : ticket),
+    milestone: (ticket, gone) => (ticket.milestone_id === gone ? { ...ticket, milestone_id: null } : ticket),
+    label: (ticket, gone) =>
+        ticket.label_ids?.includes(gone) ? { ...ticket, label_ids: ticket.label_ids.filter((id) => id !== gone) } : ticket,
+    sprint: (ticket, gone) =>
+        ticket.sprint_ids?.includes(gone) ? { ...ticket, sprint_ids: ticket.sprint_ids.filter((id) => id !== gone) } : ticket,
+}
+
 export function createSyncEngine(deps: EngineDeps): SyncEngine {
     const { db, accountId } = deps
     const remote = createRemote(deps.api)
@@ -815,6 +828,33 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // the newest state rather than the one we last heard. Its entries are not
     // touched either: a base version that is now stale must still reach the
     // server and come back as the 409 that LAM-71 shows.
+    // `epic.deleted`, `milestone.deleted`, `label.deleted` and `sprint.deleted`
+    // do not rewrite the tickets that pointed at the resource (no
+    // `ticket.updated`, no version change): the database nulls the reference or
+    // drops the id, and a client does the same to the tickets it holds
+    // (docs/realtime.md). Both copies of every ticket are cleared, and so is
+    // anything still queued for them - a send that named the gone id would be a
+    // 422 for something the user never chose - and the version stays where it is.
+    async function release(tx: SyncTx, resource: keyof typeof RELEASES, gone: string) {
+        const clear = RELEASES[resource]
+        for (const table of [tx.serverTickets, tx.tickets]) {
+            for (const ticket of await table.all()) {
+                const cleared = clear(ticket, gone)
+                if (cleared !== ticket) await table.put(cleared)
+            }
+        }
+        for (const entry of await tx.outbox.all()) {
+            if (entry.entity !== 'ticket') continue
+            if (entry.kind === 'update' || entry.kind === 'create') {
+                const cleared = clear(entry.payload as never, gone)
+                if (cleared !== entry.payload) await tx.outbox.put({ ...entry, payload: cleared } as OutboxEntry)
+            } else if (entry.kind === 'unarchive') {
+                const cleared = clear(entry.payload, gone)
+                if (cleared !== entry.payload) await tx.outbox.put({ ...entry, payload: cleared } as OutboxEntry)
+            }
+        }
+    }
+
     async function applyOne(tx: SyncTx, { entity, type, row }: AnyEvent): Promise<boolean> {
         const id = row.id
         const { rows, server: copies } = tables(tx, entity)
@@ -824,7 +864,10 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         if (type === 'archived') {
             if (server && row.version < server.version) return false
             buried.set(id, Math.max(row.version, buried.get(id) ?? 0))
-            if (!server && !(await rows.get(id))) return false
+            // Whether or not this device held the resource, it may hold tickets
+            // that name it.
+            if (entity in RELEASES) await release(tx, entity as keyof typeof RELEASES, id)
+            if (!server && !(await rows.get(id))) return entity in RELEASES
             await copies.delete(id)
             // With unsent changes the row stays, and sending them is what
             // reports the archive (409).
@@ -838,8 +881,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         if (server && !rulesFor(entity).unversioned && row.version <= server.version) return false
         if (row.version <= (buried.get(id) ?? 0)) return false
         buried.delete(id)
-        await copies.put(row)
-        if (!dirty) await rows.put(row)
+        const rules = rulesFor(entity)
+        const held = rules.carry ? (server ?? (await rows.get(id))) : undefined
+        const next = held ? rules.carry!(row, held) : row
+        await copies.put(next)
+        if (!dirty) await rows.put(next)
         return true
     }
 

@@ -31,6 +31,10 @@ import type {
     BoardFields,
     Doc,
     DocFields,
+    Epic,
+    Label,
+    Milestone,
+    Sprint,
     NewDoc,
     NewStatus,
     NewTicket,
@@ -57,6 +61,7 @@ import type {
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
 ║      createStatus, updateStatus, deleteStatus, statusesForTeam, statusHead   the same, for statuses (LAM-95)
+║      epicsForProject, sprintsForProject, milestonesForProject, labelsForProject   what a ticket can be filed under (LAM-103)
 ║      boardById, boardsForProject, boardHead, updateBoard   boards and their columns (LAM-107)
 ║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
 ║      archiveDocument, unarchiveDocument           the same, for documents (LAM-125)
@@ -92,6 +97,11 @@ export type SyncState = {
     projects: Project[]
     statuses: Status[]
     boards: Board[]
+    /** The things a ticket is filed under (LAM-103). Read-only here. */
+    epics: Epic[]
+    sprints: Sprint[]
+    milestones: Milestone[]
+    labels: Label[]
     /** Every ticket, as the user should see it: unsent edits included. */
     tickets: Ticket[]
     /** Every document, as the user should see it: unsent edits included. */
@@ -117,6 +127,10 @@ function empty(): SyncState {
         projects: [],
         statuses: [],
         boards: [],
+        epics: [],
+        sprints: [],
+        milestones: [],
+        labels: [],
         tickets: [],
         documents: [],
         outbox: [],
@@ -179,6 +193,10 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             reconcile(snapshot.projects, 'id')(draft.projects)
             reconcile(snapshot.statuses, 'id')(draft.statuses)
             reconcile(snapshot.boards, 'id')(draft.boards)
+            reconcile(snapshot.epics, 'id')(draft.epics)
+            reconcile(snapshot.sprints, 'id')(draft.sprints)
+            reconcile(snapshot.milestones, 'id')(draft.milestones)
+            reconcile(snapshot.labels, 'id')(draft.labels)
             reconcile(snapshot.tickets, 'id')(draft.tickets)
             reconcile(snapshot.documents, 'id')(draft.documents)
             reconcile(snapshot.outbox, 'id')(draft.outbox)
@@ -429,6 +447,30 @@ export function boardsForProject(projectId: string): Board[] {
     return state.boards.filter((board) => board.project_id === projectId)
 }
 
+const byName = <T extends { name: string; id: string }>(a: T, b: T) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+
+/** A project's epics, by name: for the epic picker. */
+export function epicsForProject(projectId: string): Epic[] {
+    return state.epics.filter((epic) => epic.project_id === projectId).toSorted(byName)
+}
+
+/** A project's sprints, by name. */
+export function sprintsForProject(projectId: string): Sprint[] {
+    return state.sprints.filter((sprint) => sprint.project_id === projectId).toSorted(byName)
+}
+
+/** A project's milestones, by name. */
+export function milestonesForProject(projectId: string): Milestone[] {
+    return state.milestones.filter((milestone) => milestone.project_id === projectId).toSorted(byName)
+}
+
+/** The labels of the project's team, by name. */
+export function labelsForProject(projectId: string): Label[] {
+    const project = state.projects.find((candidate) => candidate.id === projectId)
+    if (!project) return []
+    return state.labels.filter((label) => label.team_id === project.team_id).toSorted(byName)
+}
+
 /** A team's statuses, in board order. */
 export function statusesForTeam(teamId: string): Status[] {
     return sortStatuses(state.statuses.filter((status) => status.team_id === teamId))
@@ -508,14 +550,19 @@ export function parkedEntries(): OutboxEntry[] {
 // ── writes ──────────────────────────────────────────────────────────────────
 // Each resolves once the database AND this store show the change.
 
+// A row read from the store holds arrays (`label_ids`, `sprint_ids`) that are
+// reactive proxies, which IndexedDB cannot clone. Whatever a screen hands to a
+// write is copied to plain data first.
+const plain = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
+
 export async function createTicket(ticket: NewTicket): Promise<Ticket> {
-    const created = await running().engine.createTicket(ticket)
+    const created = await running().engine.createTicket(plain(ticket))
     await caughtUp()
     return created
 }
 
 export async function updateTicket(id: string, patch: Partial<TicketFields>): Promise<boolean> {
-    const found = await running().engine.updateTicket(resolveTicketId(id), patch)
+    const found = await running().engine.updateTicket(resolveTicketId(id), plain(patch))
     await caughtUp()
     return found
 }
@@ -530,7 +577,7 @@ export async function archiveTicket(id: string): Promise<boolean> {
  *  with the ticket's id (new, if the archive had withdrawn an unsent create),
  *  or null when there was nothing to undo. */
 export async function unarchiveTicket(ticket: Ticket): Promise<string | null> {
-    const id = await running().engine.unarchiveTicket({ ...ticket, id: resolveTicketId(ticket.id) })
+    const id = await running().engine.unarchiveTicket(plain({ ...ticket, id: resolveTicketId(ticket.id) }))
     await caughtUp()
     return id
 }

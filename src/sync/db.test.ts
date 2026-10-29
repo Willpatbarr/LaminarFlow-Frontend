@@ -113,6 +113,10 @@ describe('the sync database', () => {
             tickets: [],
             documents: [],
             boards: [],
+            epics: [],
+            sprints: [],
+            milestones: [],
+            labels: [],
             outbox: [],
         })
         expect(await db.getMeta('account_id')).toBeUndefined()

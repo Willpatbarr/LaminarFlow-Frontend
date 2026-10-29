@@ -4,6 +4,7 @@ import {
     createMemo,
     createSignal,
     createUniqueId,
+    For,
     Match,
     Show,
     Switch,
@@ -19,6 +20,10 @@ import { TextArea } from '@/components/ui/TextArea'
 import {
     archiveOnHold,
     discard,
+    epicsForProject,
+    labelsForProject,
+    milestonesForProject,
+    sprintsForProject,
     isLoading,
     keepAsNew,
     resolveTicketId,
@@ -40,6 +45,9 @@ import { SyncMarker } from './SyncMarker'
 import './tickets.css'
 
 type TicketDetailProps = {
+    /** Set when the page is drawn as the side panel beside the list: the way
+     *  back is then a Close button, not a link to the list. */
+    onClose?: () => void
     /** From the URL. May be a temporary id, or one that has since been replaced. */
     id: string
     viewer: Viewer
@@ -85,9 +93,23 @@ export function TicketDetail(props: TicketDetailProps) {
 
     return (
         <section class="tickets ticket" aria-busy={busy() ? 'true' : undefined}>
-            <p class="t-meta">
-                <a href="/">← Tickets</a>
-            </p>
+            <Show
+                when={props.onClose}
+                fallback={
+                    <p class="t-meta">
+                        <a href="/">← Tickets</a>
+                    </p>
+                }
+            >
+                {(close) => (
+                    <p class="t-meta ticket__bar">
+                        <a href={`/tickets/${props.id}`}>Open as a page</a>
+                        <Button variant="ghost" size="sm" onClick={() => close()()}>
+                            Close
+                        </Button>
+                    </p>
+                )}
+            </Show>
             <div
                 ref={(el) => {
                     noticeEl = el
@@ -140,6 +162,18 @@ function LoadingTicket() {
                 <div class="ticket__row">
                     <PlaceholderField control="40px" />
                     <PlaceholderField control="40px" />
+                </div>
+                <div class="ticket__row">
+                    <PlaceholderField control="40px" />
+                    <PlaceholderField control="40px" />
+                </div>
+                <div class="ticket__row">
+                    <PlaceholderField control="40px" />
+                </div>
+                <div class="ticket__labels">
+                    <span class="input__label t-body ticket__skeleton-line">
+                        <SkeletonLine width="7ch" height="12px" />
+                    </span>
                 </div>
                 <div class="t-meta ticket__hint ticket__skeleton-line">
                     <SkeletonLine width="28ch" height="11px" />
@@ -273,6 +307,42 @@ function TicketEditor(props: TicketEditorProps) {
             options.push({ value: current, label: 'Unknown status' })
         }
         return [{ value: '', label: 'No status' }, ...options]
+    }
+
+    // A parent, sprint or milestone that is no longer in the list is still the
+    // ticket's until someone changes it, so it keeps an option of its own (as a
+    // status does); "None" is the empty value and never an error.
+    function pickerOptions<T extends { id: string; name: string }>(known: T[], current: string[], unknown: string) {
+        const options = known.map((item) => ({ value: item.id, label: item.name }))
+        for (const id of current) {
+            if (!options.some((option) => option.value === id)) options.push({ value: id, label: unknown })
+        }
+        return [{ value: '', label: 'None' }, ...options]
+    }
+    const project = () => props.ticket.project_id
+    const epicOptions = () => pickerOptions(epicsForProject(project()), props.ticket.epic_id ? [props.ticket.epic_id] : [], 'Unknown epic')
+    const milestoneOptions = () =>
+        pickerOptions(milestonesForProject(project()), props.ticket.milestone_id ? [props.ticket.milestone_id] : [], 'Unknown milestone')
+    const sprintOptions = () => pickerOptions(sprintsForProject(project()), props.ticket.sprint_ids.slice(0, 1), 'Unknown sprint')
+    const labelChoices = () => {
+        const known = labelsForProject(project())
+        const unknown = props.ticket.label_ids
+            .filter((id) => !known.some((label) => label.id === id))
+            .map((id) => ({ id, name: 'Unknown label', color: '' }))
+        return [...known, ...unknown]
+    }
+    // Two boxes ticked in quick succession must both count: the second is
+    // worked out from the first even though the store has not shown it yet.
+    const [labelDraft, setLabelDraft] = createSignal<string[] | null>(null)
+    const labelIds = () => labelDraft() ?? props.ticket.label_ids
+    async function toggleLabel(labelId: string, on: boolean) {
+        const next = labelIds().filter((other) => other !== labelId)
+        if (on) next.push(labelId)
+        next.sort()
+        setLabelDraft(next)
+        await updateTicket(id(), { label_ids: next })
+        // Unless another tick has come in meanwhile.
+        if (labelDraft() === next) setLabelDraft(null)
     }
 
     // The refusal, if the head of this ticket's queue is one. Read through the
@@ -513,6 +583,64 @@ function TicketEditor(props: TicketEditorProps) {
                     </Show>
                 </div>
             </div>
+
+            <div class="ticket__row">
+                <Select
+                    label="Epic"
+                    value={props.ticket.epic_id ?? ''}
+                    options={epicOptions()}
+                    disabled={locked()}
+                    onChange={(value) => void updateTicket(id(), { epic_id: value || null })}
+                    error={refused()?.fields.epic}
+                />
+                <Select
+                    label="Sprint"
+                    value={props.ticket.sprint_ids[0] ?? ''}
+                    options={sprintOptions()}
+                    disabled={locked()}
+                    onChange={(value) => void updateTicket(id(), { sprint_ids: value ? [value] : [] })}
+                />
+            </div>
+
+            <div class="ticket__row">
+                <Select
+                    label="Milestone"
+                    value={props.ticket.milestone_id ?? ''}
+                    options={milestoneOptions()}
+                    disabled={locked()}
+                    onChange={(value) => void updateTicket(id(), { milestone_id: value || null })}
+                    error={refused()?.fields.milestone}
+                />
+            </div>
+
+            <fieldset class="ticket__labels" disabled={locked()}>
+                <legend class="input__label t-body">Labels</legend>
+                <Show
+                    when={labelChoices().length > 0}
+                    fallback={<span class="t-body ticket__none">None</span>}
+                >
+                    <For each={labelChoices()}>
+                        {(label) => (
+                            <label class="ticket__label t-body">
+                                <input
+                                    type="checkbox"
+                                    checked={labelIds().includes(label.id)}
+                                    onChange={(event) => void toggleLabel(label.id, event.currentTarget.checked)}
+                                />
+                                <span
+                                    class="ticket__label-dot"
+                                    aria-hidden="true"
+                                    style={{ background: label.color || 'var(--text-3)' }}
+                                />
+                                {label.name}
+                            </label>
+                        )}
+                    </For>
+                </Show>
+                <Show when={refused()?.fields.labels}>
+                    <span class="input__error t-meta">{refused()?.fields.labels}</span>
+                </Show>
+            </fieldset>
 
             <p class="t-meta ticket__hint">
                 {locked() && !conflicted()

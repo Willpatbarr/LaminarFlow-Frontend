@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from '@solidjs/router'
 import { createMemo, createSignal, For, Match, onSettled, Show, Switch } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
@@ -24,6 +25,7 @@ import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
 import { NewTicketDialog } from './NewTicketDialog'
+import { TicketDetail } from './TicketDetail'
 import { TicketRow } from './TicketRow'
 import './tickets.css'
 
@@ -132,6 +134,24 @@ type ProjectTicketsProps = {
 
 function ProjectTickets(props: ProjectTicketsProps) {
     const [creating, setCreating] = createSignal(false)
+    const navigate = useNavigate()
+    const location = useLocation()
+    // The side panel: `/?ticket=<id>`. Plain data in the address, so a reload or
+    // a shared link opens the same panel; the row's own href still goes to the
+    // full page (open in a new tab, or with a modifier key).
+    const openId = () => new URLSearchParams(location.search).get('ticket') || null
+    const closePanel = () => navigate('/')
+
+    // Captured before the router's own click handling sees the link, so a plain
+    // left click opens the panel instead of leaving the list.
+    function openPanel(event: MouseEvent) {
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+        const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a.table__row') : null
+        const id = /^\/tickets\/([^/?#]+)$/.exec(link?.getAttribute('href') ?? '')?.[1]
+        if (!id) return
+        event.preventDefault()
+        navigate(`/?ticket=${encodeURIComponent(id)}`)
+    }
 
     const statuses = createMemo(() => statusesForProject(props.project.id))
 
@@ -176,7 +196,11 @@ function ProjectTickets(props: ProjectTicketsProps) {
     })
 
     return (
-        <>
+        <div
+            ref={(el) => {
+                el.addEventListener('click', openPanel, true)
+            }}
+        >
             <header class="tickets__header">
                 <h1 class="t-screen-title">Tickets</h1>
                 <Show when={sync.projects.length > 1}>
@@ -266,6 +290,22 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     onClose={() => setCreating(false)}
                 />
             </Show>
-        </>
+
+            <Show when={openId()}>
+                {(id) => (
+                    <aside
+                        class="ticket-panel"
+                        aria-label="Ticket"
+                        onKeyDown={(event) => {
+                            // Not from a field: Escape there belongs to the field.
+                            const field = event.target instanceof Element && event.target.closest('input, textarea, select')
+                            if (event.key === 'Escape' && !event.defaultPrevented && !field) closePanel()
+                        }}
+                    >
+                        <TicketDetail id={id()} viewer={props.viewer} onClose={closePanel} />
+                    </aside>
+                )}
+            </Show>
+        </div>
     )
 }

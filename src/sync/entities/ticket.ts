@@ -22,6 +22,11 @@ import type { Entity } from './entity'
 │      ticketEntity   the registry entry
 │      toTicket, parseTicketEvent
 */
+// Sprint membership is the one thing on a ticket row the server does not put on
+// a ticket: it is read by sprint when the list is hydrated, kept across change
+// feed frames (which lack it), and written by the add / remove calls that follow
+// the PUT. A sprint changed on another device therefore shows after the next
+// hydration (reload or reconnect), not at once.
 
 type TicketBody = components['schemas']['TicketBody']
 
@@ -29,7 +34,9 @@ type TicketBody = components['schemas']['TicketBody']
  *  server hands out, and inside the 32 bits it stores. */
 export const LOCAL_END = 2 ** 30
 
-export function toTicket(body: TicketBody): Ticket {
+/** `sprintIds` is not in the body (the server keeps sprint membership in a join
+ *  table and does not put it on a ticket): the caller says what it knows. */
+export function toTicket(body: TicketBody, sprintIds: string[] = []): Ticket {
     return {
         id: body.id,
         project_id: body.project_id,
@@ -37,11 +44,21 @@ export function toTicket(body: TicketBody): Ticket {
         description: body.description,
         status_id: body.status_id,
         assignee_id: body.assignee_id,
+        epic_id: body.epic_id ?? null,
+        milestone_id: body.milestone_id ?? null,
+        label_ids: body.label_ids ?? [],
+        sprint_ids: sprintIds,
         position: body.position,
         version: body.version,
         updated_at: body.updated_at,
         updated_by: body.updated_by,
     }
+}
+
+function sameIds(a: string[] | undefined, b: string[] | undefined): boolean {
+    const left = a ?? []
+    const right = b ?? []
+    return left.length === right.length && left.every((id) => right.includes(id))
 }
 
 function sameFields(a: TicketFields, b: TicketFields): boolean {
@@ -50,6 +67,10 @@ function sameFields(a: TicketFields, b: TicketFields): boolean {
         a.description === b.description &&
         a.status_id === b.status_id &&
         a.assignee_id === b.assignee_id &&
+        (a.epic_id ?? null) === (b.epic_id ?? null) &&
+        (a.milestone_id ?? null) === (b.milestone_id ?? null) &&
+        sameIds(a.label_ids, b.label_ids) &&
+        sameIds(a.sprint_ids, b.sprint_ids) &&
         a.position === b.position
     )
 }
@@ -75,6 +96,10 @@ function readTicket(row: Record<string, unknown>): Ticket | null {
         !isString(row.description) ||
         !isNullableString(row.status_id) ||
         !isNullableString(row.assignee_id) ||
+        // Absent on a server that predates LAM-93; null or [] then.
+        !(row.epic_id === undefined || isNullableString(row.epic_id)) ||
+        !(row.milestone_id === undefined || isNullableString(row.milestone_id)) ||
+        !(row.label_ids === undefined || row.label_ids === null || (Array.isArray(row.label_ids) && row.label_ids.every(isString))) ||
         !isString(row.updated_at) ||
         !isNullableString(row.updated_by) ||
         typeof row.position !== 'number' ||
@@ -94,11 +119,51 @@ export function parseTicketEvent(frame: unknown) {
     return parseEvent(frame as Record<string, unknown>, 'ticket', readTicket)
 }
 
-// The body of a create or a PUT: the four fields the endpoint takes (and the
-// project, on a create). `position` is not one of them.
+// The body of a create or a PUT: the fields the endpoint takes (and the
+// project, on a create). `position` is not one of them, and neither is
+// `sprint_ids`: sprint membership is its own pair of calls (`syncSprints`).
 function editable<F extends Partial<TicketFields>>(fields: F) {
-    const { position: _position, ...rest } = fields
-    return rest as Omit<F, 'position'>
+    const { position: _position, sprint_ids: _sprints, ...rest } = fields
+    return rest as Omit<F, 'position' | 'sprint_ids'>
+}
+
+type Raw = { data?: unknown; error?: unknown; response: Response }
+
+// Puts the ticket in the sprints `want` names and takes it out of the rest. Each
+// is its own call and the first that does not succeed ends the entry. Known
+// gap: if the PUT landed and a membership call then failed, the retry's PUT
+// answers 409 against our own write (the server's copy here is not refreshed
+// between them), and the conflict panel offers it. Membership bumps the
+// ticket's version, so the row to adopt is read again afterwards.
+async function syncSprints(
+    api: SyncApi,
+    entry: { kind: EntryOf<'ticket'>['kind']; base_version: number | null; payload: unknown },
+    ticketId: string,
+    have: string[],
+    want: string[] | undefined,
+): Promise<Outcome<Ticket, TicketConflict> | null> {
+    if (want === undefined) return null
+    const leaving = have.filter((id) => !want.includes(id))
+    const joining = want.filter((id) => !have.includes(id))
+    if (leaving.length === 0 && joining.length === 0) return null
+    const step = (call: () => Promise<Raw>) =>
+        answer(entry, call, { row: () => null as never, conflict: () => null } as Codec<Ticket, TicketConflict>)
+    for (const id of leaving) {
+        const done = await step(() =>
+            api.DELETE('/api/v1/sprints/{id}/tickets/{ticket_id}', { params: { path: { id, ticket_id: ticketId } } }),
+        )
+        if (done.type !== 'ok') return done
+    }
+    for (const id of joining) {
+        const done = await step(() =>
+            api.POST('/api/v1/sprints/{id}/tickets', { params: { path: { id } }, body: { ticket_id: ticketId } }),
+        )
+        if (done.type !== 'ok') return done
+    }
+    return answer(entry, () => api.GET('/api/v1/tickets/{id}', { params: { path: { id: ticketId } } }), {
+        ...codec,
+        row: (body: TicketBody) => toTicket(body, want),
+    })
 }
 
 type UpdateEntry = Extract<EntryOf<'ticket'>, { kind: 'update' }>
@@ -122,9 +187,7 @@ async function sendMove(api: SyncApi, entry: UpdateEntry, server: Ticket | undef
     // changes nothing is harmless, and a missed one would lose the user's words.
     const rest =
         !server ||
-        wants.title !== server.title ||
-        wants.description !== server.description ||
-        wants.assignee_id !== server.assignee_id
+        !sameFields({ ...wants, position: undefined, status_id: null }, { ...fieldsOf(server), position: undefined, status_id: null })
     if (moved.type !== 'ok' || !moved.row || !rest) return moved
     return answer(
         entry,
@@ -148,6 +211,10 @@ export const ticketEntity: Entity<'ticket'> = {
         // project, so until it answers the ticket sorts last.
         fromCreate: (id, payload, { at, accountId }) => ({
             id,
+            epic_id: null,
+            milestone_id: null,
+            label_ids: [],
+            sprint_ids: [],
             ...payload,
             position: LOCAL_END,
             version: 0,
@@ -160,6 +227,9 @@ export const ticketEntity: Entity<'ticket'> = {
             const { position: _position, ...fields } = fieldsOf(row)
             return { ...fields, project_id: row.project_id }
         },
+        // The feed's ticket frames do not carry sprint membership: the row we
+        // already hold keeps its sprints until the next hydration.
+        carry: (incoming, known) => (known ? { ...incoming, sprint_ids: known.sprint_ids ?? [] } : incoming),
         conflictIsArchive: (conflict) => conflict.code === 'ticket_archived',
         conflictIsBy: (conflict, accountId) => conflict.changed_by?.account_id === accountId,
     },
@@ -174,7 +244,29 @@ export const ticketEntity: Entity<'ticket'> = {
                     body: { limit: PAGE_SIZE, cursor, sort: [{ field: 'created_at', desc: false }] },
                 }),
             )
-            return tickets.map(toTicket)
+            // Sprint membership is not on a ticket: it is read through the
+            // `sprint` filter, one sprint at a time.
+            const members = new Map<string, string[]>()
+            const projects = await listAll((cursor) =>
+                api.POST('/api/v1/projects/list', { body: { limit: PAGE_SIZE, cursor } }),
+            )
+            for (const project of projects) {
+                const sprints = await listAll(() => api.POST('/api/v1/sprints/list', { body: { project_id: project.id } }))
+                for (const sprint of sprints) {
+                    const inSprint = await listAll((cursor) =>
+                        api.POST('/api/v1/tickets/list', {
+                            body: {
+                                limit: PAGE_SIZE,
+                                cursor,
+                                filter: { op: 'and', conditions: [{ field: 'sprint', op: 'eq', value: sprint.id }] },
+                                sort: [{ field: 'created_at', desc: false }],
+                            },
+                        }),
+                    )
+                    for (const ticket of inSprint) members.set(ticket.id, [...(members.get(ticket.id) ?? []), sprint.id])
+                }
+            }
+            return tickets.map((ticket) => toTicket(ticket, members.get(ticket.id) ?? []))
         },
 
         async send(api, entry, context) {
@@ -183,7 +275,7 @@ export const ticketEntity: Entity<'ticket'> = {
             if (entry.kind === 'update' && entry.payload.position !== undefined) {
                 return sendMove(api, entry, await context.server(entry.entity_id))
             }
-            return answer(
+            const sent = await answer(
                 entry,
                 () => {
                     if (entry.kind === 'create') {
@@ -199,6 +291,15 @@ export const ticketEntity: Entity<'ticket'> = {
                 },
                 codec,
             )
+            if (sent.type !== 'ok' || !sent.row) return sent
+            if (entry.kind !== 'create' && entry.kind !== 'update') return sent
+
+            // Sprint membership, after the write it rode in with: the ticket
+            // exists (a create) or has taken its edit (an update, whose answer
+            // carries the new version, which the memberships then move again).
+            const known = entry.kind === 'update' ? await context.server(entry.entity_id) : undefined
+            const member = await syncSprints(api, entry, sent.row.id, known?.sprint_ids ?? [], entry.payload.sprint_ids)
+            return member ?? { type: 'ok', row: { ...sent.row, sprint_ids: entry.payload.sprint_ids ?? known?.sprint_ids ?? [] } }
         },
 
         parseEvent: (frame) => parseEvent(frame, 'ticket', readTicket),

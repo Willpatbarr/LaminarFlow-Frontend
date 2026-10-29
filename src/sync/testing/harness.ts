@@ -108,6 +108,10 @@ export function ticket(overrides: Partial<Ticket> = {}): Ticket {
         description: '',
         status_id: 's-todo',
         assignee_id: null,
+        epic_id: null,
+        milestone_id: null,
+        label_ids: [],
+        sprint_ids: [],
         position: 1024,
         version: 1,
         updated_at: '2025-12-31T00:00:00Z',
@@ -168,9 +172,18 @@ export function page(items: unknown[], next_cursor: string | null = null) {
     return ok({ items, next_cursor, has_more: next_cursor !== null })
 }
 
-/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`. */
-export function listRoutes(tickets: Ticket[] = [], documents: Doc[] = [], boards: unknown[] = []) {
+/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`, and the epics, sprints, milestones and labels in `hierarchy` (none by default). */
+export function listRoutes(
+    tickets: Ticket[] = [],
+    documents: Doc[] = [],
+    boards: unknown[] = [],
+    hierarchy: { epics?: unknown[]; sprints?: unknown[]; milestones?: unknown[]; labels?: unknown[] } = {},
+) {
     return {
+        'POST /api/v1/epics/list': () => page(hierarchy.epics ?? []),
+        'POST /api/v1/sprints/list': () => page(hierarchy.sprints ?? []),
+        'POST /api/v1/milestones/list': () => page(hierarchy.milestones ?? []),
+        'POST /api/v1/labels/list': () => page(hierarchy.labels ?? []),
         'POST /api/v1/boards/list': () => page(boards),
         'POST /api/v1/teams/list': () => page([TEAM]),
         'POST /api/v1/projects/list': () => page([PROJECT]),

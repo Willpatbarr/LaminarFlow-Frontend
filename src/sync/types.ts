@@ -4,7 +4,7 @@ import type { components } from '@/api/schema'
 ┌─ sync ──────────────────────────────────────────
 │  the rows the local database holds, and the outbox entry
 ├─ out ───────────────────────────────────────────
-│      Ticket, TicketFields, Doc, DocFields, Team, Project, Status, StatusFields, NewStatus
+│      Ticket, TicketFields, Epic, Sprint, Milestone, Label, Doc, DocFields, Team, Project, Status, StatusFields, NewStatus
 │      Board, BoardColumn, BoardFields, NewBoard, BoardConflict
 │      EntityName, EntityRows, EntryOf, OutboxEntry, EntryState, TicketConflict, DocConflict, TicketSyncState
 */
@@ -19,6 +19,16 @@ export type Ticket = {
     description: string
     status_id: string | null
     assignee_id: string | null
+    /** The ticket's epic, if any (LAM-93). Null is normal: a ticket needs no parent. */
+    epic_id: string | null
+    /** The ticket's milestone, if any. A release is a milestone (LAM-82). */
+    milestone_id: string | null
+    /** Its labels, in id order. Empty for none. */
+    label_ids: string[]
+    /** The sprints it is in. The server does not put these on a ticket: the
+     *  engine reads them through the `sprint` filter when it hydrates, and
+     *  writes them with the add / remove calls. Empty for none. */
+    sprint_ids: string[]
     /** Order within a board column: ascending, not unique (ties break on id).
      *  A ticket the server has not seen yet sorts last. */
     position: number
@@ -28,15 +38,21 @@ export type Ticket = {
     updated_by: string | null
 }
 
-/** What a user edits. `PUT /tickets/{id}` replaces the four fields and an
- *  outbox payload always carries all four. `position` is there only when the
+/** What a user edits. `PUT /tickets/{id}` replaces the fields and an outbox
+ *  payload carries all of them (one queued before LAM-103 may lack the last
+ *  four, which reads as "leave them alone"). `position` is there only when the
  *  edit is a move (a drop on the board): it is then sent as
  *  `POST /tickets/{id}/move`, which sets the status and the position in one
  *  write (LAM-107). An edit that does not move a card leaves it out. */
-export type TicketFields = Pick<Ticket, 'title' | 'description' | 'status_id' | 'assignee_id'> & { position?: number }
+export type TicketFields = Pick<
+    Ticket,
+    'title' | 'description' | 'status_id' | 'assignee_id' | 'epic_id' | 'milestone_id' | 'label_ids' | 'sprint_ids'
+> & { position?: number }
 
-/** A new ticket has no position of its own: the server puts it at the end. */
-export type NewTicket = Omit<TicketFields, 'position'> & { project_id: string }
+/** A new ticket has no position of its own: the server puts it at the end.
+ *  The hierarchy and labels are optional: leave them out for none. */
+export type NewTicket = Pick<TicketFields, 'title' | 'description' | 'status_id' | 'assignee_id'> &
+    Partial<Pick<TicketFields, 'epic_id' | 'milestone_id' | 'label_ids' | 'sprint_ids'>> & { project_id: string }
 
 /** A document, as the local database holds it. Live documents only: an archived
  *  one is gone from this device, as an archived ticket is. */
@@ -116,6 +132,39 @@ export type BoardFields = Pick<Board, 'name' | 'columns'>
 
 export type NewBoard = BoardFields & { project_id: string }
 
+/** The four things a ticket can be filed under. The app only reads them (the
+ *  pickers, the labels on a ticket); they are carried by the engine so they
+ *  work offline and follow the change feed. The server keeps no version for
+ *  them, so `version` is always 1, as for a status. */
+export type Epic = { id: string; project_id: string; name: string; description: string; version: number }
+export type Sprint = {
+    id: string
+    project_id: string
+    name: string
+    start_date: string | null
+    end_date: string | null
+    version: number
+}
+export type Milestone = {
+    id: string
+    project_id: string
+    name: string
+    description: string
+    target_date: string | null
+    version: number
+}
+export type Label = { id: string; team_id: string; name: string; color: string; version: number }
+
+/** Nothing writes these from the app yet (managing them is LAM-104 and LAM-105);
+ *  the field types exist so the engine's maps are complete. */
+export type EpicFields = Pick<Epic, 'name' | 'description'>
+export type SprintFields = Pick<Sprint, 'name' | 'start_date' | 'end_date'>
+export type MilestoneFields = Pick<Milestone, 'name' | 'description' | 'target_date'>
+export type LabelFields = Pick<Label, 'name' | 'color'>
+
+/** Read-only entities answer no 409; the type exists so the maps are complete. */
+export type ReadOnlyConflict<Row> = { code: 'read_only_conflict'; current: Row; changed_at: string }
+
 export type FieldError = NonNullable<components['schemas']['Error']['errors']>[number]
 
 /** Why the last attempt did not succeed. `status` 0 means no response at all. */
@@ -161,19 +210,64 @@ export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 /** Every kind of thing the sync engine carries. Adding one means adding it to
  *  the four maps below and registering it (`entities/index.ts`). */
-export type EntityName = 'ticket' | 'document' | 'status' | 'board'
+export type EntityName = 'ticket' | 'document' | 'status' | 'board' | 'epic' | 'sprint' | 'milestone' | 'label'
 
 /** The row each entity keeps locally. */
-export type EntityRows = { ticket: Ticket; document: Doc; status: Status; board: Board }
+export type EntityRows = {
+    ticket: Ticket
+    document: Doc
+    status: Status
+    board: Board
+    epic: Epic
+    sprint: Sprint
+    milestone: Milestone
+    label: Label
+}
 /** What a user edits; `PUT` replaces all of it. */
-export type EntityFields = { ticket: TicketFields; document: DocFields; status: StatusFields; board: BoardFields }
+export type EntityFields = {
+    ticket: TicketFields
+    document: DocFields
+    status: StatusFields
+    board: BoardFields
+    epic: EpicFields
+    sprint: SprintFields
+    milestone: MilestoneFields
+    label: LabelFields
+}
 /** What a create carries. */
-export type EntityCreates = { ticket: NewTicket; document: NewDoc; status: NewStatus; board: NewBoard }
+export type EntityCreates = {
+    ticket: NewTicket
+    document: NewDoc
+    status: NewStatus
+    board: NewBoard
+    epic: EpicFields & Pick<Epic, 'project_id'>
+    sprint: SprintFields & Pick<Sprint, 'project_id'>
+    milestone: MilestoneFields & Pick<Milestone, 'project_id'>
+    label: LabelFields & Pick<Label, 'team_id'>
+}
 /** What an archive carries. A ticket or document archive needs nothing; deleting
  *  a status says where its tickets go (`move_to`, a status of the same team). */
-export type EntityArchives = { ticket: null; document: null; status: { move_to: string | null }; board: null }
+export type EntityArchives = {
+    ticket: null
+    document: null
+    status: { move_to: string | null }
+    board: null
+    epic: null
+    sprint: null
+    milestone: null
+    label: null
+}
 /** The body of a 409, kept on the entry so LAM-71 can show both sides. */
-export type EntityConflicts = { ticket: TicketConflict; document: DocConflict; status: StatusConflict; board: BoardConflict }
+export type EntityConflicts = {
+    ticket: TicketConflict
+    document: DocConflict
+    status: StatusConflict
+    board: BoardConflict
+    epic: ReadOnlyConflict<Epic>
+    sprint: ReadOnlyConflict<Sprint>
+    milestone: ReadOnlyConflict<Milestone>
+    label: ReadOnlyConflict<Label>
+}
 
 type EntryBase<N extends EntityName> = {
     /** Auto-incremented by IndexedDB, so id order is the order things were done. */
@@ -258,5 +352,10 @@ export function fieldsOf(ticket: TicketFields): TicketFields {
         description: ticket.description,
         status_id: ticket.status_id,
         assignee_id: ticket.assignee_id,
+        // Rows stored before LAM-103 have none of these until the next hydration.
+        epic_id: ticket.epic_id ?? null,
+        milestone_id: ticket.milestone_id ?? null,
+        label_ids: ticket.label_ids ?? [],
+        sprint_ids: ticket.sprint_ids ?? [],
     }
 }
