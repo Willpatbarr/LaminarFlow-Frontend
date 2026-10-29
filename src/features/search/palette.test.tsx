@@ -122,6 +122,9 @@ describe('Command palette', () => {
     it('runs New ticket as a command', async () => {
         const { user, box } = await palette(world(() => ok({ items: [] })))
         await user.type(box, 'new tick')
+        // The command only exists once the store has a project to make the
+        // ticket in; Enter before then selects nothing. Wait for it, not a clock.
+        await screen.findByRole('option', { name: /New ticket/ })
         await user.keyboard('{Enter}')
         expect(await screen.findByRole('dialog', { name: 'New ticket' })).toBeInTheDocument()
     })

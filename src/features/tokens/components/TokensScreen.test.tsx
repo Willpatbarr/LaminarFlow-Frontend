@@ -71,6 +71,13 @@ describe('TokensScreen', () => {
         expect(await bodyOf(post[0])).toEqual({ label: 'Deploy', scopes: ['ticket:write'], expires_at: null })
         expect(dialog).toBeDefined()
 
+        // Escape and a click outside must not lose the secret.
+        await user.keyboard('{Escape}')
+        expect(screen.getByLabelText('Token')).toHaveValue('lam_abc_secret')
+        await user.click(document.querySelector('.modal__backdrop')!)
+        expect(screen.getByLabelText('Token')).toHaveValue('lam_abc_secret')
+        expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+
         await user.click(screen.getByRole('button', { name: 'Done' }))
         expect(screen.queryByDisplayValue('lam_abc_secret')).toBeNull()
         expect(document.body.textContent).not.toContain('lam_abc_secret')

@@ -130,7 +130,7 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                     title="Copy your token"
                     consequence="You won't see this again."
                     confirm="Done"
-                    cancel="Close"
+                    persistent
                     onConfirm={props.onClose}
                     onCancel={props.onClose}
                 >
