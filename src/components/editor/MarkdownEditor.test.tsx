@@ -4,6 +4,7 @@ import { createSignal } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { MarkdownEditor } from './MarkdownEditor'
+import { setEditorLinks, titlesChanged } from './internalLinks'
 
 // The editor mounted for real in jsdom: Markdown in, Markdown out.
 
@@ -122,3 +123,105 @@ describe('MarkdownEditor limits and state', () => {
     })
 })
 
+
+describe('internal links as chips', () => {
+    const titles: Record<string, string> = { 'document/d-1': 'Launch runbook' }
+    const open = vi.fn()
+    const picker = vi.fn()
+    function register() {
+        setEditorLinks({
+            titleOf: (ref) => titles[`${ref.kind}/${ref.id}`],
+            open,
+            picker: (props) => {
+                picker(props)
+                return <div role="dialog">Pick</div>
+            },
+        })
+    }
+
+    it('draws an lf link as a chip with the target\'s current title, and stores it unchanged', async () => {
+        register()
+        const markdown = 'See [old name](lf://document/d-1) and [x](https://example.com/a).'
+        const editor = await mount(markdown)
+        const chip = screen.getByRole('link', { name: 'Launch runbook' })
+        expect(chip).toHaveAttribute('href', '/documents/d-1')
+        expect(chip).toHaveClass('lf-chip')
+        // External links stay ordinary links.
+        expect(screen.getByRole('link', { name: 'x' })).toHaveAttribute('href', 'https://example.com/a')
+        expect(editor.getMarkdown().trim()).toBe(markdown)
+        setEditorLinks(null)
+    })
+
+    it('shows the written label while the target is not in the store, and follows a rename', async () => {
+        register()
+        await mount('[Plan](lf://ticket/t-1)')
+        expect(screen.getByRole('link', { name: 'Plan' })).toBeInTheDocument()
+        titles['ticket/t-1'] = 'Plan v2'
+        titlesChanged()
+        expect(screen.getByRole('link', { name: 'Plan v2' })).toBeInTheDocument()
+        delete titles['ticket/t-1']
+        setEditorLinks(null)
+    })
+
+    it('goes to the target in the app when the chip is clicked', async () => {
+        register()
+        await mount('[Plan](lf://project/p-1)')
+        screen.getByRole('link', { name: 'Plan' }).click()
+        expect(open).toHaveBeenCalledWith('/projects/p-1')
+        setEditorLinks(null)
+    })
+
+    it('escapes brackets in a label', async () => {
+        const editor = await mount('')
+        editor.commands.insertContent({ type: 'internalLink', attrs: { kind: 'ticket', id: 't', label: 'a [b] c' } })
+        expect(editor.getMarkdown().trim()).toBe('[a \\[b\\] c](lf://ticket/t)')
+    })
+
+    it('opens the picker on [[ and on @ at the start of a word, and inserts the pick', async () => {
+        register()
+        const editor = await mount('')
+        editor.commands.focus()
+        const view = editor.view
+        const type = (text: string) => {
+            const { from, to } = editor.state.selection
+            if (!view.someProp('handleTextInput', (f) => f(view, from, to, text, () => false as never))) editor.commands.insertContent(text)
+        }
+        type('a')
+        type(' ')
+        type('[')
+        expect(picker).not.toHaveBeenCalled()
+        type('[')
+        await waitFor(() => expect(picker).toHaveBeenCalledTimes(1))
+        expect(editor.getText()).toBe('a ')
+        picker.mock.calls[0][0].onPick({ kind: 'document', id: 'd-1', title: 'Launch runbook' })
+        await waitFor(() => expect(screen.getByRole('link', { name: 'Launch runbook' })).toBeInTheDocument())
+        expect(editor.getMarkdown().trim()).toBe('a [Launch runbook](lf://document/d-1)')
+        setEditorLinks(null)
+    })
+
+    it('types [[ and @ as plain text when the app has no picker', async () => {
+        const editor = await mount('')
+        editor.commands.focus()
+        const view = editor.view
+        const handled = view.someProp('handleTextInput', (f) => f(view, 1, 1, '@', () => false as never))
+        expect(handled).toBeFalsy()
+    })
+
+    it('turns a pasted internal URL into a chip and leaves other URLs alone', async () => {
+        register()
+        const editor = await mount('')
+        editor.commands.focus()
+        const paste = (text: string) => {
+            const event = new Event('paste', { bubbles: true, cancelable: true })
+            Object.defineProperty(event, 'clipboardData', { value: { getData: (type: string) => (type === 'text/plain' ? text : ''), types: ['text/plain'] } })
+            editor.view.dom.dispatchEvent(event)
+            return event.defaultPrevented
+        }
+        expect(paste(`${location.origin}/documents/d-1`)).toBe(true)
+        expect(editor.getMarkdown().trim()).toBe('[Launch runbook](lf://document/d-1)')
+        paste('https://example.com/documents/d-1')
+        expect(editor.getMarkdown()).toContain('https://example.com/documents/d-1')
+        expect(editor.getMarkdown().match(/lf:\/\//g)).toHaveLength(1)
+        setEditorLinks(null)
+    })
+})
