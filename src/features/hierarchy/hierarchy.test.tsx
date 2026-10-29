@@ -304,6 +304,47 @@ describe('tickets with no parent', () => {
     })
 })
 
+describe('typing through the id swap (LAM-169)', () => {
+    it('a new epic keeps the same description field, and what was typed in it', async () => {
+        let release!: () => void
+        const held = new Promise<void>((resolve) => (release = resolve))
+        const puts: Record<string, unknown>[] = []
+        const history = await open(
+            '/epics',
+            everything({
+                'POST /api/v1/epics': async (request) => {
+                    const body = await bodyOf(request)
+                    await held
+                    return ok({ id: 'e-new', ...body, ...stamp }, 201)
+                },
+                'PUT /api/v1/epics/e-new': async (request) => {
+                    const body = await bodyOf(request)
+                    puts.push(body)
+                    return ok({ id: 'e-new', project_id: 'p-1', ...body, ...stamp })
+                },
+            }),
+        )
+        const user = userEvent.setup()
+        await user.click(await pageButton('New epic'))
+        const dialog = await screen.findByRole('dialog')
+        await user.type(within(dialog).getByLabelText('Name'), 'Onboarding')
+        await user.click(within(dialog).getByRole('button', { name: 'Create epic' }))
+        // The dialog has a Description field of its own: wait until it is gone and the
+        // epic's page (still under its temporary id) is the only one there is.
+        await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        await vi.waitFor(() => expect(history.get()).toMatch(/^\/epics\/tmp_/))
+        const field = screen.getByLabelText('Description')
+        await user.type(field, 'Find')
+        release()
+        await vi.waitFor(() => expect(history.get()).toBe('/epics/e-new'))
+        await user.type(field, ' things')
+        expect(screen.getByLabelText('Description')).toBe(field)
+        expect(field).toHaveValue('Find things')
+        await user.tab()
+        await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ description: 'Find things' }), { timeout: 5000 })
+    })
+})
+
 describe('the sidebar', () => {
     it('links to the three pages and makes any of them', async () => {
         const posts: unknown[] = []

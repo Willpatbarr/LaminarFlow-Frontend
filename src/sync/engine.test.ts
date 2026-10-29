@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
 import type { SyncChange } from './engine'
-import { deferred, listRoutes, ME, page, startEngine, ticket } from './testing/harness'
+import { deferred, docBody, listRoutes, ME, page, startEngine, ticket } from './testing/harness'
 import type { Ticket } from './types'
 
 afterEach(() => {
@@ -35,6 +35,86 @@ async function local(db: Awaited<ReturnType<typeof startEngine>>['db']) {
     const snapshot = await db.snapshot()
     return { tickets: snapshot.tickets, outbox: snapshot.outbox }
 }
+
+// LAM-169. A caller names a row by the id it last saw. An edit that was
+// started under the temporary id can reach the engine after the create's
+// answer was stored but before the caller has heard of the new id (the autosave
+// resolves the id, then waits its turn on the database). It must still land on
+// the row, under its real id, for every kind of row.
+describe('an edit under the temporary id after the swap (LAM-169)', () => {
+    const stamp = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+    const kinds = [
+        {
+            kind: 'document',
+            route: 'documents',
+            row: (id: string, extra: object = {}) => docBody({ id, title: '', ...extra }),
+            create: (e: Awaited<ReturnType<typeof startEngine>>['engine']) =>
+                e.createDocument({ title: '', type: 'normal', aspect_type_id: null, team_id: 'team-1', project_id: null, body: {} }),
+            edit: (e: Awaited<ReturnType<typeof startEngine>>['engine'], id: string) =>
+                e.updateDocument(id, { title: 'Typed meanwhile' }, { base: 0, was: { title: '' } }),
+            field: 'title',
+            snap: (s: Awaited<ReturnType<Awaited<ReturnType<typeof startEngine>>['db']['snapshot']>>) => s.documents,
+        },
+        {
+            kind: 'ticket',
+            route: 'tickets',
+            row: (id: string, extra: object = {}) => ticket({ id, title: 'New', ...extra }),
+            create: (e: Awaited<ReturnType<typeof startEngine>>['engine']) => e.createTicket({ ...FIELDS, project_id: 'p-1' }),
+            edit: (e: Awaited<ReturnType<typeof startEngine>>['engine'], id: string) =>
+                e.updateTicket(id, { title: 'Typed meanwhile' }, { base: 0, was: { title: 'New' } }),
+            field: 'title',
+            snap: (s: Awaited<ReturnType<Awaited<ReturnType<typeof startEngine>>['db']['snapshot']>>) => s.tickets,
+        },
+        {
+            kind: 'epic',
+            route: 'epics',
+            row: (id: string, extra: object = {}) => ({ id, project_id: 'p-1', name: 'Search', description: '', ...stamp, ...extra }),
+            create: (e: Awaited<ReturnType<typeof startEngine>>['engine']) => e.createEpic({ project_id: 'p-1', name: 'Search', description: '' }),
+            edit: (e: Awaited<ReturnType<typeof startEngine>>['engine'], id: string) => e.updateEpic(id, { description: 'Typed meanwhile' }),
+            field: 'description',
+            snap: (s: Awaited<ReturnType<Awaited<ReturnType<typeof startEngine>>['db']['snapshot']>>) => s.epics,
+        },
+        {
+            kind: 'milestone',
+            route: 'milestones',
+            row: (id: string, extra: object = {}) => ({ id, project_id: 'p-1', name: 'v2', description: '', target_date: null, ...stamp, ...extra }),
+            create: (e: Awaited<ReturnType<typeof startEngine>>['engine']) =>
+                e.createMilestone({ project_id: 'p-1', name: 'v2', description: '', target_date: null }),
+            edit: (e: Awaited<ReturnType<typeof startEngine>>['engine'], id: string) => e.updateMilestone(id, { description: 'Typed meanwhile' }),
+            field: 'description',
+            snap: (s: Awaited<ReturnType<Awaited<ReturnType<typeof startEngine>>['db']['snapshot']>>) => s.milestones,
+        },
+    ]
+
+    for (const k of kinds) {
+        it(`goes to the ${k.kind} under its real id`, async () => {
+            const answer = deferred()
+            const puts: { path: string; value: unknown }[] = []
+            stubFetch({
+                ...listRoutes(),
+                [`POST /api/v1/${k.route}`]: () => answer.promise,
+                [`PUT /api/v1/${k.route}/x-9`]: async (request) => {
+                    const sent = await bodyOf(request)
+                    puts.push({ path: new URL(request.url).pathname, value: sent[k.field] })
+                    return ok({ ...k.row('x-9', { version: 2 }), ...sent })
+                },
+            })
+            const { engine, db } = await startEngine()
+            let late: Promise<boolean> | undefined
+            engine.subscribe((change) => {
+                if (change.swap) late = k.edit(engine, change.swap.from)
+            })
+            await k.create(engine)
+            answer.resolve(ok(k.row('x-9', { version: 1 }), 201))
+            await engine.idle()
+            expect(await late).toBe(true)
+            await engine.idle()
+
+            expect(puts).toEqual([{ path: `/api/v1/${k.route}/x-9`, value: 'Typed meanwhile' }])
+            expect(k.snap(await db.snapshot()).find((r) => r.id === 'x-9')).toMatchObject({ [k.field]: 'Typed meanwhile' })
+        })
+    }
+})
 
 describe('create', () => {
     it('shows the ticket before the request resolves, then takes the server id and version', async () => {

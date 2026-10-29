@@ -211,7 +211,12 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             const row =
                 draft.tickets.find((ticket) => ticket.id === from) ??
                 draft.documents.find((document) => document.id === from) ??
-                draft.comments.find((comment) => comment.id === from)
+                draft.comments.find((comment) => comment.id === from) ??
+                draft.epics.find((epic) => epic.id === from) ??
+                draft.sprints.find((sprint) => sprint.id === from) ??
+                draft.milestones.find((milestone) => milestone.id === from) ??
+                draft.savedViews.find((view) => view.id === from) ??
+                draft.labels.find((label) => label.id === from)
             if (row) row.id = to
         }
     })

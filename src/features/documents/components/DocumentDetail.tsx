@@ -105,6 +105,10 @@ type DocumentEditorProps = {
     announce: (text: string) => void
 }
 
+// A new document's temporary id and its real id are the same row, so a draft
+// typed under one is not dropped when the server's id replaces it (LAM-169).
+const sameRow = (a: string, b: string) => resolveId(a) === resolveId(b)
+
 function refusal(error: EntryError): string {
     const detail = error.errors.map((e) => e.message).filter(Boolean)
     return detail.length > 0
@@ -123,7 +127,7 @@ function DocumentEditor(props: DocumentEditorProps) {
     const title = createAutosave(
         () => props.doc.title,
         (value, context) => updateDocument(id(), { title: value.trim() }, { base: context.base, was: { title: context.from } }),
-        { base: () => props.doc.version },
+        { base: () => props.doc.version, key: id, same: sameRow },
     )
     const content = createAutosave(
         () => props.doc.body[CONTENT_KEY] ?? '',
@@ -134,7 +138,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                 { body: { ...documentById(id())?.body, [CONTENT_KEY]: value } },
                 { base: context.base, was: { body: { [CONTENT_KEY]: context.from } } },
             ),
-        { base: () => props.doc.version },
+        { base: () => props.doc.version, key: id, same: sameRow },
     )
 
     const isAspect = () => props.doc.type === 'aspect'
@@ -399,7 +403,7 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
                 { body: { ...documentById(props.docId)?.body, [props.field.id]: markdown } },
                 { base: context.base, was: { body: { [props.field.id]: context.from } } },
             ),
-        { base: () => documentById(props.docId)?.version ?? null },
+        { base: () => documentById(props.docId)?.version ?? null, key: () => props.docId, same: sameRow },
     )
     let wasDirty = false
     createEffect(
