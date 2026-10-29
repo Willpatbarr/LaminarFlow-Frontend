@@ -225,16 +225,17 @@ describe('the ticket list', () => {
         )
 
         // The user is typing in the description when the answer arrives.
-        const description = screen.getByLabelText('Description')
-        await user.type(description, 'half a thou')
+        const description = screen.getByRole('textbox', { name: 'Description' })
+        await user.click(description)
+        await user.keyboard('half a thou')
         answer.resolve(ok(ticket({ id: 't-9', title: 'Offline idea', updated_by: ME })))
 
         await vi.waitFor(() => expect(history.get()).toBe('/tickets/t-9'))
         // Same fields, same focus, same text: nothing was rebuilt.
         expect(screen.getByDisplayValue('Offline idea')).toBe(title)
-        expect(screen.getByLabelText('Description')).toBe(description)
+        expect(screen.getByRole('textbox', { name: 'Description' })).toBe(description)
         expect(description).toHaveFocus()
-        expect(description).toHaveValue('half a thou')
+        expect(description).toHaveTextContent('half a thou')
         await vi.waitFor(() => expect(inMain().getByRole('status')).toBeEmptyDOMElement())
     })
 })

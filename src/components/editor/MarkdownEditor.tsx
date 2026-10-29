@@ -4,6 +4,8 @@ import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
 import { createEffect, createUniqueId, onSettled, untrack } from 'solid-js'
 
+import { FieldFoot } from '../ui/CharacterCount'
+import { describedBy, isOver, type Count } from '../ui/count'
 import { MarkdownPaste } from './markdownPaste'
 import './MarkdownEditor.css'
 
@@ -44,12 +46,20 @@ type MarkdownEditorProps = {
     placeholder?: string
     /** Shows the text and lets it be selected, but not changed. */
     readOnly?: boolean
+    /** Marks the field invalid and renders the message under it. */
+    error?: string
+    /** A limit on the text, counted by the caller (see ui/count). Nothing is
+     *  cut off: the count shows near the limit, and over it the field is
+     *  marked invalid (say why with `error`). */
+    count?: Count
     /** Receives the editor, for the caller to focus it or read its state. */
     ref?: (editor: Editor) => void
 }
 
 export function MarkdownEditor(props: MarkdownEditorProps) {
     const labelId = createUniqueId()
+    const errorId = `${labelId}-error`
+    const countId = `${labelId}-count`
     let element: HTMLDivElement | undefined
     let editor: Editor | undefined
     // The Markdown the editor last agreed on with the caller.
@@ -90,6 +100,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
             },
             onBlur: () => untrack(() => props.onBlur?.()),
         })
+        applyState()
         props.ref?.(editor)
         return () => {
             editor?.destroy()
@@ -114,6 +125,31 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         },
     )
 
+    // ProseMirror owns the editable element, so what it should say about the
+    // field's state is set on it directly: when it changes, and once the editor
+    // exists (the first run of the effect can come before it does).
+    let shown = { invalid: false, readOnly: false, described: undefined as string | undefined }
+    function applyState() {
+        const dom = editor?.view.dom
+        if (!dom) return
+        const set = (name: string, value: string | undefined) =>
+            value === undefined ? dom.removeAttribute(name) : dom.setAttribute(name, value)
+        set('aria-invalid', shown.invalid ? 'true' : undefined)
+        set('aria-readonly', shown.readOnly ? 'true' : undefined)
+        set('aria-describedby', shown.described)
+    }
+    createEffect(
+        () => ({
+            invalid: Boolean(props.error) || isOver(props.count),
+            readOnly: Boolean(props.readOnly),
+            described: describedBy(props, errorId, countId),
+        }),
+        (state) => {
+            shown = state
+            applyState()
+        },
+    )
+
     return (
         <div class="md-editor" data-readonly={props.readOnly ? 'true' : undefined}>
             <span class="input__label t-body" id={labelId}>
@@ -123,6 +159,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                     element = el
                 }}
             />
+            <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>
     )
 }

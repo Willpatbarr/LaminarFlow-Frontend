@@ -15,7 +15,7 @@ test('an anonymous deep link to a ticket asks for a login, then returns to that 
 
     await expect(page).toHaveURL(`/tickets/${ticket.id}`)
     await expect(page.getByLabel('Title')).toHaveValue('Reached by a link')
-    await expect(page.getByLabel('Description')).toHaveValue('Body text.')
+    await expect(page.getByRole('textbox', { name: 'Description' })).toHaveText('Body text.')
 })
 
 test('the way across to sign-up keeps the destination', async ({ page }) => {

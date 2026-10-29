@@ -39,14 +39,14 @@ test('an edit in one browser shows up in another account\'s open ticket, live', 
 
     // Bob renames it; saving is leaving the field.
     await bobPage.getByLabel('Title').fill('Renamed by Bob')
-    await bobPage.getByLabel('Description').fill('Bob was here')
+    await bobPage.getByRole('textbox', { name: 'Description' }).fill('Bob was here')
     await bobPage.getByLabel('Title').press('Tab')
-    await bobPage.getByLabel('Description').press('Tab')
+    await bobPage.getByRole('textbox', { name: 'Description' }).press('Tab')
     await bobPage.getByLabel('Status').selectOption({ label: world.statusNames[1] })
     await bobPage.getByRole('button', { name: 'Assign to me' }).click()
 
     await expect(page.getByLabel('Title')).toHaveValue('Renamed by Bob')
-    await expect(page.getByLabel('Description')).toHaveValue('Bob was here')
+    await expect(page.getByRole('textbox', { name: 'Description' })).toHaveText('Bob was here')
     await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[1])
     // Alice sees it assigned, though not to her.
     await expect(page.getByText('Someone else')).toBeVisible()

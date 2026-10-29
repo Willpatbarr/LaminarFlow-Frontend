@@ -135,8 +135,9 @@ describe('TicketDetail', () => {
         const form = section.querySelector('.ticket__form') as HTMLElement
         expect(form.tagName).toBe('DIV')
         expect(form).toHaveAttribute('aria-hidden', 'true')
-        // Seven fields, and the two of the inline new-label form (LAM-104).
-        expect(form.querySelectorAll('.input')).toHaveLength(9)
+        // Six fields (the description is the editor, which is not an `.input`),
+        // and the two of the inline new-label form (LAM-104).
+        expect(form.querySelectorAll('.input')).toHaveLength(8)
         expect(form.querySelector('.ticket__row')).not.toBeNull()
         expect(form.querySelector('.ticket__danger .skeleton')).not.toBeNull()
 

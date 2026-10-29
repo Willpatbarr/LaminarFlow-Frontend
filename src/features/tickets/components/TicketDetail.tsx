@@ -11,12 +11,12 @@ import {
     untrack,
 } from 'solid-js'
 
+import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine } from '@/components/ui/Skeleton'
-import { TextArea } from '@/components/ui/TextArea'
 import {
     archiveOnHold,
     discard,
@@ -39,6 +39,7 @@ import {
 
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import type { Kind } from '@/features/hierarchy/kinds'
+import { LinkedDocuments } from '@/features/links/LinkedDocuments'
 import { describeFailure } from '../entryFailure'
 import { BLANK_TITLE, descriptionCount, overMessage, titleCount } from '../limits'
 import type { Viewer } from '../viewer'
@@ -141,7 +142,7 @@ export function TicketDetail(props: TicketDetailProps) {
                 </Match>
                 <Match when={ticket()}>
                     {(found) => (
-                        <TicketEditor ticket={found()} viewer={props.viewer} announce={announce} />
+                        <TicketEditor ticket={found()} routeId={props.id} viewer={props.viewer} announce={announce} />
                     )}
                 </Match>
             </Switch>
@@ -163,7 +164,12 @@ function LoadingTicket() {
             <div class="ticket__form" aria-hidden="true">
                 <div class="ticket__status-line" />
                 <PlaceholderField control="40px" />
-                <PlaceholderField control="150px" />
+                <div class="md-editor">
+                    <span class="input__label t-body ticket__skeleton-line">
+                        <SkeletonLine width="9ch" height="12px" />
+                    </span>
+                    <SkeletonBox shape="control" height="210px" />
+                </div>
                 <div class="ticket__row">
                     <PlaceholderField control="40px" />
                     <PlaceholderField control="40px" />
@@ -186,6 +192,18 @@ function LoadingTicket() {
                     </span>
                     <PlaceholderField control="40px" />
                     <PlaceholderField control="40px" />
+                </div>
+                <div class="links">
+                    <span class="ticket__skeleton-line">
+                        <SkeletonLine width="10ch" height="16px" />
+                    </span>
+                    <span class="ticket__skeleton-line">
+                        <SkeletonLine width="24ch" height="14px" />
+                    </span>
+                    <div class="links__actions">
+                        <SkeletonBox shape="control" width="132px" height="40px" />
+                        <SkeletonBox shape="control" width="120px" height="40px" />
+                    </div>
                 </div>
                 <div class="t-meta ticket__hint ticket__skeleton-line">
                     <SkeletonLine width="28ch" height="11px" />
@@ -242,6 +260,9 @@ type Announce = (text: string, options?: { focus?: boolean }) => void
 
 type TicketEditorProps = {
     ticket: Ticket
+    /** The id from the URL: it outlives the row (which the store may drop under
+     *  the page), so what must keep reading an id after that reads this. */
+    routeId: string
     viewer: Viewer
     announce: Announce
 }
@@ -551,11 +572,14 @@ function TicketEditor(props: TicketEditorProps) {
                 error={titleError()}
             />
 
-            <TextArea
+            <MarkdownEditor
                 label="Description"
+                placeholder="Write, or type Markdown: # for a heading, - for a list…"
                 readOnly={locked()}
                 value={description.value()}
-                onInput={description.input}
+                onChange={(markdown) => {
+                    if (!locked()) description.input(markdown)
+                }}
                 onBlur={commitDescription}
                 count={descriptionCount(description.value())}
                 error={descriptionError()}
@@ -694,6 +718,8 @@ function TicketEditor(props: TicketEditorProps) {
                     <span class="input__error t-meta">{refused()?.fields.labels}</span>
                 </Show>
             </fieldset>
+
+            <LinkedDocuments ticketId={props.routeId} projectId={project()} disabled={locked()} />
 
             <p class="t-meta ticket__hint">
                 {locked() && !conflicted()

@@ -2,6 +2,7 @@
 // the database stay behind it.
 export * from './store'
 export * from './status'
+export { onLinkEvent, type LinkEvent } from './linkEvents'
 export { connectSyncToSession } from './session'
 export { isTempId } from './types'
 export type { ConnectionState } from './socket'

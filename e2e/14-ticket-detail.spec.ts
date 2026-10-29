@@ -38,8 +38,8 @@ test('every field set on the ticket page reaches the server and survives a reloa
 
     await page.getByLabel('Title').fill('Detail page, renamed')
     await page.getByLabel('Title').blur()
-    await page.getByLabel('Description').fill('Everything on one page')
-    await page.getByLabel('Description').blur()
+    await page.getByRole('textbox', { name: 'Description' }).fill('Everything on one page')
+    await page.getByRole('textbox', { name: 'Description' }).blur()
     await page.getByLabel('Status').selectOption({ label: world.statusNames[1] })
     await page.getByRole('button', { name: 'Assign to me' }).click()
     await page.getByLabel('Epic').selectOption({ label: 'Checkout' })
@@ -79,7 +79,7 @@ test('every field set on the ticket page reaches the server and survives a reloa
 
     const shown = async () => {
         await expect(page.getByLabel('Title')).toHaveValue('Detail page, renamed')
-        await expect(page.getByLabel('Description')).toHaveValue('Everything on one page')
+        await expect(page.getByRole('textbox', { name: 'Description' })).toHaveText('Everything on one page')
         await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[1])
         await expect(page.getByText('You', { exact: true })).toBeVisible()
         await expect(page.getByLabel('Epic')).toHaveValue(epic.id)
@@ -114,12 +114,12 @@ test('the list opens a ticket in a side panel, and a reload keeps it open', asyn
     await expect(panel.getByLabel('Title')).toHaveValue('Panel ticket')
     await expect(page).toHaveURL(new RegExp(`\\?ticket=${ticket.id}`))
 
-    await panel.getByLabel('Description').fill('Edited in the panel')
-    await panel.getByLabel('Description').blur()
+    await panel.getByRole('textbox', { name: 'Description' }).fill('Edited in the panel')
+    await panel.getByRole('textbox', { name: 'Description' }).blur()
     await expect.poll(async () => (await serverTicket(account, ticket.id))?.description).toBe('Edited in the panel')
 
     await page.reload()
-    await expect(page.getByRole('complementary', { name: 'Ticket' }).getByLabel('Description')).toHaveValue('Edited in the panel')
+    await expect(page.getByRole('complementary', { name: 'Ticket' }).getByRole('textbox', { name: 'Description' })).toHaveText('Edited in the panel')
 
     await page.getByRole('complementary', { name: 'Ticket' }).getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('complementary', { name: 'Ticket' })).toHaveCount(0)
