@@ -2,10 +2,11 @@ import { useParams } from '@solidjs/router'
 import { Show } from 'solid-js'
 
 import { session } from '@/features/auth'
+import { LabelEditor } from '@/features/tickets/components/LabelEditor'
 import { StatusEditor } from '@/features/tickets/components/StatusEditor'
 import { isLoading, sync } from '@/sync'
 
-// /teams/:teamId/settings. For now the team's statuses (LAM-95); the board's
+// /teams/:teamId/settings. The team's statuses (LAM-95) and labels (LAM-104); the board's
 // column menu opens the same editor (LAM-107).
 export function TeamSettingsPage() {
     const params = useParams<{ teamId: string }>()
@@ -43,6 +44,11 @@ export function TeamSettingsPage() {
                                 Rename, reorder, add or delete. No status is special: even the first three can go.
                             </p>
                             <StatusEditor teamId={found().id} />
+                            <h2 class="t-section">Labels</h2>
+                            <p class="t-meta">
+                                How a ticket is marked as a bug, a feature or a task. Names are unique in the team.
+                            </p>
+                            <LabelEditor teamId={found().id} />
                         </>
                     )}
                 </Show>

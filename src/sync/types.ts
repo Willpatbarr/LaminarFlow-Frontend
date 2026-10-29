@@ -132,8 +132,8 @@ export type BoardFields = Pick<Board, 'name' | 'columns'>
 
 export type NewBoard = BoardFields & { project_id: string }
 
-/** The four things a ticket can be filed under. The app only reads them (the
- *  pickers, the labels on a ticket); they are carried by the engine so they
+/** The four things a ticket can be filed under. The app writes labels (LAM-104)
+ *  and only reads the rest (the pickers); all are carried by the engine so they
  *  work offline and follow the change feed. The server keeps no version for
  *  them, so `version` is always 1, as for a status. */
 export type Epic = { id: string; project_id: string; name: string; description: string; version: number }
@@ -155,8 +155,8 @@ export type Milestone = {
 }
 export type Label = { id: string; team_id: string; name: string; color: string; version: number }
 
-/** Nothing writes these from the app yet (managing them is LAM-104 and LAM-105);
- *  the field types exist so the engine's maps are complete. */
+/** What a user edits. Labels are written from the app (LAM-104); the others are
+ *  not yet (LAM-105), and their field types exist so the engine's maps are complete. */
 export type EpicFields = Pick<Epic, 'name' | 'description'>
 export type SprintFields = Pick<Sprint, 'name' | 'start_date' | 'end_date'>
 export type MilestoneFields = Pick<Milestone, 'name' | 'description' | 'target_date'>
@@ -319,6 +319,7 @@ export type TicketEntry = EntryOf<'ticket'>
 export type DocEntry = EntryOf<'document'>
 export type StatusEntry = EntryOf<'status'>
 export type BoardEntry = EntryOf<'board'>
+export type LabelEntry = EntryOf<'label'>
 
 /** An entry before IndexedDB has numbered it. */
 export type NewOutboxEntry = OutboxEntry extends infer E ? (E extends unknown ? Omit<E, 'id'> : never) : never

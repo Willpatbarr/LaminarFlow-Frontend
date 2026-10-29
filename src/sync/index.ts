@@ -17,6 +17,8 @@ export type {
     EntityName,
     Epic,
     Label,
+    LabelEntry,
+    LabelFields,
     Milestone,
     Sprint,
     EntryError,

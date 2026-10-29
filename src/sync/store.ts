@@ -33,6 +33,8 @@ import type {
     DocFields,
     Epic,
     Label,
+    LabelEntry,
+    LabelFields,
     Milestone,
     Sprint,
     NewDoc,
@@ -61,6 +63,7 @@ import type {
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
 ║      createStatus, updateStatus, deleteStatus, statusesForTeam, statusHead   the same, for statuses (LAM-95)
+║      createLabel, updateLabel, deleteLabel, labelsForTeam, labelHead   the same, for labels (LAM-104)
 ║      epicsForProject, sprintsForProject, milestonesForProject, labelsForProject   what a ticket can be filed under (LAM-103)
 ║      boardById, boardsForProject, boardHead, updateBoard   boards and their columns (LAM-107)
 ║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
@@ -471,6 +474,11 @@ export function labelsForProject(projectId: string): Label[] {
     return state.labels.filter((label) => label.team_id === project.team_id).toSorted(byName)
 }
 
+/** A team's labels, by name: for the settings list. */
+export function labelsForTeam(teamId: string): Label[] {
+    return state.labels.filter((label) => label.team_id === teamId).toSorted(byName)
+}
+
 /** A team's statuses, in board order. */
 export function statusesForTeam(teamId: string): Status[] {
     return sortStatuses(state.statuses.filter((status) => status.team_id === teamId))
@@ -508,6 +516,13 @@ export function ticketHead(id: string): TicketEntry | undefined {
 export function statusHead(id: string): StatusEntry | undefined {
     const head = queueHeads().get(resolveId(id))
     return head?.entity === 'status' ? head : undefined
+}
+
+/** The entry at the head of this label's queue, or undefined when it is in
+ *  sync. A failed one carries the server's reason in `error`. */
+export function labelHead(id: string): LabelEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'label' ? head : undefined
 }
 
 /** The entry at the head of this board's queue, or undefined when it is in sync. */
@@ -580,6 +595,27 @@ export async function unarchiveTicket(ticket: Ticket): Promise<string | null> {
     const id = await running().engine.unarchiveTicket(plain({ ...ticket, id: resolveTicketId(ticket.id) }))
     await caughtUp()
     return id
+}
+
+/** Makes a label. Resolves with the row under its temporary id, which a ticket
+ *  can be given at once: the engine sends the label first and swaps the id. */
+export async function createLabel(label: { team_id: string } & LabelFields): Promise<Label> {
+    const created = await running().engine.createLabel(label)
+    await caughtUp()
+    return created
+}
+
+export async function updateLabel(id: string, patch: Partial<LabelFields>): Promise<boolean> {
+    const found = await running().engine.updateLabel(resolveId(id), patch)
+    await caughtUp()
+    return found
+}
+
+/** Deletes a label. It leaves every ticket that had it. */
+export async function deleteLabel(id: string): Promise<boolean> {
+    const found = await running().engine.deleteLabel(resolveId(id))
+    await caughtUp()
+    return found
 }
 
 export async function createStatus(status: NewStatus): Promise<Status> {

@@ -29,6 +29,7 @@ import {
     resolveTicketId,
     retry,
     statusesForProject,
+    sync,
     ticketById,
     ticketHead,
     ticketSyncState,
@@ -41,6 +42,8 @@ import { BLANK_TITLE, descriptionCount, overMessage, titleCount } from '../limit
 import type { Viewer } from '../viewer'
 import { archiveWithUndo } from './ArchiveUndoToast'
 import { ConflictPanel } from './ConflictPanel'
+import { LabelChips } from './LabelChips'
+import { NewLabel } from './LabelEditor'
 import { SyncMarker } from './SyncMarker'
 import './tickets.css'
 
@@ -174,6 +177,8 @@ function LoadingTicket() {
                     <span class="input__label t-body ticket__skeleton-line">
                         <SkeletonLine width="7ch" height="12px" />
                     </span>
+                    <PlaceholderField control="40px" />
+                    <PlaceholderField control="40px" />
                 </div>
                 <div class="t-meta ticket__hint ticket__skeleton-line">
                     <SkeletonLine width="28ch" height="11px" />
@@ -324,6 +329,7 @@ function TicketEditor(props: TicketEditorProps) {
     const milestoneOptions = () =>
         pickerOptions(milestonesForProject(project()), props.ticket.milestone_id ? [props.ticket.milestone_id] : [], 'Unknown milestone')
     const sprintOptions = () => pickerOptions(sprintsForProject(project()), props.ticket.sprint_ids.slice(0, 1), 'Unknown sprint')
+    const teamId = () => sync.projects.find((candidate) => candidate.id === project())?.team_id ?? ''
     const labelChoices = () => {
         const known = labelsForProject(project())
         const unknown = props.ticket.label_ids
@@ -615,6 +621,7 @@ function TicketEditor(props: TicketEditorProps) {
 
             <fieldset class="ticket__labels" disabled={locked()}>
                 <legend class="input__label t-body">Labels</legend>
+                <LabelChips ids={labelIds()} />
                 <Show
                     when={labelChoices().length > 0}
                     fallback={<span class="t-body ticket__none">None</span>}
@@ -636,6 +643,16 @@ function TicketEditor(props: TicketEditorProps) {
                             </label>
                         )}
                     </For>
+                </Show>
+                {/* Make a label here and give it to this ticket in one step. */}
+                <Show when={teamId()}>
+                    <NewLabel
+                        teamId={teamId()}
+                        confirm="Create and apply"
+                        onAdd={(label) => {
+                            if (!labelIds().includes(label.id)) void toggleLabel(label.id, true)
+                        }}
+                    />
                 </Show>
                 <Show when={refused()?.fields.labels}>
                     <span class="input__error t-meta">{refused()?.fields.labels}</span>

@@ -7,12 +7,25 @@ import type { Status } from '@/sync'
 ├─ out ───────────────────────────────────────────
 │      hueFor       a stored colour → the nearest of the sheet's eight hues
 │      isStarted    filled dot or ring
+│      COLOURS      the colours a status or label may be given (one per hue)
 ├─ example ───────────────────────────────────────
 │      "#3b82f6"  →  'blue'        "#94a3b8"  →  'slate'
 */
 // A status carries whatever hex its team picked. The design system has eight
 // hues and a rule that nothing a user creates is drawn more saturated than the
 // accent, so the stored colour chooses a hue and is never painted itself.
+
+// One stored colour per sheet hue (statusLook.hueFor maps each back to it).
+export const COLOURS = [
+    { value: '#94a3b8', label: 'Slate' },
+    { value: '#3b82f6', label: 'Blue' },
+    { value: '#14b8a6', label: 'Teal' },
+    { value: '#22c55e', label: 'Green' },
+    { value: '#f59e0b', label: 'Amber' },
+    { value: '#c2410c', label: 'Clay' },
+    { value: '#ef4444', label: 'Rust' },
+    { value: '#8b5cf6', label: 'Violet' },
+]
 
 // Where each hue sits on the colour wheel, in degrees.
 const WHEEL: [Hue, number][] = [

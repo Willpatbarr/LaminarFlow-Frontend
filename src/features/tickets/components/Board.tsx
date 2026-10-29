@@ -35,6 +35,7 @@ import { nameCount, overMessage } from '../limits'
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { AssigneeMarker } from './AssigneeMarker'
+import { LabelChips } from './LabelChips'
 import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
 import './board.css'
@@ -408,6 +409,7 @@ function Card(props: CardProps) {
             <a class="board__card-title t-cell" href={`/tickets/${id()}`} draggable="false">
                 {props.ticket.title || 'Untitled'}
             </a>
+            <LabelChips ids={props.ticket.label_ids} max={3} />
             <span class="board__card-foot">
                 <Show when={props.showStatus && status()}>
                     {(found) => <StatusPill label={found().name} hue={hueFor(found().color)} active={isStarted(found())} />}

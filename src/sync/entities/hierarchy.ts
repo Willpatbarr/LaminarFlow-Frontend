@@ -4,8 +4,6 @@ import { isNullableString, isString, listAll, PAGE_SIZE, type RemoteEvent, type 
 import type {
     Epic,
     EpicFields,
-    Label,
-    LabelFields,
     Milestone,
     MilestoneFields,
     Sprint,
@@ -18,29 +16,28 @@ import type { Entity } from './entity'
 
 /*
 ┌─ sync/entities ─────────────────────────────────
-│  epics, sprints, milestones and labels: the fifth to eighth entities (LAM-103)
+│  epics, sprints and milestones: read-only entities (LAM-103; labels became writable in LAM-104)
 ├─ out ───────────────────────────────────────────
-│      epicEntity, sprintEntity, milestoneEntity, labelEntity   the registry entries
-│      toEpic, toSprint, toMilestone, toLabel
+│      epicEntity, sprintEntity, milestoneEntity   the registry entries
+│      toEpic, toSprint, toMilestone
 */
 // The ticket page needs these to fill its pickers and to say what a ticket is
 // filed under, offline included, and to follow the change feed. Nothing in the
-// app writes them yet (creating and renaming them is LAM-104 and LAM-105), so
+// app writes them yet (creating and renaming them is LAM-105), so
 // they are READ-ONLY entities: they have a list and an event reader, and a
 // `send` that refuses, so an entry for one can never reach the server by
 // accident. How they differ from a ticket, and nothing else:
 //  - the server keeps NO version (no If-Match, no 409, none on a frame), so
 //    the rows hold a constant 1 and the feed is an upsert / remove on the id,
 //    as docs/realtime.md says ("replace the resource you hold").
-//  - `<name>.deleted` is the entity's "archived". Epics, milestones and labels
+//  - `<name>.deleted` is the entity's "archived". Epics and milestones
 //    that are deleted also leave their id on tickets; the engine clears it
 //    (see `releasedBy` in ../engine.ts).
-//  - all four lists take a project (labels: a team) and answer one page.
+//  - all three lists take a project and answer one page.
 
 type EpicBody = components['schemas']['EpicBody']
 type SprintBody = components['schemas']['SprintBody']
 type MilestoneBody = components['schemas']['MilestoneBody']
-type LabelBody = components['schemas']['LabelBody']
 
 export const toEpic = (body: EpicBody): Epic => ({
     id: body.id,
@@ -65,14 +62,6 @@ export const toMilestone = (body: MilestoneBody): Milestone => ({
     target_date: body.target_date,
     version: 1,
 })
-export const toLabel = (body: LabelBody): Label => ({
-    id: body.id,
-    team_id: body.team_id,
-    name: body.name,
-    color: body.color,
-    version: 1,
-})
-
 const EVENTS = { created: 'created', updated: 'updated', deleted: 'archived' } as const
 
 type Reader<Row> = (body: Record<string, unknown>) => Row | null
@@ -110,23 +99,15 @@ const readMilestone: Reader<Milestone> = (row) =>
     isNullableString(row.target_date)
         ? toMilestone(row as unknown as MilestoneBody)
         : null
-const readLabel: Reader<Label> = (row) =>
-    isString(row.id) && isString(row.team_id) && isString(row.name) && isString(row.color)
-        ? toLabel(row as unknown as LabelBody)
-        : null
-
 async function eachProject(api: SyncApi) {
     return listAll((cursor) => api.POST('/api/v1/projects/list', { body: { limit: PAGE_SIZE, cursor } }))
-}
-async function eachTeam(api: SyncApi) {
-    return listAll((cursor) => api.POST('/api/v1/teams/list', { body: { limit: PAGE_SIZE, cursor } }))
 }
 
 const refused = { type: 'http' as const, error: { status: 400, code: 'unsupported', errors: [] } }
 
 // `fieldsOf` and friends exist because the engine asks every entity for them;
 // with no way to edit one, they only have to be consistent.
-function readOnly<N extends 'epic' | 'sprint' | 'milestone' | 'label'>(
+function readOnly<N extends 'epic' | 'sprint' | 'milestone'>(
     name: N,
     fields: (row: EntityRows[N]) => EntityFields[N],
     list: (api: SyncApi) => Promise<EntityRows[N][]>,
@@ -195,18 +176,4 @@ export const milestoneEntity = readOnly<'milestone'>(
         return out
     },
     readMilestone,
-)
-
-export const labelEntity = readOnly<'label'>(
-    'label',
-    (row): LabelFields => ({ name: row.name, color: row.color }),
-    async (api) => {
-        const out: Label[] = []
-        for (const team of await eachTeam(api)) {
-            const listed = await listAll(() => api.POST('/api/v1/labels/list', { body: { team_id: team.id } }))
-            out.push(...listed.map(toLabel))
-        }
-        return out
-    },
-    readLabel,
 )
