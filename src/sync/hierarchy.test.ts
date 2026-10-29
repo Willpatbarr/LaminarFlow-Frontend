@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { bodyOf, ok, stubFetch } from '@/testing/fetch'
 
-import { listRoutes, page, startEngine, ticket } from './testing/harness'
+import { listRoutes, ME, page, startEngine, ticket } from './testing/harness'
 
 afterEach(() => {
     vi.unstubAllGlobals()
@@ -214,5 +214,47 @@ describe('the change feed (LAM-103)', () => {
         })
         await engine.applyRemote(feed('epic.deleted', 'epic', EPIC))
         expect((await db.snapshot()).tickets[0].epic_id).toBeNull()
+    })
+})
+
+describe('a sprint call that fails after the PUT landed (LAM-103)', () => {
+    it('is retried without a conflict: the 409 against our own PUT counts as applied, and the sprint call goes through', async () => {
+        const calls: string[] = []
+        let postFails = true
+        const body = { ...ticket({ id: 't-1', version: 2 }), epic_id: 'e-1' }
+        stubFetch({
+            ...listRoutes([], [], [], { sprints: [SPRINT] }),
+            // In no sprint yet: the sprint filter answers with nothing.
+            'POST /api/v1/tickets/list': async (request) =>
+                page((await bodyOf(request)).filter ? [] : [ticket({ id: 't-1', version: 1 })]),
+            'PUT /api/v1/tickets/t-1': (request) => {
+                calls.push(`PUT ${request.headers.get('If-Match')}`)
+                // The first lands; the retry is on the old version, so it is refused.
+                if (calls.length === 1) return ok(body)
+                return new Response(
+                    JSON.stringify({ title: 'Conflict', status: 409, code: 'ticket_conflict', current: { ...body, version: 3 }, changed_by: { account_id: ME, display_name: 'Me' }, changed_at: '2026-01-01T00:00:05Z' }),
+                    { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+                )
+            },
+            'POST /api/v1/sprints/sp-1/tickets': () => {
+                calls.push('POST')
+                if (postFails) return new Response('bad gateway', { status: 502 })
+                return new Response(null, { status: 204 })
+            },
+            'GET /api/v1/tickets/t-1': () => ok({ ...body, version: 4 }),
+        })
+        const { engine, db, clock } = await startEngine()
+        await engine.updateTicket('t-1', { epic_id: 'e-1', sprint_ids: ['sp-1'] })
+        await engine.idle()
+        expect((await db.snapshot()).outbox[0]).toMatchObject({ state: 'pending', attempts: 1 })
+
+        postFails = false
+        clock.advance(60_000)
+        await engine.idle()
+
+        expect(calls).toEqual(['PUT "1"', 'POST', 'PUT "1"', 'POST'])
+        const snapshot = await db.snapshot()
+        expect(snapshot.outbox).toEqual([])
+        expect(snapshot.tickets[0]).toMatchObject({ version: 4, epic_id: 'e-1', sprint_ids: ['sp-1'] })
     })
 })

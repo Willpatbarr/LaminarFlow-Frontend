@@ -130,11 +130,10 @@ function editable<F extends Partial<TicketFields>>(fields: F) {
 type Raw = { data?: unknown; error?: unknown; response: Response }
 
 // Puts the ticket in the sprints `want` names and takes it out of the rest. Each
-// is its own call and the first that does not succeed ends the entry. Known
-// gap: if the PUT landed and a membership call then failed, the retry's PUT
-// answers 409 against our own write (the server's copy here is not refreshed
-// between them), and the conflict panel offers it. Membership bumps the
+// is its own call and the first that does not succeed ends the entry. Membership bumps the
 // ticket's version, so the row to adopt is read again afterwards.
+// (A retry after a failed sprint call is a 409 against our own PUT; `send`
+// recognises it as applied.)
 async function syncSprints(
     api: SyncApi,
     entry: { kind: EntryOf<'ticket'>['kind']; base_version: number | null; payload: unknown },
@@ -291,15 +290,29 @@ export const ticketEntity: Entity<'ticket'> = {
                 },
                 codec,
             )
-            if (sent.type !== 'ok' || !sent.row) return sent
-            if (entry.kind !== 'create' && entry.kind !== 'update') return sent
+            // A retry whose PUT landed the first time (a sprint call after it
+            // failed) is refused against our own write. When the server's copy
+            // already holds exactly what this entry sent, the PUT is done and
+            // only the sprint calls are left.
+            const applied =
+                sent.type === 'conflict' &&
+                entry.kind === 'update' &&
+                entry.payload.sprint_ids !== undefined &&
+                sent.conflict.code === 'ticket_conflict' &&
+                sameFields(
+                    { ...fieldsOf(sent.conflict.current), sprint_ids: [], position: undefined },
+                    { ...fieldsOf(entry.payload), sprint_ids: [], position: undefined },
+                )
+            const done: Outcome<Ticket, TicketConflict> = applied ? { type: 'ok', row: sent.conflict.current } : sent
+            if (done.type !== 'ok' || !done.row) return done
+            if (entry.kind !== 'create' && entry.kind !== 'update') return done
 
             // Sprint membership, after the write it rode in with: the ticket
             // exists (a create) or has taken its edit (an update, whose answer
             // carries the new version, which the memberships then move again).
             const known = entry.kind === 'update' ? await context.server(entry.entity_id) : undefined
-            const member = await syncSprints(api, entry, sent.row.id, known?.sprint_ids ?? [], entry.payload.sprint_ids)
-            return member ?? { type: 'ok', row: { ...sent.row, sprint_ids: entry.payload.sprint_ids ?? known?.sprint_ids ?? [] } }
+            const member = await syncSprints(api, entry, done.row.id, known?.sprint_ids ?? [], entry.payload.sprint_ids)
+            return member ?? { type: 'ok', row: { ...done.row, sprint_ids: entry.payload.sprint_ids ?? known?.sprint_ids ?? [] } }
         },
 
         parseEvent: (frame) => parseEvent(frame, 'ticket', readTicket),
