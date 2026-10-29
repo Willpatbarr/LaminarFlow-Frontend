@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Match, onSettled, Show, Switch } from 'solid-js'
 
+import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
@@ -321,7 +322,9 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     <a class="t-body" href={`/teams/${props.project.team_id}/settings`}>
                         Edit statuses
                     </a>{' '}
-                    <Button onClick={() => setCreating(true)}>New ticket</Button>
+                    <Button onClick={() => setCreating(true)} disabledReason={denial('ticket:write', 'create tickets')}>
+                        New ticket
+                    </Button>
                 </div>
             </header>
 

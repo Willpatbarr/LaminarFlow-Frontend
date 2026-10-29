@@ -1,5 +1,6 @@
 import { createSignal, For, Match, Show, Switch } from 'solid-js'
 
+import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -191,6 +192,7 @@ function LoadedTicketRow(props: LoadedRow) {
                                 variant="ghost"
                                 size="sm"
                                 disabled={locked()}
+                                disabledReason={denial('ticket:write', 'edit tickets')}
                                 aria-label={`Edit ${name()}`}
                                 onClick={startEditing}
                             >
@@ -200,6 +202,7 @@ function LoadedTicketRow(props: LoadedRow) {
                                 variant="ghost"
                                 size="sm"
                                 disabled={locked()}
+                                disabledReason={denial('ticket:write', 'archive tickets')}
                                 aria-label={`Archive ${name()}`}
                                 onClick={() => void archiveWithUndo(props.ticket)}
                             >

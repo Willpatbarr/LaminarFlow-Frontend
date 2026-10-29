@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, Show } from 'solid-js'
 
 import { Banner } from '@/components/ui/Banner'
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -207,6 +208,7 @@ export function AspectTypeEditor(props: { typeId: string }) {
                                     value={name() ?? current().name}
                                     onInput={setName}
                                     onBlur={() => void commitName()}
+                                    readOnly={!can('aspect:write')}
                                     error={nameError()}
                                 />
                             </form>
@@ -256,8 +258,11 @@ export function AspectTypeEditor(props: { typeId: string }) {
                                     void add()
                                 }}
                             >
-                                <Input label="New field label" value={newLabel()} onInput={setNewLabel} />
-                                <Button disabled={newLabel().trim() === '' || busy()} onClick={() => void add()}>
+                                <Input label="New field label" value={newLabel()} onInput={setNewLabel} readOnly={!can('aspect:write')} />
+                                <Button
+                                    disabled={newLabel().trim() === '' || busy()}
+                                    disabledReason={denial('aspect:write', 'add fields')}
+                                    onClick={() => void add()}>
                                     Add field
                                 </Button>
                             </div>
@@ -345,16 +350,17 @@ function FieldRow(props: FieldRowProps) {
                     value={label()}
                     onInput={setDraft}
                     onBlur={commit}
+                    readOnly={!can('aspect:write')}
                 />
             </form>
             <span class="status-editor__actions">
-                <Button variant="ghost" size="sm" disabled={props.first} aria-label={`Move ${props.field.label} up`} onClick={() => props.onMove(-1)}>
+                <Button variant="ghost" size="sm" disabled={props.first} disabledReason={denial('aspect:write', 'change fields')} aria-label={`Move ${props.field.label} up`} onClick={() => props.onMove(-1)}>
                     Up
                 </Button>
-                <Button variant="ghost" size="sm" disabled={props.last} aria-label={`Move ${props.field.label} down`} onClick={() => props.onMove(1)}>
+                <Button variant="ghost" size="sm" disabled={props.last} disabledReason={denial('aspect:write', 'change fields')} aria-label={`Move ${props.field.label} down`} onClick={() => props.onMove(1)}>
                     Down
                 </Button>
-                <Button variant="ghost" size="sm" aria-label={`Remove ${props.field.label}`} onClick={() => props.onRemove()}>
+                <Button variant="ghost" size="sm" disabledReason={denial('aspect:write', 'remove fields')} aria-label={`Remove ${props.field.label}`} onClick={() => props.onRemove()}>
                     Remove
                 </Button>
             </span>

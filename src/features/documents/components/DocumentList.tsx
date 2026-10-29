@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 
 import { api } from '@/api/client'
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
@@ -121,14 +122,14 @@ export function DocumentList(props: DocumentListProps) {
                 <Show when={aspectOptions().length > 1}>
                     <Select label="Aspect type" value={aspect()} onChange={setAspect} options={aspectOptions()} />
                 </Show>
-                <Button variant="primary" disabled={busy() || creating()} onClick={() => void create(null)}>
+                <Button variant="primary" disabled={busy() || creating()} disabledReason={denial('ticket:write', 'create documents')} onClick={() => void create(null)}>
                     New document
                 </Button>
                 <Show when={Object.keys(aspectNames()).length > 0}>
                     <Select
                         label="New aspect"
                         value=""
-                        disabled={busy() || creating()}
+                        disabled={busy() || creating() || !can('ticket:write')}
                         onChange={(value) => {
                             if (value) void create(value)
                         }}

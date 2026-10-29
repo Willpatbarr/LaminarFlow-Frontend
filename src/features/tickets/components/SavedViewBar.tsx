@@ -1,6 +1,7 @@
 import { createSignal, Show } from 'solid-js'
 
 import { Banner } from '@/components/ui/Banner'
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { canEditSavedView, createSavedView, savedViewById, updateSavedView, type SavedView } from '@/sync'
 
@@ -77,7 +78,11 @@ export function SavedViewBar(props: SavedViewBarProps) {
                         </p>
                     )}
                 </Show>
-                <Button variant="secondary" onClick={() => setSaving(true)}>
+                <Button
+                    variant="secondary"
+                    disabledReason={denial('ticket:write', 'save views')}
+                    onClick={() => setSaving(true)}
+                >
                     Save view
                 </Button>
             </div>
@@ -85,7 +90,7 @@ export function SavedViewBar(props: SavedViewBarProps) {
                 {(found) => (
                     <Banner role="status">
                         <span>“{found().name}” has changed.</span>{' '}
-                        <Show when={canEditSavedView(found(), props.accountId)}>
+                        <Show when={can('ticket:write') && canEditSavedView(found(), props.accountId)}>
                             <button
                                 type="button"
                                 class="saved-view-bar__link"

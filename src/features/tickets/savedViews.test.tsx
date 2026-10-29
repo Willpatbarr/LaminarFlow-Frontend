@@ -8,6 +8,7 @@ import { createAppRouter } from '@/router'
 import { connectSyncToSession, wipeLocalData } from '@/sync'
 import { BOARD, listRoutes, ME, page, ticket } from '@/sync/testing/harness'
 import { bodyOf, ok, stubFetch } from '@/testing/fetch'
+import { ALL_PERMISSIONS } from '@/testing/permissions'
 
 // Saved views (LAM-118) through the real route tree, store and engine; only
 // `fetch` is stubbed.
@@ -18,7 +19,7 @@ const me = {
     email: 'ada@example.com',
     display_name: 'Ada Lovelace',
     workspace_id: 'ws-1',
-    permissions: [],
+    permissions: ALL_PERMISSIONS,
 }
 const stamp = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
 const TODO = { op: 'and', conditions: [{ field: 'status', op: 'in', value: ['s-todo'] }] }

@@ -12,6 +12,7 @@ import {
 } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
+import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { ensureMembers, members } from '@/features/members/members'
 import { Input } from '@/components/ui/Input'
@@ -437,7 +438,7 @@ function TicketEditor(props: TicketEditorProps) {
             : null
     })
     // Read-only: a collision to decide, or an archive that did not go through.
-    const locked = () => conflicted() !== null || archiveOnHold(id())
+    const locked = () => conflicted() !== null || archiveOnHold(id()) || !can('ticket:write')
 
     function focusTitle() {
         titleEl?.focus()
@@ -752,7 +753,9 @@ function TicketEditor(props: TicketEditorProps) {
             <ActivityFeed entityType="ticket" entityId={props.routeId} accountId={props.viewer.accountId} />
 
             <p class="t-meta ticket__hint">
-                {locked() && !conflicted()
+                {!can('ticket:write')
+                    ? "You don't have permission to edit tickets."
+                    : locked() && !conflicted()
                     ? 'Editing is paused until you deal with the archive that did not go through.'
                     : 'Changes are saved as you make them.'}
             </p>
@@ -761,6 +764,7 @@ function TicketEditor(props: TicketEditorProps) {
                 <Button
                     variant="danger"
                     disabled={locked()}
+                    disabledReason={denial('ticket:write', 'archive tickets')}
                     onClick={() => setConfirmingArchive(true)}
                 >
                     Archive ticket

@@ -207,3 +207,10 @@ export async function logout(): Promise<void> {
 export function can(permission: string): boolean {
     return state.me?.permissions.includes(permission) ?? false
 }
+
+/** The tooltip for a control the user may not use: "You don't have permission
+ *  to <action>.", or undefined when they may. Meant for `Button`'s
+ *  `disabledReason`, so every gate says the same thing the same way. */
+export function denial(permission: string, action: string): string | undefined {
+    return can(permission) ? undefined : `You don't have permission to ${action}.`
+}
