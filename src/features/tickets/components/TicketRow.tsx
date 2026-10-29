@@ -24,6 +24,7 @@ import type { Viewer } from '../viewer'
 import { AssigneeMarker } from './AssigneeMarker'
 import { archiveWithUndo } from './ArchiveUndoToast'
 import { ConflictPanel } from './ConflictPanel'
+import { LabelChips } from './LabelChips'
 import { SyncMarker } from './SyncMarker'
 
 type LoadedRow = {
@@ -196,7 +197,10 @@ function LoadedTicketRow(props: LoadedRow) {
                         </>
                     }
                 >
-                    <span class="table__text t-cell">{name()}</span>
+                    <span class="ticket__title-cell">
+                        <span class="table__text t-cell">{name()}</span>
+                        <LabelChips ids={props.ticket.label_ids} max={3} />
+                    </span>
                     <span>
                         <Show
                             when={props.status}

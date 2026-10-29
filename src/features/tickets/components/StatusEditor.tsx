@@ -17,7 +17,7 @@ import {
     type Status,
 } from '@/sync'
 
-import { hueFor, isStarted } from '../statusLook'
+import { COLOURS, hueFor, isStarted } from '../statusLook'
 import { nameCount, overMessage } from '../limits'
 import './StatusEditor.css'
 
@@ -46,18 +46,6 @@ const CATEGORIES = [
     { value: 'not_started', label: 'Not started' },
     { value: 'in_progress', label: 'In progress' },
     { value: 'done', label: 'Done' },
-]
-
-// One stored colour per sheet hue (statusLook.hueFor maps each back to it).
-const COLOURS = [
-    { value: '#94a3b8', label: 'Slate' },
-    { value: '#3b82f6', label: 'Blue' },
-    { value: '#14b8a6', label: 'Teal' },
-    { value: '#22c55e', label: 'Green' },
-    { value: '#f59e0b', label: 'Amber' },
-    { value: '#c2410c', label: 'Clay' },
-    { value: '#ef4444', label: 'Rust' },
-    { value: '#8b5cf6', label: 'Violet' },
 ]
 
 /** `ids` with `id` taken out and put back at index `to` (clamped). */

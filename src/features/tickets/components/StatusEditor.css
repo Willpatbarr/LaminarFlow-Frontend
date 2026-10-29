@@ -76,3 +76,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* LabelEditor (LAM-104): a chip, a name, a colour and a delete. */
+.label-editor__row {
+  grid-template-columns: 150px minmax(0, 1fr) 150px auto;
+}
+
+.label-editor__new {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+}
+
+@media (max-width: 640px) {
+  .label-editor__row,
+  .label-editor__new {
+    grid-template-columns: 1fr;
+  }
+}

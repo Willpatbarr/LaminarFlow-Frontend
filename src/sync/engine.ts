@@ -24,6 +24,8 @@ import {
     type EntityName,
     type EntityRows,
     type EntryError,
+    type Label,
+    type LabelFields,
     type NewDoc,
     type NewStatus,
     type Status,
@@ -178,6 +180,11 @@ export type SyncEngine = {
      *  withdrawn by the archive is created again, under a new temporary id),
      *  or null when there is nothing to undo. */
     unarchiveTicket(ticket: Ticket): Promise<string | null>
+
+    createLabel(label: EntityCreates['label']): Promise<Label>
+    updateLabel(id: string, patch: Partial<LabelFields>): Promise<boolean>
+    /** Deletes a label; it leaves every ticket that has it. */
+    deleteLabel(id: string): Promise<boolean>
 
     createStatus(status: NewStatus): Promise<Status>
     updateStatus(id: string, patch: Partial<StatusFields>): Promise<boolean>
@@ -475,6 +482,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 // The server has never heard of this one, so there is
                 // nothing to archive there: the create is simply withdrawn.
                 await tx.outbox.delete(only.id)
+                if (entity in RELEASES) await release(tx, entity as keyof typeof RELEASES, id)
             } else {
                 const server = await copies.get(id)
                 await tx.outbox.add({
@@ -564,6 +572,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         }
         if (from !== server.id) await rows.delete(from)
         await copies.put(server)
+        if (entry.entity === 'label' && from !== server.id) await renameLabel(tx, from, server.id)
         await rebuild(tx, entry.entity, server.id)
         return from === server.id ? {} : { swap: { from, to: server.id } }
     }
@@ -700,6 +709,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     // Our own archive. Its echo says so; a late echo of an
                     // earlier write must not bring the row back before it.
                     if (entry.base_version !== null) buried.set(entry.entity_id, entry.base_version + 1)
+                    // The id leaves the tickets that had it, as the feed's
+                    // `<name>.deleted` would make it.
+                    if (entry.entity in RELEASES) await release(tx, entry.entity as keyof typeof RELEASES, entry.entity_id)
                     await archived(tx, entry, entry.base_version === null ? null : entry.base_version + 1)
                     return {}
 
@@ -836,7 +848,24 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // anything still queued for them - a send that named the gone id would be a
     // 422 for something the user never chose - and the version stays where it is.
     async function release(tx: SyncTx, resource: keyof typeof RELEASES, gone: string) {
-        const clear = RELEASES[resource]
+        await rewriteFiled(tx, RELEASES[resource], gone)
+    }
+
+    // A label made here is named by a temporary id until the server answers; the
+    // tickets that were given it, and what is queued for them, name it too.
+    // Swapping it for the real id keeps the label on them.
+    async function renameLabel(tx: SyncTx, from: string, to: string) {
+        await rewriteFiled(
+            tx,
+            (ticket) =>
+                ticket.label_ids?.includes(from)
+                    ? { ...ticket, label_ids: ticket.label_ids.map((id) => (id === from ? to : id)) }
+                    : ticket,
+            from,
+        )
+    }
+
+    async function rewriteFiled(tx: SyncTx, clear: Release, gone: string) {
         for (const table of [tx.serverTickets, tx.tickets]) {
             for (const ticket of await table.all()) {
                 const cleared = clear(ticket, gone)
@@ -934,6 +963,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 headSeen.add(head.entity_id)
                 if (head.state !== 'pending') continue
                 if ((waits.get(head.id) ?? 0) > now) continue
+                // A ticket that names a label the server has not heard of yet
+                // waits for that label's create, which was queued before it.
+                if (head.entity === 'ticket' && head.kind !== 'archive' && head.kind !== 'unarchive') {
+                    if (head.payload.label_ids?.some(isTempId)) continue
+                }
 
                 let entry = head
                 if (entry.kind !== 'create' && entry.base_version === null) {
@@ -1090,6 +1124,10 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             await tables(tx, entry.entity).server.delete(entry.entity_id)
         }
         await rebuild(tx, entry.entity, entry.entity_id)
+        // A create that will never be sent: nothing can keep its temporary id.
+        if (entry.kind === 'create' && entry.entity in RELEASES) {
+            await release(tx, entry.entity as keyof typeof RELEASES, entry.entity_id)
+        }
     }
 
     async function discard(entryId: number): Promise<boolean> {
@@ -1213,6 +1251,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         updateTicket: (id, patch) => update('ticket', id, patch),
         archiveTicket: (id) => archive('ticket', id),
         unarchiveTicket: (ticket) => unarchive('ticket', ticket),
+        createLabel: (label) => create('label', label),
+        updateLabel: (id, patch) => update('label', id, patch),
+        deleteLabel: (id) => archive('label', id),
         createStatus: (status) => create('status', status),
         updateStatus: (id, patch) => update('status', id, patch),
         deleteStatus: (id, moveTo) => archive('status', id, { move_to: moveTo }),

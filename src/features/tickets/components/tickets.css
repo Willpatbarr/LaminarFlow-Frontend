@@ -227,3 +227,25 @@
   background: var(--bg-overlay);
   box-shadow: -16px 0 40px rgb(0 0 0 / 0.25);
 }
+
+/* Label chips (LAM-104): a row of .chip, on list rows, board cards and the ticket page. */
+.label-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.label-chips__more {
+  color: var(--text-3);
+}
+
+.ticket__title-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-width: 0;
+}
