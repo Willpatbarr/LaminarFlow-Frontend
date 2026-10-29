@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from '@solidjs/router'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
@@ -32,10 +33,15 @@ import {
     withStatusIn,
 } from '../board'
 import { nameCount, overMessage } from '../limits'
+import { fromSearch, type ListViewConfig } from '../listView/config'
+import { matches } from '../listView/evaluate'
+import { boardSearch, VIEW_PARAM, viewUrl } from '../savedViews/savedView'
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { AssigneeMarker } from './AssigneeMarker'
 import { LabelChips } from './LabelChips'
+import { ListControls } from './ListControls'
+import { SavedViewBar } from './SavedViewBar'
 import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
 import './board.css'
@@ -80,9 +86,22 @@ export function Board(props: BoardProps) {
     const [editingStatuses, setEditingStatuses] = createSignal(false)
     let root: HTMLElement | undefined
 
+    const navigate = useNavigate()
+    const location = useLocation()
+
     const project = () => sync.projects.find((candidate) => candidate.id === props.board.project_id)
     const statuses = () => statusesForProject(props.board.project_id)
-    const tickets = createMemo(() => sync.tickets.filter((ticket) => ticket.project_id === props.board.project_id))
+
+    // The board's filter is in the address, as the list's whole view is
+    // (listView/config.ts), and it is all of a board's view there is: its columns
+    // are the board's own. `view=<id>` is the saved view it was opened from
+    // (LAM-118). The filter is run here, over the rows this device holds.
+    const viewId = () => new URLSearchParams(location.search).get(VIEW_PARAM) || null
+    const config = createMemo<ListViewConfig>(() => ({ filter: fromSearch(new URLSearchParams(location.search)).config.filter }))
+    const setFilter = (next: ListViewConfig) => navigate(`${location.pathname}?${boardSearch(next.filter, viewId())}`, { replace: true })
+    const tickets = createMemo(() =>
+        sync.tickets.filter((ticket) => ticket.project_id === props.board.project_id && matches(ticket, config().filter)),
+    )
     const columns = () => inOrder(props.board.columns)
     const shown = () => columns().filter((column) => column.is_visible)
     const hidden = () => columns().filter((column) => !column.is_visible)
@@ -250,6 +269,25 @@ export function Board(props: BoardProps) {
                 </p>
                 <h1 class="t-screen-title">{props.board.name}</h1>
             </header>
+
+            <Show when={project()} keyed>
+                {(found) => (
+                    <>
+                        <SavedViewBar
+                            layout="board"
+                            config={config()}
+                            viewId={viewId()}
+                            accountId={props.viewer.accountId}
+                            teamId={found.team_id}
+                            projectId={found.id}
+                            boardId={props.board.id}
+                            onSaved={(saved) => navigate(`${location.pathname}?${boardSearch(config().filter, saved.id)}`, { replace: true })}
+                            onRevert={(saved) => navigate(viewUrl(saved), { replace: true })}
+                        />
+                        <ListControls config={config()} onChange={setFilter} project={found} viewer={props.viewer} filterOnly />
+                    </>
+                )}
+            </Show>
 
             <Show when={head()?.state === 'failed' && head()} keyed>
                 {(entry) => (

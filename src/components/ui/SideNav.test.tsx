@@ -130,4 +130,28 @@ describe('SideNav', () => {
             }
         })
     })
+
+    it('lists the saved views under their own heading, notes a private one, and says when there are none', () => {
+        const views = [
+            { label: 'Bugs', href: '/views/v1' },
+            { label: 'Mine', href: '/views/v2', note: 'Private' },
+        ]
+        const { unmount } = render(() => (
+            <SideNav links={[{ label: 'Tickets', href: '/' }]} views={views} userName="Ada" onLogout={() => {}} />
+        ))
+
+        expect(screen.getByRole('heading', { name: 'Saved views' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Bugs' })).toHaveAttribute('href', '/views/v1')
+        expect(screen.getByRole('link', { name: 'Mine Private' })).toHaveAttribute('href', '/views/v2')
+        unmount()
+
+        render(() => <SideNav links={[]} views={[]} userName="Ada" onLogout={() => {}} />)
+        expect(screen.getByText('No saved views yet')).toBeInTheDocument()
+    })
+
+    it('has no saved views section when the caller gives none', () => {
+        render(() => <SideNav links={[]} userName="Ada" onLogout={() => {}} />)
+
+        expect(screen.queryByRole('heading', { name: 'Saved views' })).not.toBeInTheDocument()
+    })
 })

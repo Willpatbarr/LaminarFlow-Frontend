@@ -20,6 +20,7 @@ import {
     type NewOutboxEntry,
     type OutboxEntry,
     type Project,
+    type SavedView,
     type Status,
     type Team,
     type Ticket,
@@ -63,6 +64,8 @@ interface Schema extends DBSchema {
     server_milestones: { key: string; value: Milestone }
     labels: { key: string; value: Label }
     server_labels: { key: string; value: Label }
+    saved_views: { key: string; value: SavedView }
+    server_saved_views: { key: string; value: SavedView }
     outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
 
@@ -76,6 +79,7 @@ const ENTITY_STORES = {
     sprint: { rows: 'sprints', server: 'server_sprints' },
     milestone: { rows: 'milestones', server: 'server_milestones' },
     label: { rows: 'labels', server: 'server_labels' },
+    saved_view: { rows: 'saved_views', server: 'server_saved_views' },
 } as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
@@ -98,6 +102,8 @@ const STORES = [
     'server_milestones',
     'labels',
     'server_labels',
+    'saved_views',
+    'server_saved_views',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
@@ -122,6 +128,8 @@ type RowStore =
     | 'server_milestones'
     | 'labels'
     | 'server_labels'
+    | 'saved_views'
+    | 'server_saved_views'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -181,6 +189,7 @@ export type Snapshot = {
     sprints: Sprint[]
     milestones: Milestone[]
     labels: Label[]
+    savedViews: SavedView[]
     outbox: OutboxEntry[]
 }
 
@@ -216,7 +225,8 @@ export const DB_NAME = 'laminarflow'
 //    its `server_` twin. A ticket gains `epic_id`, `milestone_id`, `label_ids`
 //    and `sprint_ids`; the ones on disk have none until the next hydration, and
 //    every reader treats a missing one as "none".
-export const DB_VERSION = 6
+// 7  saved views are an entity too (LAM-118): `saved_views` / `server_saved_views`.
+export const DB_VERSION = 7
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -336,6 +346,10 @@ export async function openSyncDb(
                     upgrading.createObjectStore(store, { keyPath: 'id' })
                 }
             }
+            if (oldVersion < 7) {
+                upgrading.createObjectStore('saved_views', { keyPath: 'id' })
+                upgrading.createObjectStore('server_saved_views', { keyPath: 'id' })
+            }
             // One chain, one step after another: each step is a cursor over the
             // same store and they must not interleave.
             const steps: ((store: OldStore) => Promise<void>)[] = []
@@ -374,9 +388,10 @@ export async function openSyncDb(
                 'sprints',
                 'milestones',
                 'labels',
+                'saved_views',
                 'outbox',
             ])
-            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, outbox] = await Promise.all([
+            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, outbox] = await Promise.all([
                 tx.objectStore('teams').getAll(),
                 tx.objectStore('projects').getAll(),
                 tx.objectStore('statuses').getAll(),
@@ -387,10 +402,11 @@ export async function openSyncDb(
                 tx.objectStore('sprints').getAll(),
                 tx.objectStore('milestones').getAll(),
                 tx.objectStore('labels').getAll(),
+                tx.objectStore('saved_views').getAll(),
                 tx.objectStore('outbox').getAll(),
             ])
             await tx.done
-            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, outbox }
+            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, outbox }
         },
 
         async write(fn) {

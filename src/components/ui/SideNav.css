@@ -118,6 +118,11 @@
   font-weight: 600;
 }
 
+.side-nav__note {
+  margin-left: auto;
+  color: var(--text-2);
+}
+
 .side-nav__empty {
   padding: 0 var(--s-8);
   color: var(--text-2);
@@ -146,6 +151,7 @@
 
 .side-nav--collapsed .side-nav__name,
 .side-nav--collapsed .side-nav__label,
+.side-nav--collapsed .side-nav__note,
 .side-nav--collapsed .side-nav__heading,
 .side-nav--collapsed .side-nav__empty,
 .side-nav--collapsed .side-nav__teams .input__label {

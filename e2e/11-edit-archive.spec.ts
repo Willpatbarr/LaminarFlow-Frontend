@@ -39,7 +39,7 @@ test('create with C, edit inline, archive and undo, each reaching the server', a
     await page.getByRole('button', { name: 'Edit Plan the launch' }).click()
     await page.getByLabel('Title').fill('Plan the launch party')
     await page.getByLabel('Status').selectOption({ label: world.statusNames[0] })
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     const group = page.getByRole('region', { name: world.statusNames[0] })
     await expect(group.getByRole('link', { name: /Plan the launch party/ })).toBeVisible()
     await expect.poll(async () => (await serverTicket(account, id))?.title).toBe('Plan the launch party')
@@ -69,7 +69,7 @@ test('an inline edit and an archive made offline sync when the network returns',
     await context.setOffline(true)
     await page.getByRole('button', { name: 'Edit Edit while offline' }).click()
     await page.getByLabel('Title').fill('Edited offline')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.getByRole('button', { name: 'Archive Archive while offline' }).click()
 
     await expect(page.getByRole('link', { name: /Edited offline/ })).toBeVisible()

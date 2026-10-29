@@ -330,3 +330,56 @@
   align-items: center;
   gap: var(--s-6);
 }
+
+/* LAM-118: the saved view bar, under the screen's heading. */
+.saved-view-bar {
+  display: grid;
+  gap: var(--s-8);
+}
+
+.saved-view-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-12);
+  justify-content: flex-end;
+}
+
+.saved-view-bar__name {
+  margin: 0 auto 0 0;
+  color: var(--text-2);
+}
+
+.saved-view-bar__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.save-view__who {
+  display: grid;
+  gap: var(--s-4);
+  margin: var(--s-12) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+/* LAM-118: the /views page. */
+.views-list {
+  display: grid;
+  gap: var(--s-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.views-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-12);
+}

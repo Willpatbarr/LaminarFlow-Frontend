@@ -33,11 +33,13 @@ import {
 import { matches, sortTickets, type Lookups } from '../listView/evaluate'
 import { buildGroups } from '../listView/group'
 import { serverMatches } from '../listView/serverRun'
+import { VIEW_PARAM, viewUrl } from '../savedViews/savedView'
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
 import { ListControls } from './ListControls'
 import { NewTicketDialog } from './NewTicketDialog'
+import { SavedViewBar } from './SavedViewBar'
 import { TicketDetail } from './TicketDetail'
 import { TicketRow } from './TicketRow'
 import './tickets.css'
@@ -147,6 +149,9 @@ function ProjectTickets(props: ProjectTicketsProps) {
     // a shared link opens the same panel; the row's own href still goes to the
     // full page (open in a new tab, or with a modifier key).
     const openId = () => new URLSearchParams(location.search).get('ticket') || null
+    // `view=<id>`: the saved view this list was opened from (LAM-118). Kept like
+    // the panel is, so a change to the list does not forget where it came from.
+    const viewId = () => new URLSearchParams(location.search).get(VIEW_PARAM) || null
 
     // The list's view lives in the same query string (filter, sort, group,
     // columns, collapsed - see listView/config.ts), so opening or closing the
@@ -168,6 +173,13 @@ function ProjectTickets(props: ProjectTicketsProps) {
         const params = toSearch(config, collapsed)
         const ticket = openId()
         if (ticket) params.set('ticket', ticket)
+        const saved = viewId()
+        if (saved) params.set(VIEW_PARAM, saved)
+        go(params, true)
+    }
+    function belongTo(id: string) {
+        const params = new URLSearchParams(location.search)
+        params.set(VIEW_PARAM, id)
         go(params, true)
     }
     const setConfig = (config: ListViewConfig) =>
@@ -312,6 +324,17 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     <Button onClick={() => setCreating(true)}>New ticket</Button>
                 </div>
             </header>
+
+            <SavedViewBar
+                layout="list"
+                config={view().config}
+                viewId={viewId()}
+                accountId={props.viewer.accountId}
+                teamId={props.project.team_id}
+                projectId={props.project.id}
+                onSaved={(saved) => belongTo(saved.id)}
+                onRevert={(saved) => navigate(viewUrl(saved), { replace: true })}
+            />
 
             <Show
                 when={projectTickets().length > 0}

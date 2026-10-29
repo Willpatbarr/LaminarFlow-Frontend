@@ -42,6 +42,10 @@ import type {
     NewTicket,
     OutboxEntry,
     Project,
+    SavedView,
+    SavedViewEntry,
+    SavedViewFields,
+    NewSavedView,
     Status,
     StatusEntry,
     StatusFields,
@@ -65,6 +69,8 @@ import type {
 ║      createStatus, updateStatus, deleteStatus, statusesForTeam, statusHead   the same, for statuses (LAM-95)
 ║      createLabel, updateLabel, deleteLabel, labelsForTeam, labelHead   the same, for labels (LAM-104)
 ║      epicsForProject, sprintsForProject, milestonesForProject, labelsForProject   what a ticket can be filed under (LAM-103)
+║      savedViewById, savedViewsForTeam, canEditSavedView, savedViewHead,
+║      createSavedView, updateSavedView, deleteSavedView   saved list and board views (LAM-118)
 ║      boardById, boardsForProject, boardHead, updateBoard   boards and their columns (LAM-107)
 ║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
 ║      archiveDocument, unarchiveDocument           the same, for documents (LAM-125)
@@ -105,6 +111,8 @@ export type SyncState = {
     sprints: Sprint[]
     milestones: Milestone[]
     labels: Label[]
+    /** The account's own private views and its teams' shared ones (LAM-118). */
+    savedViews: SavedView[]
     /** Every ticket, as the user should see it: unsent edits included. */
     tickets: Ticket[]
     /** Every document, as the user should see it: unsent edits included. */
@@ -134,6 +142,7 @@ function empty(): SyncState {
         sprints: [],
         milestones: [],
         labels: [],
+        savedViews: [],
         tickets: [],
         documents: [],
         outbox: [],
@@ -200,6 +209,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             reconcile(snapshot.sprints, 'id')(draft.sprints)
             reconcile(snapshot.milestones, 'id')(draft.milestones)
             reconcile(snapshot.labels, 'id')(draft.labels)
+            reconcile(snapshot.savedViews, 'id')(draft.savedViews)
             reconcile(snapshot.tickets, 'id')(draft.tickets)
             reconcile(snapshot.documents, 'id')(draft.documents)
             reconcile(snapshot.outbox, 'id')(draft.outbox)
@@ -479,6 +489,24 @@ export function labelsForTeam(teamId: string): Label[] {
     return state.labels.filter((label) => label.team_id === teamId).toSorted(byName)
 }
 
+/** The saved view with this id (a temporary one included), as the screen should show it. */
+export function savedViewById(id: string): SavedView | undefined {
+    const resolved = resolveId(id)
+    return state.savedViews.find((view) => view.id === resolved)
+}
+
+/** A team's saved views, by name: the sidebar's list. The server already left
+ *  out other people's private ones. */
+export function savedViewsForTeam(teamId: string): SavedView[] {
+    return state.savedViews.filter((view) => view.team_id === teamId).toSorted(byName)
+}
+
+/** Whether `accountId` may rename, re-save or delete the view: its owner, or
+ *  anybody on the team for a view with no owner. */
+export function canEditSavedView(view: SavedView, accountId: string): boolean {
+    return view.owner_account_id === null || view.owner_account_id === accountId
+}
+
 /** A team's statuses, in board order. */
 export function statusesForTeam(teamId: string): Status[] {
     return sortStatuses(state.statuses.filter((status) => status.team_id === teamId))
@@ -523,6 +551,13 @@ export function statusHead(id: string): StatusEntry | undefined {
 export function labelHead(id: string): LabelEntry | undefined {
     const head = queueHeads().get(resolveId(id))
     return head?.entity === 'label' ? head : undefined
+}
+
+/** The entry at the head of this saved view's queue, or undefined when it is in
+ *  sync. A failed one carries the server's reason in `error`. */
+export function savedViewHead(id: string): SavedViewEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'saved_view' ? head : undefined
 }
 
 /** The entry at the head of this board's queue, or undefined when it is in sync. */
@@ -614,6 +649,26 @@ export async function updateLabel(id: string, patch: Partial<LabelFields>): Prom
 /** Deletes a label. It leaves every ticket that had it. */
 export async function deleteLabel(id: string): Promise<boolean> {
     const found = await running().engine.deleteLabel(resolveId(id))
+    await caughtUp()
+    return found
+}
+
+/** Saves a view. Resolves with the row under its temporary id; the engine
+ *  sends it and swaps the id. */
+export async function createSavedView(view: NewSavedView): Promise<SavedView> {
+    const created = await running().engine.create('saved_view', plain(view))
+    await caughtUp()
+    return created
+}
+
+export async function updateSavedView(id: string, patch: Partial<SavedViewFields>): Promise<boolean> {
+    const found = await running().engine.update('saved_view', resolveId(id), plain(patch))
+    await caughtUp()
+    return found
+}
+
+export async function deleteSavedView(id: string): Promise<boolean> {
+    const found = await running().engine.archive('saved_view', resolveId(id))
     await caughtUp()
     return found
 }
