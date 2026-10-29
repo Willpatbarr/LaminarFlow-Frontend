@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core'
 import { screen, waitFor, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,6 +46,17 @@ async function paste(field: HTMLElement, text: string) {
     await user.clear(field)
     await user.click(field)
     await user.paste(text)
+    return user
+}
+
+// The description is the rich-text editor: its textbox is a contenteditable
+// that ProseMirror owns, so text goes in through the TipTap editor it hangs off
+// (`view.dom.editor`), which reports the edit the way typing does.
+async function setDescription(field: HTMLElement, text: string) {
+    const user = userEvent.setup()
+    await user.click(field)
+    const editor = (field as unknown as { editor: Editor }).editor
+    editor.chain().focus().selectAll().insertContent(text, { parseOptions: { preserveWhitespace: 'full' } }).run()
     return user
 }
 
@@ -157,9 +169,9 @@ describe('the description on the ticket page', () => {
     it('allows 50,000 and refuses 50,001 without queuing it', async () => {
         const { routes, puts } = editable()
         await openApp('/tickets/t-1', routes)
-        const description = await screen.findByLabelText('Description')
+        const description = await screen.findByRole('textbox', { name: 'Description' })
 
-        const user = await paste(description, 'd'.repeat(50_001))
+        const user = await setDescription(description, 'd'.repeat(50_001))
         expect(inMain().getByText('50,001 / 50,000')).toBeInTheDocument()
         expect(description).toHaveAttribute('aria-invalid', 'true')
         expect(inMain().getByText('Description can be at most 50,000 characters; this one is 1 over.')).toBeInTheDocument()
@@ -167,9 +179,9 @@ describe('the description on the ticket page', () => {
         await new Promise((resolve) => setTimeout(resolve, 30))
         expect(puts).toEqual([])
         expect(sync.outbox).toEqual([])
-        expect(description).toHaveValue('d'.repeat(50_001))
+        expect(description).toHaveTextContent('d'.repeat(50_001))
 
-        await paste(description, 'd'.repeat(50_000))
+        await setDescription(description, 'd'.repeat(50_000))
         expect(description).not.toHaveAttribute('aria-invalid')
         await user.tab()
         await waitFor(() => expect(puts).toHaveLength(1))

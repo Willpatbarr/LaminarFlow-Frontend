@@ -25,6 +25,7 @@ import {
     type SocketClass,
     type Visibility,
 } from './socket'
+import { publishLinkFrame } from './linkEvents'
 import type {
     Board,
     BoardEntry,
@@ -335,7 +336,11 @@ export function startSync(accountId: string, options: StartOptions = {}): Promis
             random: socketOptions.random,
             backoff: socketOptions.backoff,
             helloTimeoutMs: socketOptions.helloTimeoutMs,
-            onEvent: (frame) => void engine.applyRemote(frame),
+            onEvent: (frame) => {
+                void engine.applyRemote(frame)
+                // Link events are not rows; the screens that show links hear them here.
+                publishLinkFrame(frame)
+            },
             onOpen: ({ first }) => {
                 // Delivery is best-effort and there is no replay: whatever was
                 // missed while the socket was down is only found by listing

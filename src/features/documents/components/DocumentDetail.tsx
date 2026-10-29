@@ -24,6 +24,8 @@ import {
 } from '@/sync'
 import type { EntryError } from '@/sync'
 
+import { LinkedTickets } from '@/features/links/LinkedTickets'
+
 import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
 import { DocumentConflictPanel } from './DocumentConflictPanel'
@@ -79,7 +81,7 @@ export function DocumentDetail(props: DocumentDetailProps) {
                     </div>
                 </Match>
                 <Match when={doc()}>
-                    {(found) => <DocumentEditor doc={found()} announce={setNotice} />}
+                    {(found) => <DocumentEditor doc={found()} routeId={props.id} announce={setNotice} />}
                 </Match>
             </Switch>
         </section>
@@ -88,6 +90,8 @@ export function DocumentDetail(props: DocumentDetailProps) {
 
 type DocumentEditorProps = {
     doc: Doc
+    /** The id from the URL: it outlives the row, which the store may drop under the page. */
+    routeId: string
     announce: (text: string) => void
 }
 
@@ -290,6 +294,8 @@ function DocumentEditor(props: DocumentEditorProps) {
                     }}
                 />
             </Show>
+
+            <LinkedTickets documentId={props.routeId} disabled={locked()} />
         </div>
     )
 }

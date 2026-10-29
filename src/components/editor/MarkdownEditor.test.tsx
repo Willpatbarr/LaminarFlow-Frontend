@@ -92,3 +92,33 @@ describe('MarkdownEditor', () => {
         expect(screen.getByRole('textbox', { name: 'Two' })).toHaveTextContent('b')
     })
 })
+
+describe('MarkdownEditor limits and state', () => {
+    it('marks the field invalid with the message and the count when over its limit', async () => {
+        render(() => (
+            <MarkdownEditor
+                label="Notes"
+                value="hello"
+                onChange={() => {}}
+                count={{ used: 12, max: 10 }}
+                error="Notes can be at most 10 characters."
+            />
+        ))
+        const box = await screen.findByRole('textbox', { name: 'Notes' })
+        await waitFor(() => expect(box).toHaveAttribute('aria-invalid', 'true'))
+        expect(box).toHaveAccessibleDescription('Notes can be at most 10 characters. 12 / 10')
+    })
+
+    it('is not invalid inside its limit, and says when it is read-only', async () => {
+        const [readOnly, setReadOnly] = createSignal(false)
+        render(() => (
+            <MarkdownEditor label="Notes" value="hello" onChange={() => {}} count={{ used: 3, max: 10 }} readOnly={readOnly()} />
+        ))
+        const box = await screen.findByRole('textbox', { name: 'Notes' })
+        expect(box).not.toHaveAttribute('aria-invalid')
+        expect(box).not.toHaveAttribute('aria-readonly')
+        setReadOnly(true)
+        await waitFor(() => expect(box).toHaveAttribute('aria-readonly', 'true'))
+    })
+})
+

@@ -76,3 +76,7 @@
   color: var(--text-3);
   pointer-events: none;
 }
+
+.md-editor__box:has([aria-invalid='true']) {
+  border-color: var(--rust);
+}
