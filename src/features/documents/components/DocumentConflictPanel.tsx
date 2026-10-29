@@ -1,5 +1,6 @@
 import { createSignal, createUniqueId, For, Show } from 'solid-js'
 
+import type { AspectField } from '@/features/aspects/api'
 import { Button } from '@/components/ui/Button'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import type { Doc, DocConflict } from '@/sync'
@@ -12,6 +13,8 @@ type DocumentConflictPanelProps = {
     conflict: DocConflict
     /** The user's version: the document as it stands here, their edits included. */
     mine: Doc
+    /** The fields to compare when the document is an aspect (its type's, in order). */
+    fields?: AspectField[]
     onKeepTheirs: () => Promise<unknown>
     onUseMine: () => Promise<unknown>
     onKeepAsNew: () => Promise<unknown>
@@ -36,9 +39,15 @@ export function DocumentConflictPanel(props: DocumentConflictPanelProps) {
         if (props.mine.title !== theirs().title) {
             found.push({ field: 'Title', mine: props.mine.title, theirs: theirs().title })
         }
-        const mine = props.mine.body[CONTENT_KEY] ?? ''
-        const other = theirs().body[CONTENT_KEY] ?? ''
-        if (mine !== other) found.push({ field: 'Text', mine, theirs: other })
+        // An aspect's text is spread over its fields; a normal document's is one.
+        const keys = props.fields
+            ? props.fields.map((f) => ({ key: f.id, name: f.label }))
+            : [{ key: CONTENT_KEY, name: 'Text' }]
+        for (const { key, name } of keys) {
+            const mine = props.mine.body[key] ?? ''
+            const other = theirs().body[key] ?? ''
+            if (mine !== other) found.push({ field: name, mine, theirs: other })
+        }
         return found
     }
 

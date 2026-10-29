@@ -79,17 +79,19 @@ export function DocumentList(props: DocumentListProps) {
         ]
     })
 
-    async function create() {
+    // A new document is normal, or an aspect of a type picked here. An aspect
+    // starts with every field empty: an absent key is an empty field.
+    async function create(aspectTypeId: string | null = null) {
         setCreating(true)
         try {
             const target = props.projectId ?? (project() !== ALL && project() !== NONE ? project() : null)
             const document = await createDocument({
                 title: '',
-                type: 'normal',
-                aspect_type_id: null,
+                type: aspectTypeId ? 'aspect' : 'normal',
+                aspect_type_id: aspectTypeId,
                 team_id: null,
                 project_id: target,
-                body: { [CONTENT_KEY]: '' },
+                body: aspectTypeId ? {} : { [CONTENT_KEY]: '' },
             })
             navigate(`/documents/${document.id}`)
         } finally {
@@ -127,9 +129,25 @@ export function DocumentList(props: DocumentListProps) {
                 <Show when={aspectOptions().length > 1}>
                     <Select label="Aspect type" value={aspect()} onChange={setAspect} options={aspectOptions()} />
                 </Show>
-                <Button variant="primary" disabled={busy() || creating()} onClick={() => void create()}>
+                <Button variant="primary" disabled={busy() || creating()} onClick={() => void create(null)}>
                     New document
                 </Button>
+                <Show when={Object.keys(aspectNames()).length > 0}>
+                    <Select
+                        label="New aspect"
+                        value=""
+                        disabled={busy() || creating()}
+                        onChange={(value) => {
+                            if (value) void create(value)
+                        }}
+                        options={[
+                            { value: '', label: 'Choose a type…' },
+                            ...Object.entries(aspectNames())
+                                .map(([value, label]) => ({ value, label }))
+                                .toSorted((a, b) => a.label.localeCompare(b.label)),
+                        ]}
+                    />
+                </Show>
             </div>
             <Show when={busy()}>
                 <p class="visually-hidden" role="status">

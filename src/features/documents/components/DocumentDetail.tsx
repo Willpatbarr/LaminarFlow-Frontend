@@ -1,10 +1,14 @@
 import { useNavigate } from '@solidjs/router'
-import { createEffect, createMemo, createSignal, Match, Show, Switch, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Match, Show, Switch, untrack } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
+import { Banner } from '@/components/ui/Banner'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { SkeletonBox } from '@/components/ui/Skeleton'
+import { getAspectType, listAspectTypes, type AspectField, type AspectType } from '@/features/aspects/api'
+import { bodyForConversion, createAspectTypeFeed, orderedFields } from '@/features/aspects/fields'
 import {
     discard,
     documentById,
@@ -14,6 +18,7 @@ import {
     keepAsNew,
     resolveId,
     retry,
+    sync,
     updateDocument,
     type Doc,
 } from '@/sync'
@@ -111,6 +116,15 @@ function DocumentEditor(props: DocumentEditorProps) {
         (value) => updateDocument(id(), { body: { ...documentById(id())?.body, [CONTENT_KEY]: value } }),
     )
 
+    const isAspect = () => props.doc.type === 'aspect'
+    // The type is not a synced entity, so it is asked for: on opening, when the
+    // document changes (a sync landed), when the tab is shown again, and on a timer.
+    const feed = createAspectTypeFeed(
+        () => (isAspect() ? props.doc.aspect_type_id : null),
+        () => props.doc.version,
+    )
+    const fields = () => orderedFields(feed.type())
+
     const titleError = () =>
         [...title.value().trim()].length > TITLE_MAX
             ? `Title can be at most ${TITLE_MAX} characters.`
@@ -127,8 +141,10 @@ function DocumentEditor(props: DocumentEditorProps) {
     })
     const locked = () => conflicted() !== null
 
+    // Typed in any aspect field and not yet saved.
+    const [fieldDrafts, setFieldDrafts] = createSignal(0)
     const status = () => {
-        if (title.dirty() || content.dirty()) return 'Saving…'
+        if (title.dirty() || content.dirty() || fieldDrafts() > 0) return 'Saving…'
         switch (documentSyncState(id())) {
             case 'synced':
                 return 'Saved'
@@ -209,6 +225,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                     <DocumentConflictPanel
                         conflict={found().conflict}
                         mine={props.doc}
+                        fields={isAspect() ? fields() : undefined}
                         onKeepTheirs={keepTheirs}
                         onUseMine={useMine}
                         onKeepAsNew={keepMineAsNew}
@@ -229,17 +246,187 @@ function DocumentEditor(props: DocumentEditorProps) {
                 }}
                 error={titleError()}
             />
+            <Show when={isAspect()}>
+                <p class="t-meta">
+                    Aspect: {feed.type()?.name ?? 'loading its fields…'}
+                </p>
+                <Show when={feed.missing()}>
+                    <Banner hue="rust">This document's aspect type no longer exists.</Banner>
+                </Show>
+                <Show when={feed.problem()}>
+                    {(message) => <Banner hue="rust">{message()}</Banner>}
+                </Show>
+                <For each={fields()} keyed={(field) => field.id}>
+                    {(field) => (
+                        <AspectFieldEditor
+                            docId={id()}
+                            field={field()}
+                            saved={() => props.doc.body[field().id] ?? ''}
+                            locked={locked()}
+                            onDirty={(dirty) => setFieldDrafts((n) => n + (dirty ? 1 : -1))}
+                        />
+                    )}
+                </For>
+            </Show>
 
-            <MarkdownEditor
-                label="Text"
-                placeholder="Write, or type Markdown: # for a heading, - for a list…"
-                value={content.value()}
-                readOnly={locked()}
-                onChange={(value) => {
-                    if (!locked()) content.input(value)
-                }}
-                onBlur={() => void content.flush()}
-            />
+            <Show when={!isAspect()}>
+                <MarkdownEditor
+                    label="Text"
+                    placeholder="Write, or type Markdown: # for a heading, - for a list…"
+                    value={content.value()}
+                    readOnly={locked()}
+                    onChange={(value) => {
+                        if (!locked()) content.input(value)
+                    }}
+                    onBlur={() => void content.flush()}
+                />
+                <MakeAspect
+                    doc={props.doc}
+                    disabled={locked()}
+                    text={content.value}
+                    onMade={async () => {
+                        content.reset()
+                        props.announce('Made this an Aspect.')
+                    }}
+                />
+            </Show>
         </div>
+    )
+}
+
+type AspectFieldEditorProps = {
+    docId: string
+    field: AspectField
+    saved: () => string
+    locked: boolean
+    onDirty: (dirty: boolean) => void
+}
+
+// One field of an aspect: its label above an editor of its own. Saved like the
+// text of a normal document, under the field's id. The rest of the body goes
+// back with it, so the values of fields the type has since dropped stay stored.
+function AspectFieldEditor(props: AspectFieldEditorProps) {
+    const value = createAutosave(props.saved, (markdown) =>
+        updateDocument(props.docId, { body: { ...documentById(props.docId)?.body, [props.field.id]: markdown } }),
+    )
+    let wasDirty = false
+    createEffect(
+        () => value.dirty(),
+        (dirty) => {
+            if (dirty !== wasDirty) {
+                wasDirty = dirty
+                props.onDirty(dirty)
+            }
+        },
+    )
+    return (
+        <MarkdownEditor
+            label={props.field.label}
+            placeholder="Write, or type Markdown…"
+            value={value.value()}
+            readOnly={props.locked}
+            onChange={(markdown) => {
+                if (!props.locked) value.input(markdown)
+            }}
+            onBlur={() => void value.flush()}
+        />
+    )
+}
+
+type MakeAspectProps = {
+    doc: Doc
+    disabled: boolean
+    /** What the editor holds now, including words not yet saved. */
+    text: () => string
+    onMade: () => Promise<void>
+}
+
+// "Make this an Aspect": pick a type, and the document becomes one through the
+// outbox like any other edit. The server moves the text into the type's first
+// field, and so does the local copy (bodyForConversion), so they agree. Types
+// are asked for, not synced, so this needs a connection to list them.
+function MakeAspect(props: MakeAspectProps) {
+    const [types, setTypes] = createSignal<AspectType[]>([])
+    const teamName = (id: string) => sync.teams.find((team) => team.id === id)?.name ?? 'Team'
+    const [chosen, setChosen] = createSignal('')
+    const [error, setError] = createSignal<string | undefined>()
+    const [unavailable, setUnavailable] = createSignal(false)
+    const [busy, setBusy] = createSignal(false)
+
+    // The document's own team, else its project's, else every team's.
+    const teamIds = () => {
+        const own = props.doc.team_id ?? sync.projects.find((p) => p.id === props.doc.project_id)?.team_id
+        return own ? [own] : sync.teams.map((team) => team.id)
+    }
+
+    createEffect(
+        () => teamIds().join(','),
+        (ids) => {
+            void (async () => {
+                const found: AspectType[] = []
+                let failed = false
+                for (const teamId of ids.split(',').filter(Boolean)) {
+                    const result = await listAspectTypes(teamId)
+                    if (result.ok) found.push(...(result.data.items ?? []))
+                    else failed = true
+                }
+                setTypes(found.toSorted((a, b) => a.name.localeCompare(b.name)))
+                setUnavailable(failed)
+            })()
+        },
+    )
+
+    async function make() {
+        const typeId = chosen()
+        if (!typeId) {
+            setError('Choose an aspect type.')
+            return
+        }
+        setBusy(true)
+        setError(undefined)
+        try {
+            // The type as it is now: its first field is where the text goes.
+            const fetched = await getAspectType(typeId)
+            if (!fetched.ok) {
+                setError(fetched.message)
+                return
+            }
+            const body = bodyForConversion(props.text(), fetched.data)
+            if (!body) {
+                setError('This aspect type has no fields yet. Add a field to it first, then try again.')
+                return
+            }
+            await updateDocument(props.doc.id, { type: 'aspect', aspect_type_id: typeId, body })
+            await props.onMade()
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <Show when={types().length > 0 || unavailable()}>
+            <div class="document__aspect">
+                <Select
+                    label="Aspect type"
+                    value={chosen()}
+                    onChange={(value) => {
+                        setChosen(value)
+                        setError(undefined)
+                    }}
+                    options={[
+                        { value: '', label: 'Choose a type…' },
+                        ...types().map((item) => ({
+                            value: item.id,
+                            // Several teams' types at once: say whose each one is.
+                            label: teamIds().length > 1 ? `${teamName(item.team_id)} · ${item.name}` : item.name,
+                        })),
+                    ]}
+                    error={error() ?? (unavailable() ? 'Could not load every aspect type. Check the connection.' : undefined)}
+                />
+                <Button variant="secondary" disabled={props.disabled || busy()} onClick={() => void make()}>
+                    Make this an Aspect
+                </Button>
+            </div>
+        </Show>
     )
 }
