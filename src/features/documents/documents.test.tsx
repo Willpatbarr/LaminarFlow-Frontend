@@ -132,3 +132,47 @@ describe('an edit that lost to someone else\'s', () => {
         expect(await screen.findByText('Kept their version. Your change was discarded.')).toBeInTheDocument()
     })
 })
+
+describe('browsing documents (LAM-97)', () => {
+    const docs = [
+        doc({ id: 'd-a', title: 'In project', project_id: 'p-1', updated_at: '2025-12-31T00:00:00Z' }),
+        doc({ id: 'd-b', title: 'Loose note', project_id: null, updated_at: '2025-12-30T00:00:00Z' }),
+        doc({ id: 'd-c', title: 'Aspect one', type: 'aspect', aspect_type_id: 'at-1', project_id: null, body: {}, updated_at: '2025-12-29T00:00:00Z' }),
+    ]
+    const names = () => within(screen.getByRole('list', { name: 'Documents' })).getAllByRole('listitem').map((item) => item.querySelector('a')?.textContent)
+
+    it('lists every document at /documents, links each to its own URL', async () => {
+        await openApp('/documents', listRoutes([], docs))
+        expect(await screen.findByRole('link', { name: 'In project' })).toHaveAttribute('href', '/documents/d-a')
+        expect(names()).toEqual(['In project', 'Loose note', 'Aspect one'])
+    })
+
+    it('filters by project and by type', async () => {
+        await openApp('/documents', listRoutes([], docs))
+        await screen.findByRole('link', { name: 'In project' })
+        const user = userEvent.setup()
+        await user.selectOptions(screen.getByLabelText('Project'), 'p-1')
+        expect(names()).toEqual(['In project'])
+        await user.selectOptions(screen.getByLabelText('Project'), '')
+        await user.selectOptions(screen.getByLabelText('Type'), 'aspect')
+        expect(names()).toEqual(['Aspect one'])
+    })
+
+    it("shows only that project's documents on the project's Documents tab", async () => {
+        await openApp('/projects/p-1/documents', listRoutes([], docs))
+        expect(await screen.findByRole('link', { name: 'In project' })).toBeInTheDocument()
+        expect(names()).toEqual(['In project'])
+        expect(within(screen.getByRole('navigation', { name: 'Project' })).getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/projects/p-1')
+    })
+
+    it('New document opens the new document', async () => {
+        const history = await openApp('/documents', {
+            ...listRoutes([], docs),
+            'POST /api/v1/documents': async (request) =>
+                ok(docBody({ id: 'd-new', ...(await bodyOf(request)) }), 201),
+        })
+        await screen.findByRole('link', { name: 'In project' })
+        await userEvent.setup().click(screen.getByRole('button', { name: 'New document' }))
+        await waitFor(() => expect(history.get()).toMatch(/^\/documents\/.+/))
+    })
+})
