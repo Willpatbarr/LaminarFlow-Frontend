@@ -165,12 +165,19 @@ describe('section routes', () => {
 
     it.each([
         ['/documents', 'Documents'],
-        ['/documents/d1', 'Document'],
         ['/views', 'Views'],
     ])('%s is reachable by URL', async (url, heading) => {
         mount(url)
 
         expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+
+    // The document page waits for the store (none is running here), so it is
+    // reached when its way back is there; the page itself is documents.test.tsx.
+    it('/documents/d1 is reachable by URL', async () => {
+        mount('/documents/d1')
+
+        expect(await screen.findByRole('link', { name: '← Documents' })).toBeInTheDocument()
     })
 })
 

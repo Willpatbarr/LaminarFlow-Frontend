@@ -1,0 +1,22 @@
+.document {
+  display: grid;
+  gap: var(--s-16);
+  max-width: 54rem;
+}
+
+.document__status {
+  min-height: 17px;
+  color: var(--text-2);
+}
+
+.document__failure {
+  display: grid;
+  gap: var(--s-8);
+  padding: var(--s-16);
+  border: 1px solid var(--rust);
+  border-radius: var(--r-control);
+}
+
+.document__notice:not(:empty) {
+  padding: var(--s-8) var(--s-12);
+}

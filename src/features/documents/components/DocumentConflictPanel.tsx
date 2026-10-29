@@ -1,0 +1,120 @@
+import { createSignal, createUniqueId, For, Show } from 'solid-js'
+
+import { Button } from '@/components/ui/Button'
+import { RelativeTime } from '@/features/tickets/components/RelativeTime'
+import type { Doc, DocConflict } from '@/sync'
+
+import { CONTENT_KEY } from '../content'
+import '@/features/tickets/components/conflict.css'
+
+type DocumentConflictPanelProps = {
+    /** What the 409 said: the server's copy and when it changed. */
+    conflict: DocConflict
+    /** The user's version: the document as it stands here, their edits included. */
+    mine: Doc
+    onKeepTheirs: () => Promise<unknown>
+    onUseMine: () => Promise<unknown>
+    onKeepAsNew: () => Promise<unknown>
+}
+
+type Difference = { field: string; mine: string; theirs: string }
+
+// The ConflictPanel's pattern, for a document (LAM-71): information with three
+// honest ways forward, nothing lost, no merge. The text is compared as the
+// Markdown it is stored as. A document's 409 names nobody, so it says only
+// when it changed.
+export function DocumentConflictPanel(props: DocumentConflictPanelProps) {
+    const headingId = createUniqueId()
+    const [busy, setBusy] = createSignal(false)
+
+    const theirs = () => props.conflict.current
+    const archived = () => props.conflict.archived
+
+    const differences = (): Difference[] => {
+        if (archived()) return []
+        const found: Difference[] = []
+        if (props.mine.title !== theirs().title) {
+            found.push({ field: 'Title', mine: props.mine.title, theirs: theirs().title })
+        }
+        const mine = props.mine.body[CONTENT_KEY] ?? ''
+        const other = theirs().body[CONTENT_KEY] ?? ''
+        if (mine !== other) found.push({ field: 'Text', mine, theirs: other })
+        return found
+    }
+
+    async function run(action: () => Promise<unknown>) {
+        setBusy(true)
+        try {
+            await action()
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <section class="conflict" role="region" aria-labelledby={headingId}>
+            <h2 id={headingId} class="conflict__title t-section">
+                This document needs a decision
+            </h2>
+            <p class="t-body">
+                This document was {archived() ? 'archived' : 'edited'} somewhere else{' '}
+                <RelativeTime at={props.conflict.changed_at} />.
+            </p>
+            <p class="t-body">Your change hasn't been saved to the server. It's still here.</p>
+
+            <Show when={differences().length > 0}>
+                <div class="conflict__fields" role="group" aria-label="What differs">
+                    <For each={differences()}>
+                        {(difference) => (
+                            <div class="conflict__field">
+                                <h3 class="conflict__field-name t-overline">{difference.field}</h3>
+                                <div class="conflict__pair">
+                                    <Side label="Your version" value={difference.mine} />
+                                    <Side label="Their version" value={difference.theirs} />
+                                </div>
+                            </div>
+                        )}
+                    </For>
+                </div>
+            </Show>
+            <Show when={!archived() && differences().length === 0}>
+                <p class="t-meta">Your version and theirs read the same.</p>
+            </Show>
+
+            <p class="t-meta">
+                Editing is paused until you decide, so nothing more is added to a version that may be
+                set aside.
+            </p>
+
+            <div class="conflict__actions">
+                <Button variant="secondary" disabled={busy()} onClick={() => void run(props.onKeepTheirs)}>
+                    {archived() ? 'Discard my change' : 'Keep theirs'}
+                </Button>
+                <Show when={!archived()}>
+                    <Button variant="secondary" disabled={busy()} onClick={() => void run(props.onUseMine)}>
+                        Use mine
+                    </Button>
+                </Show>
+                <Button variant="primary" disabled={busy()} onClick={() => void run(props.onKeepAsNew)}>
+                    Keep mine as a new document
+                </Button>
+            </div>
+        </section>
+    )
+}
+
+function Side(props: { label: string; value: string }) {
+    return (
+        <div class="conflict__side">
+            <span class="conflict__side-label t-meta">{props.label}</span>
+            <Show
+                when={props.value !== ''}
+                fallback={<p class="conflict__value conflict__value--empty t-body">Empty</p>}
+            >
+                <p class="conflict__value t-body" style={{ 'white-space': 'pre-wrap' }}>
+                    {props.value}
+                </p>
+            </Show>
+        </div>
+    )
+}
