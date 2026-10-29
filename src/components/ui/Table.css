@@ -102,3 +102,56 @@
   grid-column: 3 / -1;
   justify-content: end;
 }
+
+/* Narrow screens (LAM-140): a row of fixed columns cannot fit, so each row
+ * stacks. The first cell (the title) takes a line of its own and may wrap; the
+ * rest flow on the lines below. The column header goes: it is decoration
+ * (aria-hidden, no clicks), and sorting is the list toolbar's "Sort by".
+ * Keep the breakpoint in step with NARROW_QUERY in useNarrowScreen.ts. */
+@media (max-width: 767px) {
+  .table__header {
+    display: none;
+  }
+
+  .table__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-6) var(--s-8);
+    height: auto;
+    min-height: var(--row-h);
+    padding-block: var(--s-8);
+  }
+
+  .table__row > :first-child {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .table__row > .table__text {
+    max-width: 100%;
+  }
+
+  /* The row's buttons sit over its end (absolute, below), so the last line
+   * keeps their room, and is as tall as they are. */
+  .table__item:has(> .table__actions) > .table__row::after {
+    content: '';
+    flex: 0 0 124px;
+    min-height: 28px;
+  }
+
+  .table__actions {
+    inset-block: auto var(--s-8);
+    min-height: 28px;
+  }
+
+  /* An edited row is a form: title, then status and the buttons. */
+  .table__row--editing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .table__edit-actions {
+    grid-column: 1;
+  }
+}

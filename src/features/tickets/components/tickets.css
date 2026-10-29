@@ -213,7 +213,9 @@
 /* The ticket as a side panel beside the list (?ticket=<id>). */
 .ticket-panel {
   position: fixed;
-  top: 0;
+  /* Below the top bar on narrow screens (--topbar-h is set there), else it
+   * would slide under it. */
+  top: var(--topbar-h, 0px);
   right: 0;
   bottom: 0;
   z-index: 5;
@@ -375,4 +377,20 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s-12);
+}
+
+/* Narrow screens (LAM-140): the title cell dissolves into the stacked row, so
+ * the title is its own full line (wrapping, never cut) and the label chips
+ * flow with the status and assignee below it. Breakpoint as in Table.css. */
+@media (max-width: 767px) {
+  .ticket__title-cell {
+    display: contents;
+  }
+
+  .ticket__title-cell > .table__text {
+    flex: 1 0 100%;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
