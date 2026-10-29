@@ -1,4 +1,4 @@
-import { createSignal, Show } from 'solid-js'
+import { createSignal, For, Match, Show, Switch } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -11,6 +11,7 @@ import {
     discard,
     keepAsNew,
     retry,
+    sync,
     ticketHead,
     ticketSyncState,
     updateTicket,
@@ -25,6 +26,7 @@ import { AssigneeMarker } from './AssigneeMarker'
 import { archiveWithUndo } from './ArchiveUndoToast'
 import { ConflictPanel } from './ConflictPanel'
 import { LabelChips } from './LabelChips'
+import { RelativeTime } from './RelativeTime'
 import { SyncMarker } from './SyncMarker'
 
 type LoadedRow = {
@@ -35,6 +37,9 @@ type LoadedRow = {
     /** Every status of the ticket's project, for the status picker. */
     statuses: Status[]
     viewer: Viewer
+    /** The columns to draw after the title, in order, as ticket field names
+     *  (the saved view `columns`). Omit for status and assignee. */
+    columns?: string[]
 }
 
 type LoadingRow = {
@@ -92,7 +97,13 @@ export function TicketRow(props: TicketRowProps) {
 // offline-proof: the row changes the moment the local store does. A collision
 // with someone else's change shows the same ConflictPanel as the page, under
 // the row.
+const DEFAULT_CELLS = ['status', 'assignee']
+
 function LoadedTicketRow(props: LoadedRow) {
+    const cells = () => props.columns ?? DEFAULT_CELLS
+    const nameOf = (rows: { id: string; name: string }[], id: string | null) =>
+        id === null ? '' : (rows.find((row) => row.id === id)?.name ?? '')
+
     const [editing, setEditing] = createSignal(false)
     const [title, setTitle] = createSignal('')
     const [statusId, setStatusId] = createSignal('')
@@ -199,23 +210,68 @@ function LoadedTicketRow(props: LoadedRow) {
                 >
                     <span class="ticket__title-cell">
                         <span class="table__text t-cell">{name()}</span>
-                        <LabelChips ids={props.ticket.label_ids} max={3} />
-                    </span>
-                    <span>
-                        <Show
-                            when={props.status}
-                            fallback={<StatusPill label="No status" hue="slate" />}
-                        >
-                            {(status) => (
-                                <StatusPill
-                                    label={status().name}
-                                    hue={hueFor(status().color)}
-                                    active={isStarted(status())}
-                                />
-                            )}
+                        <Show when={!cells().includes('label')}>
+                            <LabelChips ids={props.ticket.label_ids} max={3} />
                         </Show>
                     </span>
-                    <AssigneeMarker assigneeId={props.ticket.assignee_id} viewer={props.viewer} />
+                    <For each={cells()}>
+                        {(field) => (
+                            <Switch>
+                                <Match when={field === 'status'}>
+                                    <span>
+                                        <Show
+                                            when={props.status}
+                                            fallback={<StatusPill label="No status" hue="slate" />}
+                                        >
+                                            {(status) => (
+                                                <StatusPill
+                                                    label={status().name}
+                                                    hue={hueFor(status().color)}
+                                                    active={isStarted(status())}
+                                                />
+                                            )}
+                                        </Show>
+                                    </span>
+                                </Match>
+                                <Match when={field === 'assignee'}>
+                                    <AssigneeMarker assigneeId={props.ticket.assignee_id} viewer={props.viewer} />
+                                </Match>
+                                <Match when={field === 'epic'}>
+                                    <span class="table__text t-cell" data-cell="epic">
+                                        {nameOf(sync.epics, props.ticket.epic_id) || '—'}
+                                    </span>
+                                </Match>
+                                <Match when={field === 'milestone'}>
+                                    <span class="table__text t-cell" data-cell="milestone">
+                                        {nameOf(sync.milestones, props.ticket.milestone_id) || '—'}
+                                    </span>
+                                </Match>
+                                <Match when={field === 'label'}>
+                                    <span>
+                                        <LabelChips ids={props.ticket.label_ids} max={2} />
+                                    </span>
+                                </Match>
+                                <Match when={field === 'sprint'}>
+                                    <span class="table__text t-cell" data-cell="sprint">
+                                        {props.ticket.sprint_ids
+                                            .map((id) => nameOf(sync.sprints, id))
+                                            .filter((n) => n !== '')
+                                            .join(', ') || '—'}
+                                    </span>
+                                </Match>
+                                <Match when={field === 'updated_at'}>
+                                    <span class="t-meta">
+                                        <RelativeTime at={props.ticket.updated_at} />
+                                    </span>
+                                </Match>
+                                <Match when={field === 'position'}>
+                                    <span class="t-meta" data-cell="position">
+                                        {props.ticket.position}
+                                    </span>
+                                </Match>
+                            </Switch>
+                        )}
+                    </For>
                     <SyncMarker
                         state={ticketSyncState(props.ticket.id)}
                         archive={archiveOnHold(props.ticket.id)}

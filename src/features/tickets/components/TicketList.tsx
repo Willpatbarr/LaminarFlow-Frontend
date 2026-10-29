@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@solidjs/router'
-import { createMemo, createSignal, For, Match, onSettled, Show, Switch } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Match, onSettled, Show, Switch } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
@@ -14,16 +14,29 @@ import {
     needsSetup,
     rehydrate,
     selectProject,
+    labelsForProject,
     statusesForProject,
     sync,
+    ticketSyncState,
     type Project,
-    type Status,
-    type Ticket,
 } from '@/sync'
 
+import {
+    FIELDS,
+    fieldLabel,
+    fromSearch,
+    toSearch,
+    visibleColumns,
+    type FilterGroup,
+    type ListViewConfig,
+} from '../listView/config'
+import { matches, sortTickets, type Lookups } from '../listView/evaluate'
+import { buildGroups } from '../listView/group'
+import { serverMatches } from '../listView/serverRun'
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
+import { ListControls } from './ListControls'
 import { NewTicketDialog } from './NewTicketDialog'
 import { TicketDetail } from './TicketDetail'
 import { TicketRow } from './TicketRow'
@@ -37,22 +50,18 @@ type TicketListProps = {
     loading?: boolean
 }
 
-type Group = {
-    /** Null is the "No status" group. */
-    status: Status | null
-    tickets: Ticket[]
-}
-
-// Title · status · assignee · unsynced marker. Shared by every group so the
-// columns line up down the page.
+// Title · status · assignee · unsynced marker. The loading placeholder's
+// columns; the list proper builds its own from the view's `columns`.
 const COLUMNS = 'minmax(0, 1fr) 132px 20px 12px 124px'
 
-// Newest change first, so the ticket just created or edited is where the eye
-// already is. The id breaks ties so the order never depends on how the
-// database happened to return the rows.
-function byRecency(a: Ticket, b: Ticket) {
-    return b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id)
-}
+// The chosen columns, then the unsynced marker and the room the row's buttons
+// take. Shared by every group so the columns line up down the page.
+const templateFor = (columns: string[]) => [...columns.map((field) => FIELDS[field].width), '12px', '124px'].join(' ')
+const headersFor = (columns: string[]) => [
+    ...columns.map((field) => (field === 'assignee' ? '' : fieldLabel(field))),
+    '',
+    '',
+]
 
 // The tickets screen. Everything it shows is read from the local store; the
 // only thing it ever asks the network for directly is nothing at all.
@@ -64,7 +73,7 @@ function byRecency(a: Ticket, b: Ticket) {
 export function TicketList(props: TicketListProps) {
     const busy = () => props.loading || isLoading()
     return (
-        <section class="tickets" aria-busy={busy() ? 'true' : undefined}>
+        <section class="tickets tickets--list" aria-busy={busy() ? 'true' : undefined}>
             <Switch>
                 <Match when={busy()}>
                     <LoadingTickets />
@@ -118,9 +127,7 @@ function LoadingTickets() {
                     <SkeletonLine width="2ch" height="11px" />
                 </div>
                 <Table columns={['Title', 'Status', '', '', '']} template={COLUMNS}>
-                    <For each={TITLE_WIDTHS}>
-                        {(width) => <TicketRow loading titleWidth={width} />}
-                    </For>
+                    <For each={TITLE_WIDTHS}>{(width) => <TicketRow loading titleWidth={width} />}</For>
                 </Table>
             </div>
         </>
@@ -140,17 +147,53 @@ function ProjectTickets(props: ProjectTicketsProps) {
     // a shared link opens the same panel; the row's own href still goes to the
     // full page (open in a new tab, or with a modifier key).
     const openId = () => new URLSearchParams(location.search).get('ticket') || null
-    const closePanel = () => navigate('/')
+
+    // The list's view lives in the same query string (filter, sort, group,
+    // columns, collapsed - see listView/config.ts), so opening or closing the
+    // panel must keep it, and changing the view must keep the panel.
+    const view = createMemo(() => fromSearch(new URLSearchParams(location.search)))
+    const go = (params: URLSearchParams, replace: boolean) => {
+        const query = params.toString()
+        navigate(query ? `/?${query}` : '/', { replace })
+    }
+    function showTicket(id: string | null) {
+        const params = new URLSearchParams(location.search)
+        if (id) params.set('ticket', id)
+        else params.delete('ticket')
+        go(params, false)
+    }
+    const closePanel = () => showTicket(null)
+    // A view change is not a place to go back to, so it replaces the entry.
+    function writeView(config: ListViewConfig, collapsed: string[]) {
+        const params = toSearch(config, collapsed)
+        const ticket = openId()
+        if (ticket) params.set('ticket', ticket)
+        go(params, true)
+    }
+    const setConfig = (config: ListViewConfig) =>
+        writeView(config, config.group === view().config.group ? view().collapsed : [])
+    const toggleGroup = (key: string) => {
+        const open = view().collapsed
+        writeView(view().config, open.includes(key) ? open.filter((k) => k !== key) : [...open, key])
+    }
 
     // Captured before the router's own click handling sees the link, so a plain
     // left click opens the panel instead of leaving the list.
     function openPanel(event: MouseEvent) {
-        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+        if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            event.altKey
+        )
+            return
         const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a.table__row') : null
         const id = /^\/tickets\/([^/?#]+)$/.exec(link?.getAttribute('href') ?? '')?.[1]
         if (!id) return
         event.preventDefault()
-        navigate(`/?ticket=${encodeURIComponent(id)}`)
+        showTicket(id)
     }
 
     const statuses = createMemo(() => statusesForProject(props.project.id))
@@ -176,24 +219,62 @@ function ProjectTickets(props: ProjectTicketsProps) {
         return () => document.removeEventListener('keydown', onKeyDown)
     })
 
-    // One group per status, in board order, then "No status" - which also
-    // takes any ticket whose status is not one of this team's (deleted since).
-    // Empty groups are left out: this is a list of tickets, not a board.
-    const groups = createMemo<Group[]>(() => {
-        const known = new Map<string, Ticket[]>(statuses().map((status) => [status.id, []]))
-        const loose: Ticket[] = []
-        for (const ticket of sync.tickets) {
-            if (ticket.project_id !== props.project.id) continue
-            const bucket = ticket.status_id ? known.get(ticket.status_id) : undefined
-            ;(bucket ?? loose).push(ticket)
-        }
-        const all: Group[] = statuses().map((status) => ({
-            status,
-            tickets: known.get(status.id)!.sort(byRecency),
-        }))
-        all.push({ status: null, tickets: loose.sort(byRecency) })
-        return all.filter((group) => group.tickets.length > 0)
+    const lookups = createMemo<Lookups>(() => ({
+        statuses: statuses(),
+        epics: sync.epics.filter((row) => row.project_id === props.project.id),
+        milestones: sync.milestones.filter((row) => row.project_id === props.project.id),
+        sprints: sync.sprints.filter((row) => row.project_id === props.project.id),
+        labels: labelsForProject(props.project.id),
+    }))
+
+    const projectTickets = createMemo(() => sync.tickets.filter((ticket) => ticket.project_id === props.project.id))
+    const filter = () => view().config.filter
+
+    // The filter is run twice. Locally first, over the rows this device holds,
+    // so the list answers at once and offline. Then on the server
+    // (POST /tickets/list); once it has answered, the list shows what the
+    // server says for every ticket the server has seen. A ticket with unsent
+    // changes keeps the local answer, because the server has not heard about
+    // its new values. If the server cannot be asked, the local answer stands.
+    // Asked again when the project's tickets change, so a live edit that makes
+    // a ticket match (or stop matching) is not judged by a stale answer.
+    const [answer, setAnswer] = createSignal<{ ask: string; ids: Set<string> } | null>(null)
+    const asked = () => (filter() ? JSON.stringify([props.project.id, filter()]) : null)
+    createEffect(
+        () => {
+            const ask = asked()
+            if (!ask) return null
+            const rows = projectTickets()
+            const latest = rows.reduce((newest, t) => (t.updated_at > newest ? t.updated_at : newest), '')
+            return JSON.stringify([ask, rows.length, latest])
+        },
+        (key) => {
+            if (!key) return
+            const [ask] = JSON.parse(key) as [string]
+            const [projectId, group] = JSON.parse(ask) as [string, FilterGroup]
+            let current = true
+            void serverMatches(projectId, group).then((ids) => {
+                if (current && ids) setAnswer({ ask, ids })
+            })
+            return () => {
+                current = false
+            }
+        },
+    )
+
+    const shown = createMemo(() => {
+        const f = filter()
+        const server = answer()?.ask === asked() ? answer()!.ids : null
+        const rows = projectTickets().filter((ticket) => {
+            const local = matches(ticket, f)
+            if (!f || !server || ticketSyncState(ticket.id) !== 'synced') return local
+            return server.has(ticket.id)
+        })
+        return sortTickets(rows, view().config.sort, lookups())
     })
+    const groups = createMemo(() => buildGroups(shown(), view().config.group, lookups(), props.viewer.accountId))
+    const columns = createMemo(() => visibleColumns(view().config))
+    const statusOf = (statusId: string | null) => statuses().find((status) => status.id === statusId) ?? null
 
     return (
         <div
@@ -233,7 +314,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
             </header>
 
             <Show
-                when={groups().length > 0}
+                when={projectTickets().length > 0}
                 fallback={
                     <div class="tickets__empty">
                         <p class="t-section">No tickets in {props.project.name} yet</p>
@@ -241,45 +322,79 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     </div>
                 }
             >
-                {/* Keyed by status id: the group objects are rebuilt on every
-                    change, and keying by reference would rebuild every row's
-                    DOM with them. */}
-                <For each={groups()} keyed={(group) => group.status?.id ?? 'none'}>
-                    {(group) => (
-                        <section
-                            class="tickets__group"
-                            aria-label={group().status?.name ?? 'No status'}
-                        >
-                            <h2 class="tickets__group-title">
-                                <Show
-                                    when={group().status}
-                                    fallback={<StatusPill label="No status" hue="slate" />}
-                                >
-                                    {(status) => (
-                                        <StatusPill
-                                            label={status().name}
-                                            hue={hueFor(status().color)}
-                                            active={isStarted(status())}
-                                        />
-                                    )}
+                <ListControls
+                    config={view().config}
+                    onChange={setConfig}
+                    project={props.project}
+                    viewer={props.viewer}
+                />
+                <Show
+                    when={groups().length > 0}
+                    fallback={
+                        <div class="tickets__empty">
+                            <p class="t-section">No tickets match this filter</p>
+                            <p class="t-body">Change or clear the filters to see more.</p>
+                        </div>
+                    }
+                >
+                    {/* Keyed by group: the group objects are rebuilt on every
+                        change, and keying by reference would rebuild every row's
+                        DOM with them. */}
+                    <For each={groups()} keyed={(group) => group.key}>
+                        {(group) => (
+                            <section class="tickets__group" aria-label={group().title}>
+                                <Show when={view().config.group !== undefined}>
+                                    <h2 class="tickets__group-title">
+                                        <button
+                                            type="button"
+                                            class="tickets__group-toggle"
+                                            aria-expanded={view().collapsed.includes(group().key) ? 'false' : 'true'}
+                                            aria-label={`${group().title}, ${group().tickets.length} tickets`}
+                                            onClick={() => toggleGroup(group().key)}
+                                        >
+                                            <span class="tickets__chevron" aria-hidden="true">
+                                                {view().collapsed.includes(group().key) ? '▸' : '▾'}
+                                            </span>
+                                            <Show
+                                                when={view().config.group === 'status'}
+                                                fallback={<span class="t-body">{group().title}</span>}
+                                            >
+                                                <Show
+                                                    when={group().status}
+                                                    fallback={<StatusPill label={group().title} hue="slate" />}
+                                                >
+                                                    {(status) => (
+                                                        <StatusPill
+                                                            label={status().name}
+                                                            hue={hueFor(status().color)}
+                                                            active={isStarted(status())}
+                                                        />
+                                                    )}
+                                                </Show>
+                                            </Show>
+                                            <span class="tickets__count t-meta">{group().tickets.length}</span>
+                                        </button>
+                                    </h2>
                                 </Show>
-                                <span class="tickets__count t-meta">{group().tickets.length}</span>
-                            </h2>
-                            <Table columns={['Title', 'Status', '', '', '']} template={COLUMNS}>
-                                <For each={group().tickets}>
-                                    {(ticket) => (
-                                        <TicketRow
-                                            ticket={ticket}
-                                            status={group().status}
-                                            statuses={statuses()}
-                                            viewer={props.viewer}
-                                        />
-                                    )}
-                                </For>
-                            </Table>
-                        </section>
-                    )}
-                </For>
+                                <Show when={!view().collapsed.includes(group().key)}>
+                                    <Table columns={headersFor(columns())} template={templateFor(columns())}>
+                                        <For each={group().tickets}>
+                                            {(ticket) => (
+                                                <TicketRow
+                                                    ticket={ticket}
+                                                    status={statusOf(ticket.status_id)}
+                                                    statuses={statuses()}
+                                                    viewer={props.viewer}
+                                                    columns={columns().filter((field) => field !== 'title')}
+                                                />
+                                            )}
+                                        </For>
+                                    </Table>
+                                </Show>
+                            </section>
+                        )}
+                    </For>
+                </Show>
             </Show>
 
             <Show when={creating()}>
@@ -298,7 +413,8 @@ function ProjectTickets(props: ProjectTicketsProps) {
                         aria-label="Ticket"
                         onKeyDown={(event) => {
                             // Not from a field: Escape there belongs to the field.
-                            const field = event.target instanceof Element && event.target.closest('input, textarea, select')
+                            const field =
+                                event.target instanceof Element && event.target.closest('input, textarea, select')
                             if (event.key === 'Escape' && !event.defaultPrevented && !field) closePanel()
                         }}
                     >
