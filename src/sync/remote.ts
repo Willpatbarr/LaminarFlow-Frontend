@@ -1,6 +1,7 @@
 import { listAll, PAGE_SIZE, type Outcome, type RemoteEvent, type SyncApi } from './http'
 import { ENTITIES, entityFor } from './entities'
-import type { EntityConflicts, EntityName, EntityRows, OutboxEntry, Project, Status, Team } from './types'
+import type { SendContext } from './entities/entity'
+import type { EntityConflicts, EntityName, EntityRows, OutboxEntry, Project, Team } from './types'
 
 /*
 ┌─ sync ──────────────────────────────────────────
@@ -11,7 +12,7 @@ import type { EntityConflicts, EntityName, EntityRows, OutboxEntry, Project, Sta
 ├─ example ───────────────────────────────────────
 │      PUT answered 409 {code:"ticket_conflict", current:{…}}  →  { type: 'conflict', conflict }
 */
-// Teams, projects and statuses are read-only context and are listed here. Every
+// Teams and projects are read-only context and are listed here. Every
 // entity that can be written is listed, sent and parsed by its own definition
 // in ./entities; this file only dispatches on the entry's `entity`.
 
@@ -21,7 +22,6 @@ export { parseTicketEvent } from './entities/ticket'
 export type ServerState = {
     teams: Team[]
     projects: Project[]
-    statuses: Status[]
     /** Every live row of every entity, by entity name. */
     rows: { [N in EntityName]: EntityRows[N][] }
 }
@@ -50,16 +50,6 @@ export function createRemote(api: SyncApi) {
                     workspace_id: team.workspace_id,
                     name: team.name,
                 })),
-                statuses: teams.flatMap((team) =>
-                    (team.statuses ?? []).map((status) => ({
-                        id: status.id,
-                        team_id: team.id,
-                        name: status.name,
-                        color: status.color,
-                        position: status.position,
-                        category: status.category,
-                    })),
-                ),
                 projects: projects.map((project) => ({
                     id: project.id,
                     team_id: project.team_id,
@@ -70,8 +60,8 @@ export function createRemote(api: SyncApi) {
         },
 
         /** Sends one outbox entry. Never throws: every way it can go is an Outcome. */
-        send(entry: OutboxEntry): Promise<AnyOutcome> {
-            return entityFor(entry.entity).remote.send(api, entry as never) as Promise<AnyOutcome>
+        send(entry: OutboxEntry, context: SendContext<any>): Promise<AnyOutcome> {
+            return entityFor(entry.entity).remote.send(api, entry as never, context as never) as Promise<AnyOutcome>
         },
 
         /** One frame of the change feed (`unknown`: it comes off the wire), or

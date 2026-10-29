@@ -1,6 +1,7 @@
 import type { EntityName } from '../types'
 import { documentEntity } from './document'
 import type { Entity, LooseRules } from './entity'
+import { statusEntity } from './status'
 import { ticketEntity } from './ticket'
 
 /*
@@ -10,7 +11,7 @@ import { ticketEntity } from './ticket'
 │      ENTITIES, entityFor(name), entityForEvent(frame type)
 */
 // Order is hydration order and nothing else.
-export const ENTITIES: readonly Entity[] = [ticketEntity, documentEntity] as unknown as readonly Entity[]
+export const ENTITIES: readonly Entity[] = [ticketEntity, documentEntity, statusEntity] as unknown as readonly Entity[]
 
 /** The registered entity called `name`. */
 export function entityFor<N extends EntityName>(name: N): Entity<N> {

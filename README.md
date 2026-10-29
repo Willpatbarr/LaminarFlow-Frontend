@@ -132,6 +132,15 @@ screens call. The engine, the outbox, hydration and the change feed need no
 change. Read the note at the top of `entities/document.ts` for what a new
 endpoint has to give the client (an `Idempotency-Key`, a conflict body).
 
+**Statuses (LAM-95)** are the third entity, and the one that differs most: the
+server keeps no version for them, so `rules.unversioned` makes the engine apply
+the `status.*` feed by upsert and remove instead of by version. A delete is an
+`archive` entry whose payload says where the tickets go (`move_to`); a change of
+`position` is sent as one reorder of the whole team's order (`entities/status.ts`).
+`StatusEditor` (`features/tickets/components`) is the UI, takes a `teamId` and holds no
+state of its own, so team settings (`/teams/:teamId/settings`) and the board's column
+menu (LAM-107) mount the same component.
+
 **The model.** Two ticket tables (and the same pair for every other entity): `server_tickets` is the server's copy, and
 `tickets` is what the screen shows - always *the server's copy with that
 ticket's outbox entries replayed on top*. A user action appends to (or amends)

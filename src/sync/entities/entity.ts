@@ -35,6 +35,12 @@ type Conflict<N extends EntityName> = EntityConflicts[N]
 export type Stamp = { at: string; accountId: string }
 
 export type EntityRules<N extends EntityName> = {
+    /** True for an entity the server keeps no version of (a status): its rows
+     *  carry a constant `version`, the change feed is applied by upsert and
+     *  remove instead of by comparing versions, and nothing is sent with
+     *  `If-Match`. Absent means versioned. */
+    unversioned?: boolean
+
     /** The temporary id's prefix. It must start with `tmp_` (see `isTempId`):
      *  that is the whole rule for telling an id the server has not seen. */
     tempPrefix: string
@@ -61,13 +67,23 @@ export type EntityRules<N extends EntityName> = {
     conflictIsBy(conflict: Conflict<N>, accountId: string): boolean
 }
 
+/** What a send may look at besides its entry: the local database, read-only.
+ *  An entity whose write needs more than the entry carries (a reorder needs
+ *  the whole order) asks here instead of fetching its own copy. */
+export type SendContext<N extends EntityName> = {
+    /** The server's copy of one row. */
+    server(id: string): Promise<Row<N> | undefined>
+    /** Every row of this entity as the screen shows it, unsent changes included. */
+    rows(): Promise<Row<N>[]>
+}
+
 export type EntityRemote<N extends EntityName> = {
     /** Every live row this account can see, every page of it. Throws
      *  `ListFailure` if any page fails: half a list must never be mistaken for
      *  the whole one, because rows missing from it get removed. */
     list(api: SyncApi): Promise<Row<N>[]>
     /** Sends one outbox entry. Never throws: every way it can go is an Outcome. */
-    send(api: SyncApi, entry: EntryOf<N>): Promise<Outcome<Row<N>, Conflict<N>>>
+    send(api: SyncApi, entry: EntryOf<N>, context: SendContext<N>): Promise<Outcome<Row<N>, Conflict<N>>>
     /** Reads one change-feed frame. Null for anything that is not an event of
      *  this entity that this client understands. Never throws. */
     parseEvent(frame: Record<string, unknown>): RemoteEvent<N, Row<N>> | null
@@ -83,6 +99,7 @@ export type Entity<N extends EntityName = EntityName> = {
  *  and these rules and looks inside none of them, so for it the entity is
  *  only a name; this is the one place that fact is written down as a type. */
 export type LooseRules = {
+    unversioned?: boolean
     tempPrefix: string
     fieldsOf(row: any): any
     sameFields(a: any, b: any): boolean

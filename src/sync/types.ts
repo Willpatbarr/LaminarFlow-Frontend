@@ -4,7 +4,7 @@ import type { components } from '@/api/schema'
 ┌─ sync ──────────────────────────────────────────
 │  the rows the local database holds, and the outbox entry
 ├─ out ───────────────────────────────────────────
-│      Ticket, TicketFields, Doc, DocFields, Team, Project, Status
+│      Ticket, TicketFields, Doc, DocFields, Team, Project, Status, StatusFields, NewStatus
 │      EntityName, EntityRows, EntryOf, OutboxEntry, EntryState, TicketConflict, DocConflict, TicketSyncState
 */
 // Written out rather than aliased to the generated schema types: these are
@@ -67,7 +67,18 @@ export type Status = {
     position: number
     /** not_started · in_progress · done */
     category: string
+    /** The server keeps no version for a status (no `If-Match`, none on a change
+     *  feed frame), so this is always 1. The engine needs one on every row, and
+     *  the status entity is marked `unversioned` so it never compares them. */
+    version: number
 }
+
+/** The four fields a user edits. `position` is the status's place in its team's
+ *  order; changing it is sent as a reorder (the server has no per-status
+ *  position write). */
+export type StatusFields = Pick<Status, 'name' | 'color' | 'category' | 'position'>
+
+export type NewStatus = StatusFields & { team_id: string }
 
 export type FieldError = NonNullable<components['schemas']['Error']['errors']>[number]
 
@@ -97,6 +108,10 @@ export type DocConflict = {
     changed_at: string
 }
 
+/** The status endpoints answer no 409 (there is no version to disagree about);
+ *  the type exists so the maps are complete, and nothing ever builds one. */
+export type StatusConflict = { code: 'status_conflict'; current: Status; changed_at: string }
+
 // pending       waiting to be sent, being sent, or waiting to be retried
 // unauthorized  the server answered 401; nothing is sent until resume()
 // conflict      the server answered 409; `conflict` holds its copy
@@ -107,16 +122,19 @@ export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 /** Every kind of thing the sync engine carries. Adding one means adding it to
  *  the four maps below and registering it (`entities/index.ts`). */
-export type EntityName = 'ticket' | 'document'
+export type EntityName = 'ticket' | 'document' | 'status'
 
 /** The row each entity keeps locally. */
-export type EntityRows = { ticket: Ticket; document: Doc }
+export type EntityRows = { ticket: Ticket; document: Doc; status: Status }
 /** What a user edits; `PUT` replaces all of it. */
-export type EntityFields = { ticket: TicketFields; document: DocFields }
+export type EntityFields = { ticket: TicketFields; document: DocFields; status: StatusFields }
 /** What a create carries. */
-export type EntityCreates = { ticket: NewTicket; document: NewDoc }
+export type EntityCreates = { ticket: NewTicket; document: NewDoc; status: NewStatus }
+/** What an archive carries. A ticket or document archive needs nothing; deleting
+ *  a status says where its tickets go (`move_to`, a status of the same team). */
+export type EntityArchives = { ticket: null; document: null; status: { move_to: string | null } }
 /** The body of a 409, kept on the entry so LAM-71 can show both sides. */
-export type EntityConflicts = { ticket: TicketConflict; document: DocConflict }
+export type EntityConflicts = { ticket: TicketConflict; document: DocConflict; status: StatusConflict }
 
 type EntryBase<N extends EntityName> = {
     /** Auto-incremented by IndexedDB, so id order is the order things were done. */
@@ -152,7 +170,7 @@ export type EntryOf<N extends EntityName> = EntryBase<N> &
               idempotency_key: string
           }
         | { kind: 'update'; payload: EntityFields[N] }
-        | { kind: 'archive'; payload: null }
+        | { kind: 'archive'; payload: EntityArchives[N] }
         | {
               kind: 'unarchive'
               /** The entity as it was when it was archived. The server's copy
@@ -166,6 +184,7 @@ export type OutboxEntry = { [N in EntityName]: EntryOf<N> }[EntityName]
 
 export type TicketEntry = EntryOf<'ticket'>
 export type DocEntry = EntryOf<'document'>
+export type StatusEntry = EntryOf<'status'>
 
 /** An entry before IndexedDB has numbered it. */
 export type NewOutboxEntry = OutboxEntry extends infer E ? (E extends unknown ? Omit<E, 'id'> : never) : never

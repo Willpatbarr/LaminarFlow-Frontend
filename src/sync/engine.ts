@@ -16,6 +16,7 @@ import {
     newTempId,
     type Doc,
     type DocFields,
+    type EntityArchives,
     type EntityConflicts,
     type EntityCreates,
     type EntityFields,
@@ -23,6 +24,9 @@ import {
     type EntityRows,
     type EntryError,
     type NewDoc,
+    type NewStatus,
+    type Status,
+    type StatusFields,
     type NewTicket,
     type OutboxEntry,
     type Ticket,
@@ -158,7 +162,7 @@ export type SyncEngine = {
      *  below for what each resolves with. */
     create<N extends EntityName>(entity: N, input: EntityCreates[N]): Promise<EntityRows[N]>
     update<N extends EntityName>(entity: N, id: string, patch: Partial<EntityFields[N]>): Promise<boolean>
-    archive(entity: EntityName, id: string): Promise<boolean>
+    archive<N extends EntityName>(entity: N, id: string, ...payload: ArchiveArgs<N>): Promise<boolean>
     unarchive<N extends EntityName>(entity: N, row: EntityRows[N]): Promise<string | null>
 
     createTicket(ticket: NewTicket): Promise<Ticket>
@@ -173,6 +177,13 @@ export type SyncEngine = {
      *  withdrawn by the archive is created again, under a new temporary id),
      *  or null when there is nothing to undo. */
     unarchiveTicket(ticket: Ticket): Promise<string | null>
+
+    createStatus(status: NewStatus): Promise<Status>
+    updateStatus(id: string, patch: Partial<StatusFields>): Promise<boolean>
+    /** Deletes a status. `moveTo` is where the tickets that still use it go: a
+     *  status of the same team, or null when none does (the server refuses a
+     *  null while tickets, archived ones too, use it). */
+    deleteStatus(id: string, moveTo: string | null): Promise<boolean>
 
     createDocument(document: NewDoc): Promise<Doc>
     updateDocument(id: string, patch: Partial<DocFields>): Promise<boolean>
@@ -211,6 +222,10 @@ export type SyncEngine = {
 }
 
 type Rows = EntityTables<any>
+
+/** An archive's payload, as the rest arguments of the call: none for an entity
+ *  whose archive carries nothing, one for one whose archive says more. */
+type ArchiveArgs<N extends EntityName> = EntityArchives[N] extends null ? [] : [payload: EntityArchives[N]]
 
 export function createSyncEngine(deps: EngineDeps): SyncEngine {
     const { db, accountId } = deps
@@ -430,7 +445,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         return queued !== null && queued !== 'held'
     }
 
-    async function archive(entity: EntityName, id: string): Promise<boolean> {
+    async function archive<N extends EntityName>(entity: N, id: string, ...rest: ArchiveArgs<N>): Promise<boolean> {
         if (!isRunning()) throw new Error('the sync engine is not running')
         const found = await db.write(async (tx) => {
             const { rows, server: copies } = tables(tx, entity)
@@ -448,7 +463,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     kind: 'archive',
                     entity,
                     entity_id: id,
-                    payload: null,
+                    payload: rest[0] ?? null,
                     base_version: entries.length > 0 ? null : (server?.version ?? null),
                     ...blank(),
                 } as never)
@@ -719,10 +734,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     async function applyServerState(tx: SyncTx, server: ServerState) {
         await tx.teams.clear()
         await tx.projects.clear()
-        await tx.statuses.clear()
         for (const team of server.teams) await tx.teams.put(team)
         for (const project of server.projects) await tx.projects.put(project)
-        for (const status of server.statuses) await tx.statuses.put(status)
 
         // A row with anything in the outbox is the user's until that is
         // resolved: its row on screen is left exactly as it is.
@@ -814,7 +827,10 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             return true
         }
 
-        if (server && row.version <= server.version) return false
+        // An unversioned entity's frames are all at version 1: there is nothing
+        // to compare with the server's copy, so a frame is an upsert. The buried
+        // check still holds - a deleted id is never used again.
+        if (server && !rulesFor(entity).unversioned && row.version <= server.version) return false
         if (row.version <= (buried.get(id) ?? 0)) return false
         buried.delete(id)
         await copies.put(row)
@@ -897,6 +913,12 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // is theirs to send now.
     let unparkWanted = true
 
+    // What a send may read besides its entry (see SendContext).
+    const sendContext = (entity: EntityName) => ({
+        server: (id: string) => db.write((tx) => tables(tx, entity).server.get(id)),
+        rows: () => db.write((tx) => tables(tx, entity).rows.all()),
+    })
+
     async function pass() {
         if (unparkWanted) {
             unparkWanted = false
@@ -913,7 +935,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             const entry = await pickNext()
             if (!entry) break
             try {
-                const outcome = await Promise.race([remote.send(entry), halted])
+                const outcome = await Promise.race([remote.send(entry, sendContext(entry.entity)), halted])
                 // Stopped while it was on the wire: the answer is not recorded.
                 // The entry stays pending, exactly as if the response was lost.
                 if (!outcome || !isRunning()) return
@@ -1140,6 +1162,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         updateTicket: (id, patch) => update('ticket', id, patch),
         archiveTicket: (id) => archive('ticket', id),
         unarchiveTicket: (ticket) => unarchive('ticket', ticket),
+        createStatus: (status) => create('status', status),
+        updateStatus: (id, patch) => update('status', id, patch),
+        deleteStatus: (id, moveTo) => archive('status', id, { move_to: moveTo }),
         createDocument: (document) => create('document', document),
         updateDocument: (id, patch) => update('document', id, patch),
         archiveDocument: (id) => archive('document', id),

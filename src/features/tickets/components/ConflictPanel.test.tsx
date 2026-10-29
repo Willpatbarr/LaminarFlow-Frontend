@@ -16,8 +16,8 @@ afterEach(() => {
 
 const VIEWER = { accountId: 'acc-me', workspaceId: 'ws-1', displayName: 'Ada' }
 const STATUSES: Status[] = [
-    { id: 's-todo', team_id: 'team-1', name: 'To Do', color: '#94a3b8', position: 1, category: 'not_started' },
-    { id: 's-done', team_id: 'team-1', name: 'Done', color: '#22c55e', position: 2, category: 'done' },
+    { id: 's-todo', team_id: 'team-1', name: 'To Do', color: '#94a3b8', position: 1, category: 'not_started', version: 1 },
+    { id: 's-done', team_id: 'team-1', name: 'Done', color: '#22c55e', position: 2, category: 'done', version: 1 },
 ]
 const MINE = { title: 'Mine', description: 'My words', status_id: 's-todo', assignee_id: null }
 

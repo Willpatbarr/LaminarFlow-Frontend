@@ -5,6 +5,7 @@ import { classify } from '@/api/errors'
 import { toProblem } from '@/api/problem'
 
 import { DB_NAME, openSyncDb, type SyncDb } from './db'
+import { sortStatuses } from './entities/status'
 import {
     createSyncEngine,
     type Connectivity,
@@ -28,10 +29,13 @@ import type {
     Doc,
     DocFields,
     NewDoc,
+    NewStatus,
     NewTicket,
     OutboxEntry,
     Project,
     Status,
+    StatusEntry,
+    StatusFields,
     Team,
     Ticket,
     TicketEntry,
@@ -49,6 +53,7 @@ import type {
 ║      currentProject, selectProject          the project picker's state, remembered
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
+║      createStatus, updateStatus, deleteStatus, statusesForTeam, statusHead   the same, for statuses (LAM-95)
 ║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
 ║      archiveDocument, unarchiveDocument           the same, for documents (LAM-125)
 ║      retry, discard, keepAsNew, resume, rehydrate   for the error and conflict screens
@@ -404,9 +409,12 @@ export function ticketById(id: string): Ticket | undefined {
 export function statusesForProject(projectId: string): Status[] {
     const project = state.projects.find((candidate) => candidate.id === projectId)
     if (!project) return []
-    return state.statuses
-        .filter((status) => status.team_id === project.team_id)
-        .toSorted((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+    return statusesForTeam(project.team_id)
+}
+
+/** A team's statuses, in board order. */
+export function statusesForTeam(teamId: string): Status[] {
+    return sortStatuses(state.statuses.filter((status) => status.team_id === teamId))
 }
 
 // One pass over the outbox instead of one per row. The first entry seen for an
@@ -434,6 +442,13 @@ export function ticketSyncState(id: string): TicketSyncState {
 export function ticketHead(id: string): TicketEntry | undefined {
     const head = queueHeads().get(resolveId(id))
     return head?.entity === 'ticket' ? head : undefined
+}
+
+/** The entry at the head of this status's queue, or undefined when it is in
+ *  sync. A failed or parked one carries the server's reason in `error`. */
+export function statusHead(id: string): StatusEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'status' ? head : undefined
 }
 
 /** `synced` when nothing is waiting for this document, otherwise why it waits. */
@@ -495,6 +510,26 @@ export async function unarchiveTicket(ticket: Ticket): Promise<string | null> {
     const id = await running().engine.unarchiveTicket({ ...ticket, id: resolveTicketId(ticket.id) })
     await caughtUp()
     return id
+}
+
+export async function createStatus(status: NewStatus): Promise<Status> {
+    const created = await running().engine.createStatus(status)
+    await caughtUp()
+    return created
+}
+
+export async function updateStatus(id: string, patch: Partial<StatusFields>): Promise<boolean> {
+    const found = await running().engine.updateStatus(resolveId(id), patch)
+    await caughtUp()
+    return found
+}
+
+/** Deletes a status, moving the tickets that still use it to `moveTo` (a status
+ *  of the same team). Pass null only when there is no other status. */
+export async function deleteStatus(id: string, moveTo: string | null): Promise<boolean> {
+    const found = await running().engine.deleteStatus(resolveId(id), moveTo === null ? null : resolveId(moveTo))
+    await caughtUp()
+    return found
 }
 
 export async function createDocument(document: NewDoc): Promise<Doc> {

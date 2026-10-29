@@ -191,6 +191,9 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     </div>
                 </Show>
                 <div class="tickets__actions">
+                    <a class="t-body" href={`/teams/${props.project.team_id}/settings`}>
+                        Edit statuses
+                    </a>{' '}
                     <Button onClick={() => setCreating(true)}>New ticket</Button>
                 </div>
             </header>
