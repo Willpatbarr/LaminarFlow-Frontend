@@ -44,7 +44,7 @@ test('Markdown typed and pasted renders, is stored as Markdown, and survives a r
     })
     await expect(editor.getByRole('heading', { level: 2, name: 'Pasted' })).toBeVisible()
     await expect(editor.locator('ol > li')).toHaveCount(2)
-    await expect(editor.getByRole('link', { name: 'a ticket' })).toHaveAttribute('href', 'lf://ticket/abc-123')
+    await expect(editor.getByRole('link', { name: 'a ticket' })).toHaveAttribute('href', '/tickets/abc-123')
 
     // Saved through the outbox, and said so.
     await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
@@ -71,7 +71,7 @@ test('Markdown typed and pasted renders, is stored as Markdown, and survives a r
     const again = page.getByRole('textbox', { name: 'Text' })
     await expect(again.getByRole('heading', { level: 1, name: 'Agenda' })).toBeVisible()
     await expect(again.locator('strong')).toHaveText('bold')
-    await expect(again.getByRole('link', { name: 'a ticket' })).toHaveAttribute('href', 'lf://ticket/abc-123')
+    await expect(again.getByRole('link', { name: 'a ticket' })).toHaveAttribute('href', '/tickets/abc-123')
 })
 
 test('a document written by an API client opens rendered, and its internal links are kept on save', async ({
@@ -94,7 +94,7 @@ test('a document written by an API client opens rendered, and its internal links
 
     await page.goto(`/documents/${id}`)
     const editor = page.getByRole('textbox', { name: 'Text' })
-    await expect(editor.getByRole('link', { name: 'the doc' })).toHaveAttribute('href', 'lf://document/d-1')
+    await expect(editor.getByRole('link', { name: 'the doc' })).toHaveAttribute('href', '/documents/d-1')
 
     await editor.click()
     await page.keyboard.press('Control+End')

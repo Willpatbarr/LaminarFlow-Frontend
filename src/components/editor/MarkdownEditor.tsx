@@ -2,10 +2,12 @@ import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
 import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
-import { createEffect, createUniqueId, onSettled, untrack } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, onSettled, Show, untrack } from 'solid-js'
 
 import { FieldFoot } from '../ui/CharacterCount'
 import { describedBy, isOver, type Count } from '../ui/count'
+import { editorLinks } from './internalLinks'
+import { InternalLink, insertChipAt, LinkOrChip } from './internalLinkNode'
 import { MarkdownPaste } from './markdownPaste'
 import './MarkdownEditor.css'
 
@@ -26,7 +28,9 @@ import './MarkdownEditor.css'
 // can say is offered (the StarterKit minus underline), because anything else
 // would be lost the first time the value was saved. Internal links are plain
 // links to `lf://ticket|document|project/<id>`; the `lf` scheme is allowed so
-// they survive a round trip. Drawing them as chips is LAM-108.
+// they survive a round trip. They are drawn as chips (internalLinkNode.ts), and
+// typing `[[` or `@` opens the app's picker when the shell has registered one
+// (internalLinks.ts).
 
 /** Schemes a link may use. TipTap drops a link whose scheme it does not know,
  *  which would silently turn `lf://` links into plain text. */
@@ -64,6 +68,8 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     let editor: Editor | undefined
     // The Markdown the editor last agreed on with the caller.
     let known = ''
+    // Where in the text the picker was opened, while it is open.
+    const [picking, setPicking] = createSignal<number | null>(null)
 
     onSettled(() => {
         if (!element) return
@@ -74,9 +80,11 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                 StarterKit.configure({
                     // Markdown has no underline: it would not survive a save.
                     underline: false,
-                    link: { openOnClick: false, protocols: LINK_PROTOCOLS, autolink: true },
+                    link: false,
                 }),
+                LinkOrChip.configure({ openOnClick: false, protocols: LINK_PROTOCOLS, autolink: true }),
                 Markdown,
+                InternalLink.configure({ onPicker: setPicking }),
                 MarkdownPaste,
                 Placeholder.configure({ placeholder: props.placeholder ?? '' }),
             ],
@@ -159,6 +167,19 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                     element = el
                 }}
             />
+            <Show when={picking() !== null}>
+                {editorLinks()?.picker({
+                    onPick: (target) => {
+                        const at = picking()
+                        setPicking(null)
+                        if (editor && at !== null) insertChipAt(editor, at, target, target.title)
+                    },
+                    onClose: () => {
+                        setPicking(null)
+                        editor?.commands.focus()
+                    },
+                })}
+            </Show>
             <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>
     )

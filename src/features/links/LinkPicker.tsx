@@ -22,6 +22,8 @@ type LinkPickerProps = {
     title: string
     /** "document": names the search field and the empty message. */
     noun: string
+    /** Overrides "Search {noun}s" when the plural is not noun + s. */
+    searchLabel?: string
     options: PickOption[]
     onPick: (id: string) => void
     onClose: () => void
@@ -50,9 +52,9 @@ export function LinkPicker(props: LinkPickerProps) {
             }}
             onCancel={props.onClose}
         >
-            <Input label={`Search ${props.noun}s`} value={query()} onInput={setQuery} />
+            <Input label={props.searchLabel ?? `Search ${props.noun}s`} value={query()} onInput={setQuery} />
             <fieldset class="link-picker__list">
-                <legend class="visually-hidden">{`Matching ${props.noun}s`}</legend>
+                <legend class="visually-hidden">{props.searchLabel ? 'Matches' : `Matching ${props.noun}s`}</legend>
                 <Show
                     when={shown().length > 0}
                     fallback={<p class="t-body link-picker__none">{`No ${props.noun}s to link.`}</p>}

@@ -7,6 +7,7 @@ import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import { KINDS, type Kind } from '@/features/hierarchy/kinds'
+import { useEditorLinks } from '@/features/links/editorLinks'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
@@ -38,6 +39,8 @@ const LINKS: SideNavLink[] = [
 export function AppLayout(props: RouteSectionProps) {
     const navigate = useNavigate()
     const location = useLocation()
+    // Internal links in every editor below: titles, navigation, the picker.
+    useEditorLinks()
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
     // The epic, sprint or milestone being made from the sidebar (LAM-105).
     const [making, setMaking] = createSignal<Kind | null>(null)

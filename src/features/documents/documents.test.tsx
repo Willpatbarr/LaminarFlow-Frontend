@@ -48,10 +48,10 @@ describe('the document page', () => {
         expect(within(text).getAllByRole('listitem')).toHaveLength(2)
     })
 
-    it('keeps an internal link as a link on the way through', async () => {
+    it('draws an internal link as a chip to its route', async () => {
         await openDocument({ content: 'See [the ticket](lf://ticket/t-9).' })
         const link = await within(await editor()).findByRole('link', { name: 'the ticket' })
-        expect(link).toHaveAttribute('href', 'lf://ticket/t-9')
+        expect(link).toHaveAttribute('href', '/tickets/t-9')
     })
 
     it('saves a title edit through the outbox with If-Match, and says Saved', async () => {

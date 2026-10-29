@@ -80,3 +80,27 @@
 .md-editor__box:has([aria-invalid='true']) {
   border-color: var(--rust);
 }
+
+.lf-chip {
+  display: inline-block;
+  padding: 0 var(--s-8, 8px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-sunken, rgba(127, 127, 127, 0.12));
+  color: var(--text-1);
+  font-size: 0.95em;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lf-chip:hover {
+  border-color: var(--accent);
+}
+
+.lf-chip.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+
+.lf-chip[data-lf-kind='ticket']::before { content: '#'; color: var(--text-3); margin-right: 0.25em; }
+.lf-chip[data-lf-kind='document']::before { content: '\25A4'; color: var(--text-3); margin-right: 0.25em; }
+.lf-chip[data-lf-kind='project']::before { content: '\25C6'; color: var(--text-3); margin-right: 0.25em; }
