@@ -8,11 +8,13 @@ import { logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session 
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import { KINDS, type Kind } from '@/features/hierarchy/kinds'
 import { useEditorLinks } from '@/features/links/editorLinks'
+import { CommandPalette } from '@/features/search/CommandPalette'
+import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
-import { boardById, currentProject, savedViewsForTeam, sync, unsyncedCount } from '@/sync'
+import { boardById, currentProject, savedViewsForTeam, statusesForProject, sync, unsyncedCount } from '@/sync'
 
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [
@@ -44,6 +46,8 @@ export function AppLayout(props: RouteSectionProps) {
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
     // The epic, sprint or milestone being made from the sidebar (LAM-105).
     const [making, setMaking] = createSignal<Kind | null>(null)
+    // The ticket being made from the search palette's command (LAM-115).
+    const [creatingTicket, setCreatingTicket] = createSignal(false)
     // The first /auth/me got no usable answer: nothing more to wait for, and
     // the content area says so instead of showing a placeholder for ever.
     const unreachable = () => session.status === 'unknown' && session.loadFailure !== null
@@ -165,6 +169,15 @@ export function AppLayout(props: RouteSectionProps) {
                     <SessionUnreachable />
                 </Show>
             </AppShell>
+            <CommandPalette onNewTicket={homeProject() ? () => setCreatingTicket(true) : undefined} />
+            <Show when={creatingTicket() && homeProject()}>
+                <NewTicketDialog
+                    projectId={homeProject()!.id}
+                    statuses={statusesForProject(homeProject()!.id)}
+                    statusId={statusesForProject(homeProject()!.id)[0]?.id ?? null}
+                    onClose={() => setCreatingTicket(false)}
+                />
+            </Show>
             <Show when={making() && homeProject()}>
                 <NewHierarchyDialog
                     kind={making()!}
