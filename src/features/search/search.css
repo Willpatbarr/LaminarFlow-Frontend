@@ -1,0 +1,106 @@
+/* The palette floats like a modal, so it takes the modal's scrim and shadow
+ * and sits near the top, where a search box is looked for. */
+.palette__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding: 12vh var(--s-16) var(--s-16);
+  background: color-mix(in srgb, var(--bg-base) 70%, transparent);
+}
+
+.palette {
+  display: grid;
+  width: min(560px, 100%);
+  max-height: min(70vh, 520px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  background: var(--bg-overlay);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+
+.palette__input {
+  width: 100%;
+  padding: var(--s-12) var(--s-16);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-1);
+  font: 400 15px/24px var(--sans);
+}
+
+.palette__input::placeholder {
+  color: var(--text-3);
+}
+
+.palette__input:focus-visible {
+  outline: none;
+}
+
+.palette__list {
+  overflow-y: auto;
+  padding: var(--s-4) 0;
+}
+
+.palette__heading {
+  padding: var(--s-8) var(--s-16) var(--s-4);
+  color: var(--text-3);
+}
+
+.palette__option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--s-8);
+  padding: var(--s-8) var(--s-16);
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+/* Not colour alone: the bar at the edge says which row Enter opens. */
+.palette__option--active {
+  background: var(--accent-tint);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.palette__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.palette__note,
+.palette__detail {
+  color: var(--text-2);
+}
+
+.palette__detail {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
+
+.palette__field {
+  color: var(--text-3);
+}
+
+.palette mark {
+  border-radius: 2px;
+  background: var(--accent-tint);
+  color: var(--text-1);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.palette__status {
+  margin: 0;
+  padding: var(--s-8) var(--s-16);
+  color: var(--text-2);
+}
+
+.palette__status:empty {
+  display: none;
+}
