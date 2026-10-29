@@ -17,6 +17,13 @@
   border-radius: var(--r-control);
 }
 
+.document__aspect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-16);
+}
+
 .document__notice:not(:empty) {
   padding: var(--s-8) var(--s-12);
 }
