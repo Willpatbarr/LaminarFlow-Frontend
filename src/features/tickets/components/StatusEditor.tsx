@@ -2,6 +2,7 @@ import { createSignal, For, Show, untrack } from 'solid-js'
 
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { MoveButtons } from '@/components/ui/MoveButtons'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
@@ -211,12 +212,7 @@ function StatusRow(props: StatusRowProps) {
                 />
             </form>
             <span class="status-editor__actions">
-                <Button variant="ghost" size="sm" disabled={props.first} disabledReason={denial('team:write', 'change statuses')} aria-label={`Move ${props.status.name} up`} onClick={() => props.onMove(-1)}>
-                    ↑
-                </Button>
-                <Button variant="ghost" size="sm" disabled={props.last} disabledReason={denial('team:write', 'change statuses')} aria-label={`Move ${props.status.name} down`} onClick={() => props.onMove(1)}>
-                    ↓
-                </Button>
+                <MoveButtons name={props.status.name} first={props.first} last={props.last} disabledReason={denial('team:write', 'change statuses')} onMove={props.onMove} />
                 <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'delete statuses')} aria-label={`Delete ${props.status.name}`} onClick={() => props.onDelete()}>
                     Delete
                 </Button>

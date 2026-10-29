@@ -3,6 +3,7 @@ import { createEffect, createSignal, For, Show } from 'solid-js'
 import { Banner } from '@/components/ui/Banner'
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { MoveButtons } from '@/components/ui/MoveButtons'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { nameCount, overMessage } from '@/features/tickets/limits'
@@ -354,12 +355,7 @@ function FieldRow(props: FieldRowProps) {
                 />
             </form>
             <span class="status-editor__actions">
-                <Button variant="ghost" size="sm" disabled={props.first} disabledReason={denial('aspect:write', 'change fields')} aria-label={`Move ${props.field.label} up`} onClick={() => props.onMove(-1)}>
-                    Up
-                </Button>
-                <Button variant="ghost" size="sm" disabled={props.last} disabledReason={denial('aspect:write', 'change fields')} aria-label={`Move ${props.field.label} down`} onClick={() => props.onMove(1)}>
-                    Down
-                </Button>
+                <MoveButtons name={props.field.label} first={props.first} last={props.last} disabledReason={denial('aspect:write', 'change fields')} onMove={props.onMove} />
                 <Button variant="ghost" size="sm" disabledReason={denial('aspect:write', 'remove fields')} aria-label={`Remove ${props.field.label}`} onClick={() => props.onRemove()}>
                     Remove
                 </Button>
