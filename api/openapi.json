@@ -703,6 +703,71 @@
         ],
         "type": "object"
       },
+      "CreateReviewRequestInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateReviewRequestInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "body": {
+            "description": "The note to the reviewers. Up to 50,000 characters; not blank.",
+            "maxLength": 50000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "document_id": {
+            "description": "The document to review.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "field_id": {
+            "description": "Required for an aspect document: the field the range is in, which must belong to its aspect type. Omit it for a normal document, whose range is in its content (body key content). 422 at body.field_id otherwise.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region_end": {
+            "description": "End of the range, exclusive; 0 \u003c= region_start \u003c= region_end \u003c= the field's length in characters (equal to region_start is a caret). 422 at body.region_end otherwise.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "region_start": {
+            "description": "Start of the range: a character offset into the field's stored Markdown string. See docs/review-requests.md.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reviewer_ids": {
+            "description": "The accounts asked to review: at least one, each a member of the document's workspace and listed once. 422 at body.reviewer_ids[i] for the first that is not.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "document_id",
+          "region_start",
+          "region_end",
+          "body",
+          "reviewer_ids"
+        ],
+        "type": "object"
+      },
       "CreateSavedViewInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1993,6 +2058,45 @@
         ],
         "type": "object"
       },
+      "ListEnvelopeMemberBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeMemberBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MemberBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
       "ListEnvelopeMilestoneBody": {
         "additionalProperties": false,
         "properties": {
@@ -2050,6 +2154,45 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/ProjectBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ListEnvelopeReviewRequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeReviewRequestBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewRequestBody"
             },
             "type": [
               "array",
@@ -2545,6 +2688,44 @@
         ],
         "type": "object"
       },
+      "MemberBody": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "description": "The id comments carry as author_id and review requests as reviewers[].account_id.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "When the person joined the workspace.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "description": "Workspace role.",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "display_name",
+          "email",
+          "role",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "MilestoneBody": {
         "additionalProperties": false,
         "properties": {
@@ -2981,6 +3162,116 @@
         },
         "required": [
           "status_ids"
+        ],
+        "type": "object"
+      },
+      "ReviewRequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ReviewRequestBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "anchor_text": {
+            "description": "The text of the field between region_start and region_end when the request was made. A snapshot: it does not follow later edits of the document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "author_id": {
+            "description": "Null when the author's account was deleted.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "description": "The note.",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "document_id": {
+            "type": "string"
+          },
+          "field_id": {
+            "description": "The aspect field the request is anchored to. Null for a normal document (the range is in its content), and after the field was removed from the aspect type; the request and its offsets are kept.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "region_end": {
+            "description": "End of the range, exclusive; equal to region_start for a caret.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "region_start": {
+            "description": "Start of the range, in characters (Unicode code points) of the field's stored Markdown string, counting from 0. See docs/review-requests.md.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "review_status": {
+            "description": "The request's overall state. There is no per-reviewer verdict: a reviewer's action sets this.",
+            "enum": [
+              "pending",
+              "approved",
+              "changes_requested"
+            ],
+            "type": "string"
+          },
+          "reviewers": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewerBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "description": "When the body or the review_status last changed.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "field_id",
+          "region_start",
+          "region_end",
+          "anchor_text",
+          "body",
+          "review_status",
+          "author_id",
+          "reviewers",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ReviewerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
         ],
         "type": "object"
       },
@@ -4010,6 +4301,33 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "UpdateReviewRequestInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateReviewRequestInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "review_status": {
+            "description": "The new overall state. Only a listed reviewer may set it. Null is not accepted.",
+            "enum": [
+              "approved",
+              "changes_requested",
+              "pending"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_status"
+        ],
         "type": "object"
       },
       "UpdateSavedViewInputBody": {
@@ -6270,6 +6588,45 @@
         "summary": "Rename or recolour a label"
       }
     },
+    "/api/v1/members/list": {
+      "post": {
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `created_at` (time)\n- `display_name` (text)\n- `email` (text)\n- `role` (text)\n\nPage size defaults to 50 and may not exceed 200.",
+        "operationId": "list-members",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeMemberBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the people in the caller's workspace (a read - see the description for why it is a POST)"
+      }
+    },
     "/api/v1/milestones": {
       "post": {
         "description": "Announced as `milestone.created`.",
@@ -6661,6 +7018,162 @@
           }
         },
         "summary": "Create a board on a project"
+      }
+    },
+    "/api/v1/review-requests": {
+      "post": {
+        "description": "Creates a comment on the document with `review_status` `pending`, anchored to the range `region_start`..`region_end`, and attaches the reviewers, in one transaction. On an aspect document the range is in `field_id`; on a normal document send no `field_id` and it is in `content`. Offsets count characters (Unicode code points) of that stored Markdown string; the range must lie inside the field's current text. `anchor_text` records what was in the range. Each reviewer must be a member of the document's workspace. A document the caller cannot see (absent, archived, another workspace) is a 404. The request is also a comment: it is returned by `POST /comments/list`, its note is edited and the request deleted through `/comments/{id}` by its author, and it is indexed for search. Publishes `review_request.created`. Send `Idempotency-Key` to make the create safe to retry, as on `POST /comments`. Callable with an API token holding `ticket:write`.",
+        "operationId": "create-review-request",
+        "parameters": [
+          {
+            "description": "Makes the create safe to retry, exactly as on POST /comments (and sharing its keys: a key already used by a plain comment of yours is a 422). The same key from the same account returns the request as it is now with Idempotent-Replayed: true and creates and publishes nothing; a replay ignores the body it carries.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "Makes the create safe to retry, exactly as on POST /comments (and sharing its keys: a key already used by a plain comment of yours is a 422). The same key from the same account returns the request as it is now with Idempotent-Replayed: true and creates and publishes nothing; a replay ignores the body it carries.",
+              "examples": [
+                "2b0a7c9e-5d1f-4c8e-9a53-0f2f8d6b1e47"
+              ],
+              "maxLength": 128,
+              "pattern": "^[ -~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewRequestInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewRequestBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Idempotent-Replayed": {
+                "schema": {
+                  "description": "Only when Idempotency-Key was sent. true: that key had been used, nothing was created, and the body is the original request as it is now.",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Ask for a review of a range of a document field"
+      }
+    },
+    "/api/v1/review-requests/list": {
+      "post": {
+        "description": "Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.\n\nPagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.\n\nFilterable and sortable fields:\n\n- `author_id` (uuid)\n- `created_at` (time)\n- `document_id` (uuid)\n- `field_id` (uuid)\n- `review_status` (text)\n- `reviewer_id` (uuid_set)\n\nPage size defaults to 50 and may not exceed 200.",
+        "operationId": "list-review-requests",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeReviewRequestBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List review requests (a read - see the description for why it is a POST)"
+      }
+    },
+    "/api/v1/review-requests/{id}": {
+      "put": {
+        "description": "Sets `review_status` to `approved`, `changes_requested` or `pending`. Only an account listed in `reviewers` may; anyone else who can see the request gets 403 `not_a_reviewer`. There is one status for the whole request, not one per reviewer: the last reviewer to act decides it. Setting the status it already has is a 200 that writes and publishes nothing. A change bumps `updated_at` and publishes `review_request.updated`.",
+        "operationId": "update-review-request",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewRequestInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewRequestBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Approve, request changes on, or reopen a review request (reviewers only)"
       }
     },
     "/api/v1/saved-views": {

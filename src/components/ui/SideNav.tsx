@@ -19,6 +19,7 @@ export const ICONS = {
     sprint: 'M12 8v4l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
     milestone: 'M6 21V4M6 5h12l-2 4 2 4H6',
     key: 'M15 7a4 4 0 1 1-3.9 4.9L4 19v-3h3v-2h2l2.1-2.1A4 4 0 0 1 15 7zM16 10h.01',
+    review: 'M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
     project: 'M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z',
 } as const
 

@@ -41,7 +41,8 @@ test('a comment posted in one browser appears live in another account\'s, who ca
     await expect(mine.getByText('Friday')).toBeVisible()
     await expect.poll(commentsOnServer).toEqual(['Ship it on Friday'])
     await expect(theirs.getByText('Friday')).toBeVisible()
-    await expect(theirs.getByRole('listitem').getByText('Someone else')).toBeVisible()
+    // Bob sees Alice by her display name (LAM-121), not as "Someone else".
+    await expect(theirs.getByRole('listitem').getByText(alice.displayName)).toBeVisible()
 
     // The composer is empty again; Bob has no way to change Alice's comment.
     await expect(mine.getByRole('textbox', { name: 'Add a comment' })).toHaveText('')

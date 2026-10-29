@@ -148,3 +148,46 @@ describe('the change feed', () => {
         expect(await bodies(db)).toEqual(['first'])
     })
 })
+
+describe('review request events (LAM-121)', () => {
+    const request = {
+        id: 'rr-1',
+        document_id: 'd-1',
+        field_id: null,
+        region_start: 2,
+        region_end: 9,
+        author_id: 'acc-2',
+        body: 'Please look',
+        review_status: 'pending',
+        anchor_text: 'quoted',
+        reviewers: [{ account_id: 'acc-1' }],
+        ...stamp,
+    }
+    const frame = (type: string, row: Record<string, unknown>) => ({
+        type,
+        actor_id: 'acc-2',
+        at: stamp.created_at,
+        document_id: 'd-1',
+        review_request: row,
+        comment_id: row.id,
+    })
+    const statusOf = async (db: Awaited<ReturnType<typeof startEngine>>['db']) =>
+        (await db.snapshot()).comments.find((comment) => comment.id === 'rr-1')
+
+    it('adds the request as a comment on the document, then follows its status', async () => {
+        const { engine, db } = await started()
+        await engine.applyRemote(frame('review_request.created', request))
+        expect(await statusOf(db)).toMatchObject({ document_id: 'd-1', ticket_id: null, review_status: 'pending', region_start: 2, region_end: 9 })
+
+        await engine.applyRemote(frame('review_request.updated', { ...request, review_status: 'approved' }))
+        expect((await statusOf(db))?.review_status).toBe('approved')
+    })
+
+    it('ignores a frame whose request is not whole or not the one named', async () => {
+        const { engine, db } = await started()
+        await engine.applyRemote(frame('review_request.created', { id: 'rr-1' }))
+        await engine.applyRemote({ ...frame('review_request.created', request), comment_id: 'other' })
+        expect(await statusOf(db)).toBeUndefined()
+    })
+})
+

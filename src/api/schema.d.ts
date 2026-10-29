@@ -711,6 +711,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/members/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List the people in the caller's workspace (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `created_at` (time)
+         *     - `display_name` (text)
+         *     - `email` (text)
+         *     - `role` (text)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/milestones": {
         parameters: {
             query?: never;
@@ -875,6 +906,79 @@ export interface paths {
          * @description Starts with one column per status the team has, each mapped to its status, like the board a project is created with. Many boards per project; none is privileged. Announced as `board.created`.
          */
         post: operations["create-board"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a review of a range of a document field
+         * @description Creates a comment on the document with `review_status` `pending`, anchored to the range `region_start`..`region_end`, and attaches the reviewers, in one transaction. On an aspect document the range is in `field_id`; on a normal document send no `field_id` and it is in `content`. Offsets count characters (Unicode code points) of that stored Markdown string; the range must lie inside the field's current text. `anchor_text` records what was in the range. Each reviewer must be a member of the document's workspace. A document the caller cannot see (absent, archived, another workspace) is a 404. The request is also a comment: it is returned by `POST /comments/list`, its note is edited and the request deleted through `/comments/{id}` by its author, and it is indexed for search. Publishes `review_request.created`. Send `Idempotency-Key` to make the create safe to retry, as on `POST /comments`. Callable with an API token holding `ticket:write`.
+         */
+        post: operations["create-review-request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-requests/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List review requests (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `author_id` (uuid)
+         *     - `created_at` (time)
+         *     - `document_id` (uuid)
+         *     - `field_id` (uuid)
+         *     - `review_status` (text)
+         *     - `reviewer_id` (uuid_set)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-review-requests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Approve, request changes on, or reopen a review request (reviewers only)
+         * @description Sets `review_status` to `approved`, `changes_requested` or `pending`. Only an account listed in `reviewers` may; anyone else who can see the request gets 403 `not_a_reviewer`. There is one status for the whole request, not one per reviewer: the last reviewer to act decides it. Setting the status it already has is a 200 that writes and publishes nothing. A change bumps `updated_at` and publishes `review_request.updated`.
+         */
+        put: operations["update-review-request"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1738,6 +1842,38 @@ export interface components {
             /** Format: uuid */
             team_id: string;
         };
+        CreateReviewRequestInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateReviewRequestInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The note to the reviewers. Up to 50,000 characters; not blank. */
+            body: string;
+            /**
+             * Format: uuid
+             * @description The document to review.
+             */
+            document_id: string;
+            /**
+             * Format: uuid
+             * @description Required for an aspect document: the field the range is in, which must belong to its aspect type. Omit it for a normal document, whose range is in its content (body key content). 422 at body.field_id otherwise.
+             */
+            field_id?: string | null;
+            /**
+             * Format: int64
+             * @description End of the range, exclusive; 0 <= region_start <= region_end <= the field's length in characters (equal to region_start is a caret). 422 at body.region_end otherwise.
+             */
+            region_end: number;
+            /**
+             * Format: int64
+             * @description Start of the range: a character offset into the field's stored Markdown string. See docs/review-requests.md.
+             */
+            region_start: number;
+            /** @description The accounts asked to review: at least one, each a member of the document's workspace and listed once. 422 at body.reviewer_ids[i] for the first that is not. */
+            reviewer_ids: string[] | null;
+        };
         CreateSavedViewInputBody: {
             /**
              * Format: uri
@@ -2319,6 +2455,18 @@ export interface components {
             /** @description Pass back as cursor for the next page. Null when there is none. */
             next_cursor: string | null;
         };
+        ListEnvelopeMemberBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeMemberBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["MemberBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
         ListEnvelopeMilestoneBody: {
             /**
              * Format: uri
@@ -2340,6 +2488,18 @@ export interface components {
             readonly $schema?: string;
             has_more: boolean;
             items: components["schemas"]["ProjectBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
+        ListEnvelopeReviewRequestBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeReviewRequestBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["ReviewRequestBody"][] | null;
             /** @description Pass back as cursor for the next page. Null when there is none. */
             next_cursor: string | null;
         };
@@ -2540,6 +2700,25 @@ export interface components {
             /** @description The workspace this account belongs to. Null only for an account with no membership. */
             workspace_id: string | null;
         };
+        MemberBody: {
+            /**
+             * Format: uuid
+             * @description The id comments carry as author_id and review requests as reviewers[].account_id.
+             */
+            account_id: string;
+            /**
+             * Format: date-time
+             * @description When the person joined the workspace.
+             */
+            created_at: string;
+            display_name: string;
+            email: string;
+            /**
+             * @description Workspace role.
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "member";
+        };
         MilestoneBody: {
             /**
              * Format: uri
@@ -2726,6 +2905,51 @@ export interface components {
             readonly $schema?: string;
             /** @description Every status of this team, exactly once, in the order wanted. */
             status_ids: string[] | null;
+        };
+        ReviewRequestBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ReviewRequestBody.json
+             */
+            readonly $schema?: string;
+            /** @description The text of the field between region_start and region_end when the request was made. A snapshot: it does not follow later edits of the document. */
+            anchor_text: string | null;
+            /** @description Null when the author's account was deleted. */
+            author_id: string | null;
+            /** @description The note. */
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            document_id: string;
+            /** @description The aspect field the request is anchored to. Null for a normal document (the range is in its content), and after the field was removed from the aspect type; the request and its offsets are kept. */
+            field_id: string | null;
+            id: string;
+            /**
+             * Format: int64
+             * @description End of the range, exclusive; equal to region_start for a caret.
+             */
+            region_end: number;
+            /**
+             * Format: int64
+             * @description Start of the range, in characters (Unicode code points) of the field's stored Markdown string, counting from 0. See docs/review-requests.md.
+             */
+            region_start: number;
+            /**
+             * @description The request's overall state. There is no per-reviewer verdict: a reviewer's action sets this.
+             * @enum {string}
+             */
+            review_status: "pending" | "approved" | "changes_requested";
+            reviewers: components["schemas"]["ReviewerBody"][] | null;
+            /**
+             * Format: date-time
+             * @description When the body or the review_status last changed.
+             */
+            updated_at: string;
+        };
+        ReviewerBody: {
+            /** Format: uuid */
+            account_id: string;
         };
         SavedViewBody: {
             /**
@@ -3154,6 +3378,19 @@ export interface components {
              * @description YYYY-MM-DD. Omit to leave it, null to clear it.
              */
             target_date?: string | null;
+        };
+        UpdateReviewRequestInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/UpdateReviewRequestInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description The new overall state. Only a listed reviewer may set it. Null is not accepted.
+             * @enum {string}
+             */
+            review_status: "approved" | "changes_requested" | "pending";
         };
         UpdateSavedViewInputBody: {
             /**
@@ -4789,6 +5026,39 @@ export interface operations {
             };
         };
     };
+    "list-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeMemberBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "create-milestone": {
         parameters: {
             query?: never;
@@ -5099,6 +5369,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BoardBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-review-request": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the create safe to retry, exactly as on POST /comments (and sharing its keys: a key already used by a plain comment of yours is a 422). The same key from the same account returns the request as it is now with Idempotent-Replayed: true and creates and publishes nothing; a replay ignores the body it carries. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewRequestInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewRequestBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-review-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeReviewRequestBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-review-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateReviewRequestInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewRequestBody"];
                 };
             };
             /** @description Error */

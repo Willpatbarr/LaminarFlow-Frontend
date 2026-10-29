@@ -1,0 +1,145 @@
+/* Review requests: the margin mark, the count, the panel and the dialog (LAM-121). */
+.reviewable {
+  position: relative;
+  display: grid;
+  gap: var(--s-8);
+}
+
+/* The mark in the margin: a bar down the field's left edge and a small label above it. */
+.reviewable[data-open='true'] {
+  padding-left: var(--s-12);
+  border-left: 4px solid var(--accent);
+}
+
+.reviewable__margin {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.reviewable__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.review-count {
+  justify-self: start;
+  padding: var(--s-4) var(--s-8);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-control);
+  background: var(--accent-tint);
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+.review-count__hint {
+  color: var(--text-2);
+}
+
+.review {
+  display: grid;
+  gap: var(--s-12);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--border);
+}
+
+.review__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-12);
+}
+
+.review__card {
+  display: grid;
+  gap: var(--s-8);
+  padding: var(--s-12);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--r-card);
+}
+
+.review__card:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.review__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: baseline;
+}
+
+.review__author {
+  font-weight: 600;
+}
+
+.review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.review__reply {
+  display: grid;
+  gap: var(--s-8);
+}
+
+.review-quote {
+  margin: 0;
+  padding: var(--s-4) var(--s-12);
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+
+.review-dialog {
+  display: grid;
+  gap: var(--s-12);
+}
+
+.review-dialog__people {
+  display: grid;
+  gap: var(--s-6);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.review-dialog__person {
+  display: flex;
+  gap: var(--s-8);
+  align-items: baseline;
+}
+
+.review__problem,
+.review-dialog__problem {
+  color: var(--rust);
+}
+
+.reviews-page {
+  display: grid;
+  gap: var(--s-16);
+  max-width: 54rem;
+}
+
+.reviews-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-12);
+}
+
+.reviews-page__item {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+}

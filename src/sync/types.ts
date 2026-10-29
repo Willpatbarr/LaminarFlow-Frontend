@@ -195,13 +195,13 @@ export type NewSavedView = SavedViewFields &
 /** A comment on a ticket or a document (LAM-112). Exactly one of `ticket_id` and
  *  `document_id` is set. The server keeps no version for a comment (no `If-Match`,
  *  none on a change feed frame), so `version` is always 1, as for a status.
- *  `review_status` is carried because the API sends it; review requests are
- *  LAM-121 and nothing here sets it. */
+ *  `review_status` is set on a review request (LAM-121): it arrives from the
+ *  server, on the list and on `review_request.*` events, and is never written here. */
 export type Comment = {
     id: string
     ticket_id: string | null
     document_id: string | null
-    /** The aspect field a comment is anchored to; no screen sets it yet. */
+    /** The aspect field a review request is anchored to; null for a plain comment. */
     field_id: string | null
     region_start: number | null
     region_end: number | null
