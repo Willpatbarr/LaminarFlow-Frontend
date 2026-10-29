@@ -49,6 +49,18 @@
 
   /* A dark teal rather than --bg-base: white on #2ab8c9 would be about 2.3:1. */
   --text-on-accent: #062429;
+  /* A kbd hint sitting on a filled (accent) button: its own text and border so
+   * it does not inherit the grey --text-2 of a hint on the page. 6.8:1 on
+   * --accent, 4.8:1 on --accent-pressed. */
+  --kbd-on-accent: #062429;
+  --kbd-on-accent-border: rgba(6, 36, 41, 0.5);
+
+  /* A disabled control: visibly greyed and lower emphasis than an enabled one,
+   * never accent-filled, and still visible (disabled is exempt from WCAG text
+   * contrast, but the glyph is kept at 3:1 or more against its own fill). */
+  --disabled-bg: #1b2025;
+  --disabled-fg: #6b757d;
+  --disabled-border: #23292f;
 
   /* Status and label hues. The fill is the same in both themes; only the
    * foreground swaps. A chip is the hue at 14-20% alpha behind its fg, so
@@ -115,6 +127,12 @@
     --accent-hover: #086878;
     --accent-pressed: #065866;
     --text-on-accent: #ffffff;
+    --kbd-on-accent: #eef9fb;
+    --kbd-on-accent-border: rgba(238, 249, 251, 0.6);
+
+    --disabled-bg: #ebebe8;
+    --disabled-fg: #767c83;
+    --disabled-border: #e0e0dc;
 
     --slate-fg: #4a555e;
     --blue-fg: #2f5a85;

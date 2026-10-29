@@ -1,6 +1,6 @@
 /* The four skins from the Button variants specimen, each value read off the
- * sheet's own BUTTON panel. The disabled fill is the accent mixed 40% into the
- * page, whatever the variant. */
+ * sheet's own BUTTON panel. A disabled button is greyed with the --disabled-* tokens,
+ * whatever the variant. */
 .button {
   padding: var(--s-8) var(--s-16);
   border: 1px solid transparent;
@@ -52,10 +52,23 @@
 }
 
 .button:disabled {
-  background: color-mix(in srgb, var(--accent) 40%, var(--bg-base));
-  border-color: transparent;
-  color: color-mix(in srgb, var(--text-on-accent) 80%, transparent);
+  background: var(--disabled-bg);
+  background-image: none;
+  border-color: var(--disabled-border);
+  color: var(--disabled-fg);
   cursor: not-allowed;
+}
+
+/* A shortcut hint on a filled button takes its own colours: the page-level
+ * hint is grey, which vanished on the accent fill (LAM-141). */
+.button--primary .shortcut-hint {
+  color: var(--kbd-on-accent);
+  border-color: var(--kbd-on-accent-border);
+}
+
+.button:disabled .shortcut-hint {
+  color: inherit;
+  border-color: var(--disabled-border);
 }
 
 /* Inside a toast, where the full-size padding would make the button the loudest
