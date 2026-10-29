@@ -26,6 +26,9 @@ import {
     type Visibility,
 } from './socket'
 import type {
+    Board,
+    BoardEntry,
+    BoardFields,
     Doc,
     DocFields,
     NewDoc,
@@ -54,6 +57,7 @@ import type {
 ║      ticketById, resolveTicketId, statusesForProject, ticketSyncState, parkedEntries
 ║      createTicket, updateTicket, archiveTicket, unarchiveTicket   the only way a screen changes a ticket
 ║      createStatus, updateStatus, deleteStatus, statusesForTeam, statusHead   the same, for statuses (LAM-95)
+║      boardById, boardsForProject, boardHead, updateBoard   boards and their columns (LAM-107)
 ║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
 ║      archiveDocument, unarchiveDocument           the same, for documents (LAM-125)
 ║      retry, discard, keepAsNew, resume, rehydrate   for the error and conflict screens
@@ -87,6 +91,7 @@ export type SyncState = {
     teams: Team[]
     projects: Project[]
     statuses: Status[]
+    boards: Board[]
     /** Every ticket, as the user should see it: unsent edits included. */
     tickets: Ticket[]
     /** Every document, as the user should see it: unsent edits included. */
@@ -111,6 +116,7 @@ function empty(): SyncState {
         teams: [],
         projects: [],
         statuses: [],
+        boards: [],
         tickets: [],
         documents: [],
         outbox: [],
@@ -172,6 +178,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             reconcile(snapshot.teams, 'id')(draft.teams)
             reconcile(snapshot.projects, 'id')(draft.projects)
             reconcile(snapshot.statuses, 'id')(draft.statuses)
+            reconcile(snapshot.boards, 'id')(draft.boards)
             reconcile(snapshot.tickets, 'id')(draft.tickets)
             reconcile(snapshot.documents, 'id')(draft.documents)
             reconcile(snapshot.outbox, 'id')(draft.outbox)
@@ -412,6 +419,16 @@ export function statusesForProject(projectId: string): Status[] {
     return statusesForTeam(project.team_id)
 }
 
+/** The board with this id, as the screen should show it. */
+export function boardById(id: string): Board | undefined {
+    return state.boards.find((board) => board.id === id)
+}
+
+/** A project's boards, oldest first (the API's order, and so the default board first). */
+export function boardsForProject(projectId: string): Board[] {
+    return state.boards.filter((board) => board.project_id === projectId)
+}
+
 /** A team's statuses, in board order. */
 export function statusesForTeam(teamId: string): Status[] {
     return sortStatuses(state.statuses.filter((status) => status.team_id === teamId))
@@ -449,6 +466,12 @@ export function ticketHead(id: string): TicketEntry | undefined {
 export function statusHead(id: string): StatusEntry | undefined {
     const head = queueHeads().get(resolveId(id))
     return head?.entity === 'status' ? head : undefined
+}
+
+/** The entry at the head of this board's queue, or undefined when it is in sync. */
+export function boardHead(id: string): BoardEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'board' ? head : undefined
 }
 
 /** `synced` when nothing is waiting for this document, otherwise why it waits. */
@@ -528,6 +551,23 @@ export async function updateStatus(id: string, patch: Partial<StatusFields>): Pr
  *  of the same team). Pass null only when there is no other status. */
 export async function deleteStatus(id: string, moveTo: string | null): Promise<boolean> {
     const found = await running().engine.deleteStatus(resolveId(id), moveTo === null ? null : resolveId(moveTo))
+    await caughtUp()
+    return found
+}
+
+/** Changes a board: its name, or its columns (a rename, hide or show, a new
+ *  order, a new set of statuses). `patch.columns` replaces them all. */
+export async function updateBoard(id: string, patch: Partial<BoardFields>): Promise<boolean> {
+    // Plain copies: the columns usually come from the store, whose arrays are
+    // proxies that IndexedDB cannot clone.
+    const columns = patch.columns?.map((column) => ({
+        id: column.id,
+        name: column.name,
+        position: column.position,
+        is_visible: column.is_visible,
+        status_ids: [...column.status_ids],
+    }))
+    const found = await running().engine.updateBoard(id, columns ? { ...patch, columns } : patch)
     await caughtUp()
     return found
 }

@@ -29,6 +29,7 @@ function current(overrides: Partial<Ticket> = {}): Ticket {
         description: 'My words',
         status_id: 's-todo',
         assignee_id: null,
+        position: 1024,
         version: 5,
         updated_at: '2026-03-10T11:58:00Z',
         updated_by: 'acc-sarah',

@@ -6,6 +6,10 @@ export { connectSyncToSession } from './session'
 export { isTempId } from './types'
 export type { ConnectionState } from './socket'
 export type {
+    Board,
+    BoardColumn,
+    BoardEntry,
+    BoardFields,
     DocConflict,
     DocEntry,
     DocFields,

@@ -14,6 +14,7 @@ import {
     isTempId,
     newIdempotencyKey,
     newTempId,
+    type BoardFields,
     type Doc,
     type DocFields,
     type EntityArchives,
@@ -184,6 +185,10 @@ export type SyncEngine = {
      *  status of the same team, or null when none does (the server refuses a
      *  null while tickets, archived ones too, use it). */
     deleteStatus(id: string, moveTo: string | null): Promise<boolean>
+
+    /** Changes a board's name or columns (rename, hide or show, reorder, map statuses).
+     *  `patch` replaces `columns` whole, so pass every column. */
+    updateBoard(id: string, patch: Partial<BoardFields>): Promise<boolean>
 
     createDocument(document: NewDoc): Promise<Doc>
     updateDocument(id: string, patch: Partial<DocFields>): Promise<boolean>
@@ -1165,6 +1170,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         createStatus: (status) => create('status', status),
         updateStatus: (id, patch) => update('status', id, patch),
         deleteStatus: (id, moveTo) => archive('status', id, { move_to: moveTo }),
+        updateBoard: (id, patch) => update('board', id, patch),
         createDocument: (document) => create('document', document),
         updateDocument: (id, patch) => update('document', id, patch),
         archiveDocument: (id) => archive('document', id),
