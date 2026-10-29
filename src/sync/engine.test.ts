@@ -264,6 +264,132 @@ describe('update', () => {
     })
 })
 
+describe('update from the version an edit began on (LAM-131)', () => {
+    const sentAs = (seen: (string | null)[]) => (request: Request) => {
+        seen.push(request.headers.get('If-Match'))
+        return ok(ticket({ title: 'Mine', version: 4, updated_by: ME }))
+    }
+
+    it('sends the version the edit began on when someone else moved the row meanwhile, and parks the 409', async () => {
+        const seen: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': (request) => {
+                seen.push(request.headers.get('If-Match'))
+                return conflictBody('ticket_conflict', ticket({ title: 'Theirs', version: 4 }), 'acc-other')
+            },
+        })
+        const { engine, db } = await startEngine()
+        // B's edit arrives live while A is typing.
+        await engine.applyRemote(frame('ticket.updated', ticket({ title: 'Theirs', version: 4 })))
+
+        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3 })
+        await engine.idle()
+
+        expect(seen).toEqual(['"3"'])
+        const after = await local(db)
+        expect(after.outbox).toMatchObject([
+            { state: 'conflict', payload: { title: 'Mine' }, conflict: { current: { title: 'Theirs', version: 4 } } },
+        ])
+        expect(after.tickets).toMatchObject([{ title: 'Mine' }])
+    })
+
+    it('a solo edit, with or without a base, goes on the current version', async () => {
+        const seen: (string | null)[] = []
+        stubFetch({ ...listRoutes([ticket({ version: 3 })]), 'PUT /api/v1/tickets/t-1': sentAs(seen) })
+        const { engine, db } = await startEngine()
+
+        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3 })
+        await engine.idle()
+        await engine.updateTicket('t-1', { description: 'more' })
+        await engine.idle()
+
+        expect(seen).toEqual(['"3"', '"4"'])
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('after our own save was answered, an edit that began before it is made on the answer, not the old version', async () => {
+        const seen: (string | null)[] = []
+        let version = 3
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': (request) => {
+                seen.push(request.headers.get('If-Match'))
+                version += 1
+                return ok(ticket({ title: 'Mine ' + version, version, updated_by: ME }))
+            },
+        })
+        const { engine, db } = await startEngine()
+
+        // One editing session: began on 3, saved, typed on, saved again.
+        await engine.updateTicket('t-1', { title: 'Mine 1' }, { base: 3 })
+        await engine.idle()
+        await engine.updateTicket('t-1', { title: 'Mine 2' }, { base: 3 })
+        await engine.idle()
+        await engine.updateTicket('t-1', { title: 'Mine 3' }, { base: 3 })
+        await engine.idle()
+
+        expect(seen).toEqual(['"3"', '"4"', '"5"'])
+        expect((await local(db)).outbox).toEqual([])
+    })
+
+    it('an edit folded into a pending entry keeps the earliest base', async () => {
+        const seen: (string | null)[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': (request) => {
+                seen.push(request.headers.get('If-Match'))
+                return conflictBody('ticket_conflict', ticket({ title: 'Theirs', version: 4 }), 'acc-other')
+            },
+        })
+        const { engine, db, net } = await startEngine()
+        net.goOffline()
+        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3 })
+        await engine.applyRemote(frame('ticket.updated', ticket({ title: 'Theirs', version: 4 })))
+        // Typed on after B's change arrived: the newer base must not replace the first.
+        await engine.updateTicket('t-1', { title: 'Mine, longer' }, { base: 4 })
+        expect((await local(db)).outbox).toMatchObject([{ base_version: 3, payload: { title: 'Mine, longer' } }])
+
+        net.goOnline()
+        await engine.idle()
+        expect(seen).toEqual(['"3"'])
+        expect((await local(db)).outbox).toMatchObject([{ state: 'conflict' }])
+    })
+
+    it('a retry of our own write that already landed is not a conflict', async () => {
+        let calls = 0
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': () => {
+                calls += 1
+                // First answer lost on the wire; the retry meets our own write.
+                if (calls === 1) return Promise.reject(new TypeError('network'))
+                return conflictBody('ticket_conflict', ticket({ title: 'Mine', version: 4, updated_by: ME }), ME)
+            },
+        })
+        const { engine, db } = await startEngine()
+
+        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3 })
+        await engine.idle()
+        await engine.retryNow()
+        await engine.idle()
+
+        expect((await local(db)).outbox.filter((entry) => entry.state === 'conflict')).toEqual([])
+    })
+
+    it('a status change, which names no base, goes on the current version', async () => {
+        const seen: (string | null)[] = []
+        stubFetch({ ...listRoutes([ticket({ version: 3 })]), 'PUT /api/v1/tickets/t-1': sentAs(seen) })
+        const { engine } = await startEngine()
+        await engine.applyRemote(frame('ticket.updated', ticket({ title: 'Theirs', version: 4 })))
+
+        await engine.updateTicket('t-1', { status_id: 's-done' })
+        await engine.idle()
+
+        expect(seen).toEqual(['"4"'])
+    })
+})
+
 describe('archive', () => {
     it('removes the row at once and sends DELETE with If-Match', async () => {
         const answer = deferred()

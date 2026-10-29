@@ -13,6 +13,7 @@ import {
     type SyncChange,
     type SyncEngine,
     type Timer,
+    type UpdateOptions,
 } from './engine'
 import type { SyncApi } from './remote'
 import {
@@ -694,8 +695,8 @@ export async function createTicket(ticket: NewTicket): Promise<Ticket> {
     return created
 }
 
-export async function updateTicket(id: string, patch: Partial<TicketFields>): Promise<boolean> {
-    const found = await running().engine.updateTicket(resolveTicketId(id), filedUnder(plain(patch)))
+export async function updateTicket(id: string, patch: Partial<TicketFields>, options?: UpdateOptions): Promise<boolean> {
+    const found = await running().engine.updateTicket(resolveTicketId(id), filedUnder(plain(patch)), options)
     await caughtUp()
     return found
 }

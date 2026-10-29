@@ -29,7 +29,10 @@ type Difference = { field: string; mine: string; theirs: string }
 // The panel on a ticket page whose parked change collided with someone else's.
 // It is information with three honest ways forward, not an error: nothing is
 // lost, so it is neutral in colour and wording, a labelled region rather than
-// an alert, and none of its buttons is a danger button.
+// an alert, and none of its buttons is a danger button. "Keep theirs" is the
+// primary one: it is the safe default (the server's copy stands, and a
+// confirmation guards any words it would set aside), while "Keep mine as a new
+// ticket" is the rarest choice.
 //
 // The comparison is plain text, field by field, and only for fields that
 // differ. There is no merge and no diff: the user picks a side, or keeps their
@@ -170,7 +173,7 @@ export function ConflictPanel(props: ConflictPanelProps) {
 
             <div class="conflict__actions">
                 <Button
-                    variant={props.kind === 'archive' ? 'primary' : 'secondary'}
+                    variant="primary"
                     disabled={busy()}
                     onClick={() => {
                         if (loses().length > 0) setConfirming(true)
@@ -191,7 +194,7 @@ export function ConflictPanel(props: ConflictPanelProps) {
                 </Show>
                 <Show when={props.kind === 'update'}>
                     <Button
-                        variant="primary"
+                        variant="secondary"
                         disabled={busy()}
                         onClick={() => void run(props.onKeepAsNew)}
                     >
