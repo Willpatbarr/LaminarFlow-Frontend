@@ -66,6 +66,64 @@ function sameFields(a: DocFields, b: DocFields): boolean {
     )
 }
 
+// LAM-166. A document's body is one object, replaced whole by every save, so
+// what an edit changed is told per top-level key (`content`, or an aspect
+// field's id). `was.body` holds, for each key the edit changes, the text that
+// key held when the edit began. Two people editing the same key is a clash;
+// there is no text merge. Title, type and aspect type are compared as they are.
+type Texts = Record<string, string>
+const textsOf = (value: unknown): Texts =>
+    typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Texts) : {}
+
+function clash(current: Doc, was: Record<string, unknown>): string[] {
+    const found: string[] = []
+    if ('title' in was && was.title !== current.title) found.push('title')
+    if ('type' in was && was.type !== current.type) found.push('type')
+    if ('aspect_type_id' in was && was.aspect_type_id !== current.aspect_type_id) found.push('aspect_type_id')
+    const body = textsOf(was.body)
+    for (const key of Object.keys(body)) {
+        if ((current.body[key] ?? '') !== (body[key] ?? '')) found.push(`body.${key}`)
+    }
+    return found
+}
+
+function merge(mine: DocFields, current: Doc, was: Record<string, unknown>): DocFields {
+    const own = textsOf(was.body)
+    const body: Texts = {}
+    for (const key of Object.keys(current.body)) {
+        if (key in own) {
+            if (key in mine.body) body[key] = mine.body[key]
+        } else {
+            body[key] = current.body[key]
+        }
+    }
+    for (const key of Object.keys(own)) if (!(key in current.body) && key in mine.body) body[key] = mine.body[key]
+    return {
+        title: 'title' in was ? mine.title : current.title,
+        type: 'type' in was ? mine.type : current.type,
+        aspect_type_id: 'aspect_type_id' in was ? mine.aspect_type_id : current.aspect_type_id,
+        body,
+    }
+}
+
+function startOf(field: string, patched: unknown, given: unknown, acked: unknown, before: unknown): unknown {
+    if (field !== 'body') return acked !== undefined ? acked : given !== undefined ? given : before
+    const next = textsOf(patched)
+    const old = textsOf(before)
+    const start: Texts = {}
+    for (const key of new Set([...Object.keys(next), ...Object.keys(old)])) {
+        if (next[key] === old[key]) continue
+        start[key] = textsOf(acked)[key] ?? textsOf(given)[key] ?? old[key] ?? ''
+    }
+    return start
+}
+
+function foldWas(earlier: Record<string, unknown>, later: Record<string, unknown>): Record<string, unknown> {
+    const body = { ...textsOf(later.body), ...textsOf(earlier.body) }
+    const folded = { ...later, ...earlier }
+    return 'body' in folded ? { ...folded, body } : folded
+}
+
 const codec: Codec<Doc, DocConflict> = {
     row: toDoc,
     conflict(body: Partial<components['schemas']['DocumentConflict']>) {
@@ -119,6 +177,10 @@ export const documentEntity: Entity<'document'> = {
         edit: (base, fields, { at }) => ({ ...base, ...fields, updated_at: at }),
         restore: (archived, { at }) => ({ ...archived, updated_at: at }),
         copyOf: (row) => ({ ...docFieldsOf(row), team_id: row.team_id, project_id: row.project_id }),
+        clash,
+        merge,
+        startOf,
+        foldWas,
         conflictIsArchive: (conflict) => conflict.archived,
         conflictIsBy: () => true,
     },

@@ -18,6 +18,9 @@ type DocumentConflictPanelProps = {
     onKeepTheirs: () => Promise<unknown>
     onUseMine: () => Promise<unknown>
     onKeepAsNew: () => Promise<unknown>
+    /** Only these are compared: the ones both sides changed (`title`, and
+     *  `body.<key>` for each body key). Absent, every field that differs. */
+    only?: string[]
 }
 
 type Difference = { field: string; mine: string; theirs: string }
@@ -33,10 +36,12 @@ export function DocumentConflictPanel(props: DocumentConflictPanelProps) {
     const theirs = () => props.conflict.current
     const archived = () => props.conflict.archived
 
+    const shown = (field: string) => !props.only || props.only.includes(field)
+
     const differences = (): Difference[] => {
         if (archived()) return []
         const found: Difference[] = []
-        if (props.mine.title !== theirs().title) {
+        if (shown('title') && props.mine.title !== theirs().title) {
             found.push({ field: 'Title', mine: props.mine.title, theirs: theirs().title })
         }
         // An aspect's text is spread over its fields; a normal document's is one.
@@ -46,7 +51,7 @@ export function DocumentConflictPanel(props: DocumentConflictPanelProps) {
         for (const { key, name } of keys) {
             const mine = props.mine.body[key] ?? ''
             const other = theirs().body[key] ?? ''
-            if (mine !== other) found.push({ field: name, mine, theirs: other })
+            if (shown(`body.${key}`) && mine !== other) found.push({ field: name, mine, theirs: other })
         }
         return found
     }

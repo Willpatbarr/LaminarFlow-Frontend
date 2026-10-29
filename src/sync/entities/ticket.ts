@@ -239,7 +239,8 @@ export const ticketEntity: Entity<'ticket'> = {
             Object.keys(was).filter(
                 (key) => isContested(key) && was[key] !== fieldsOf(current)[key as (typeof CONTESTED)[number]],
             ),
-        merge: (mine, current, keep) => {
+        merge: (mine, current, was) => {
+            const keep = Object.keys(was)
             const theirs = fieldsOf(current)
             return { ...mine, ...Object.fromEntries(CONTESTED.filter((key) => !keep.includes(key)).map((key) => [key, theirs[key]])) }
         },
