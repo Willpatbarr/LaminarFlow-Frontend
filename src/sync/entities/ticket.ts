@@ -75,6 +75,12 @@ function sameFields(a: TicketFields, b: TicketFields): boolean {
     )
 }
 
+// The fields the conflict panel can show side by side. A 409 is about the whole
+// ticket, but it is only a conflict for the user when one of these, which they
+// also changed, was changed by someone else too.
+const CONTESTED = ['title', 'description', 'status_id', 'assignee_id'] as const
+const isContested = (key: string) => (CONTESTED as readonly string[]).includes(key)
+
 const codec: Codec<Ticket, TicketConflict> = {
     row: toTicket,
     conflict(body: Partial<components['schemas']['TicketConflict']>) {
@@ -229,6 +235,14 @@ export const ticketEntity: Entity<'ticket'> = {
         // The feed's ticket frames do not carry sprint membership: the row we
         // already hold keeps its sprints until the next hydration.
         carry: (incoming, known) => (known ? { ...incoming, sprint_ids: known.sprint_ids ?? [] } : incoming),
+        clash: (current, was) =>
+            Object.keys(was).filter(
+                (key) => isContested(key) && was[key] !== fieldsOf(current)[key as (typeof CONTESTED)[number]],
+            ),
+        merge: (mine, current, keep) => {
+            const theirs = fieldsOf(current)
+            return { ...mine, ...Object.fromEntries(CONTESTED.filter((key) => !keep.includes(key)).map((key) => [key, theirs[key]])) }
+        },
         conflictIsArchive: (conflict) => conflict.code === 'ticket_archived',
         conflictIsBy: (conflict, accountId) => conflict.changed_by?.account_id === accountId,
     },

@@ -80,6 +80,18 @@ function show(props: Partial<Parameters<typeof ConflictPanel>[0]> = {}) {
     return { onKeepTheirs, onUseMine, onKeepAsNew }
 }
 
+describe('only the fields both sides changed', () => {
+    it('lists just those fields when `only` is given', () => {
+        show({
+            mine: { ...MINE, title: 'My title', description: 'My words, edited' },
+            conflict: conflict({ current: current({ title: 'Their title', description: 'Other words' }) }),
+            only: ['title'],
+        })
+        expect(screen.getByText('My title')).toBeTruthy()
+        expect(screen.queryByText('My words, edited')).toBeNull()
+    })
+})
+
 describe('the sentence', () => {
     it('names the person and how long ago', () => {
         show()

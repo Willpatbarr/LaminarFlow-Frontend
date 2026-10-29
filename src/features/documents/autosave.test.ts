@@ -103,6 +103,15 @@ describe('createAutosave', () => {
         expect(save.mock.calls[0][1]).toMatchObject({ base: 4 })
     })
 
+    it('hands save the text the field held when the edit began', async () => {
+        const { save, type } = setup()
+        type('a')
+        await vi.advanceTimersByTimeAsync(500)
+        type('ab')
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(save.mock.calls[0][1]).toMatchObject({ from: '' })
+    })
+
     it('captures a fresh base when a new edit starts after the draft was saved', async () => {
         const { save, setVersion, type } = setup()
         type('one')

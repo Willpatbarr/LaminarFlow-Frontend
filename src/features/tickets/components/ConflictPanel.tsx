@@ -22,6 +22,9 @@ type ConflictPanelProps = {
     onKeepTheirs: () => Promise<unknown>
     onUseMine: () => Promise<unknown>
     onKeepAsNew: () => Promise<unknown>
+    /** Only these fields (`title`, `description`, `status_id`, `assignee_id`) are
+     *  compared: the ones both sides changed. Absent, every field that differs. */
+    only?: string[]
 }
 
 type Difference = { field: string; mine: string; theirs: string }
@@ -62,6 +65,8 @@ export function ConflictPanel(props: ConflictPanelProps) {
         return changer && changer.account_id === id ? changer.display_name : 'Someone else'
     }
 
+    const shown = (field: string) => !props.only || props.only.includes(field)
+
     // For an archive there is no version of the user's to set beside theirs:
     // they changed nothing, the ticket changed under them.
     const differences = createMemo<Difference[]>(() => {
@@ -69,20 +74,20 @@ export function ConflictPanel(props: ConflictPanelProps) {
         const mine = props.mine
         const other = theirs()
         const found: Difference[] = []
-        if (mine.title !== other.title) {
+        if (shown('title') && mine.title !== other.title) {
             found.push({ field: 'Title', mine: mine.title, theirs: other.title })
         }
-        if (mine.description !== other.description) {
+        if (shown('description') && mine.description !== other.description) {
             found.push({ field: 'Description', mine: mine.description, theirs: other.description })
         }
-        if (mine.status_id !== other.status_id) {
+        if (shown('status_id') && mine.status_id !== other.status_id) {
             found.push({
                 field: 'Status',
                 mine: statusName(mine.status_id),
                 theirs: statusName(other.status_id),
             })
         }
-        if (mine.assignee_id !== other.assignee_id) {
+        if (shown('assignee_id') && mine.assignee_id !== other.assignee_id) {
             found.push({
                 field: 'Assignee',
                 mine: assigneeName(mine.assignee_id),
@@ -97,8 +102,8 @@ export function ConflictPanel(props: ConflictPanelProps) {
     const loses = createMemo(() => {
         if (props.kind === 'archive') return []
         const lost: string[] = []
-        if (props.mine.title !== theirs().title) lost.push('title')
-        if (props.mine.description !== theirs().description) lost.push('description')
+        if (shown('title') && props.mine.title !== theirs().title) lost.push('title')
+        if (shown('description') && props.mine.description !== theirs().description) lost.push('description')
         return lost
     })
 

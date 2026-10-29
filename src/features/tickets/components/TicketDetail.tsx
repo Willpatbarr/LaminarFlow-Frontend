@@ -316,7 +316,7 @@ function TicketEditor(props: TicketEditorProps) {
     // meanwhile is a conflict (the panel) and not silently overwritten.
     const title = createAutosave(
         () => props.ticket.title,
-        (value, context) => updateTicket(context.key ?? props.routeId, { title: value.trim() }, { base: context.base }),
+        (value, context) => updateTicket(context.key ?? props.routeId, { title: value.trim() }, { base: context.base, was: { title: context.from } }),
         {
             delay: TICKET_AUTOSAVE_DELAY,
             base: () => props.ticket.version,
@@ -327,7 +327,7 @@ function TicketEditor(props: TicketEditorProps) {
     )
     const description = createAutosave(
         () => props.ticket.description,
-        (value, context) => updateTicket(context.key ?? props.routeId, { description: value }, { base: context.base }),
+        (value, context) => updateTicket(context.key ?? props.routeId, { description: value }, { base: context.base, was: { description: context.from } }),
         {
             delay: TICKET_AUTOSAVE_DELAY,
             base: () => props.ticket.version,
@@ -434,6 +434,7 @@ function TicketEditor(props: TicketEditorProps) {
                   entryId: head.id,
                   kind: head.kind === 'archive' ? ('archive' as const) : ('update' as const),
                   conflict: head.conflict,
+                  clashing: head.clashing,
               }
             : null
     })
@@ -603,6 +604,7 @@ function TicketEditor(props: TicketEditorProps) {
                     <ConflictPanel
                         kind={found().kind}
                         conflict={found().conflict}
+                        only={found().clashing}
                         mine={props.ticket}
                         statuses={statuses()}
                         viewer={props.viewer}

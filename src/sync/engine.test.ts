@@ -283,7 +283,7 @@ describe('update from the version an edit began on (LAM-131)', () => {
         // B's edit arrives live while A is typing.
         await engine.applyRemote(frame('ticket.updated', ticket({ title: 'Theirs', version: 4 })))
 
-        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3 })
+        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3, was: { title: 'Write the outbox' } })
         await engine.idle()
 
         expect(seen).toEqual(['"3"'])
@@ -344,11 +344,13 @@ describe('update from the version an edit began on (LAM-131)', () => {
         })
         const { engine, db, net } = await startEngine()
         net.goOffline()
-        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3 })
+        await engine.updateTicket('t-1', { title: 'Mine' }, { base: 3, was: { title: 'Write the outbox' } })
         await engine.applyRemote(frame('ticket.updated', ticket({ title: 'Theirs', version: 4 })))
-        // Typed on after B's change arrived: the newer base must not replace the first.
-        await engine.updateTicket('t-1', { title: 'Mine, longer' }, { base: 4 })
-        expect((await local(db)).outbox).toMatchObject([{ base_version: 3, payload: { title: 'Mine, longer' } }])
+        // Typed on after B's change arrived: the newer base and start value must not replace the first.
+        await engine.updateTicket('t-1', { title: 'Mine, longer' }, { base: 4, was: { title: 'Theirs' } })
+        expect((await local(db)).outbox).toMatchObject([
+            { base_version: 3, was: { title: 'Write the outbox' }, payload: { title: 'Mine, longer' } },
+        ])
 
         net.goOnline()
         await engine.idle()

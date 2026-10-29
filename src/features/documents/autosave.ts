@@ -33,7 +33,9 @@ export type AutosaveOptions = {
     same?: (a: string, b: string) => boolean
 }
 
-export type AutosaveContext = { base: number | null; key: string | null }
+/** `base` and `from` are what the field held when the edit began: the row's
+ *  version and the field's own saved text. */
+export type AutosaveContext = { base: number | null; key: string | null; from: string }
 
 /** While the user is typing the field shows their draft and ignores the store,
  *  so a sync landing mid-word cannot overwrite it; once the store shows what
@@ -52,6 +54,7 @@ export function createAutosave(
     // Undefined while idle; set on the first keystroke of an edit.
     let editBase: number | null | undefined
     let editKey: string | null = null
+    let editFrom = ''
     const sameRow = (k: string | null) => k !== null && same(k, untrack(key!))
     const current = () => draft() !== null && (!key || (editKey !== null && same(editKey, key())))
 
@@ -61,7 +64,7 @@ export function createAutosave(
         const value = draft()
         if (value === null) return
         if (canSave && !canSave(value)) return
-        if (value !== saved()) await save(value, { base: editBase ?? null, key: editKey })
+        if (value !== saved()) await save(value, { base: editBase ?? null, key: editKey, from: editFrom })
         // Unless they have started typing again in the meantime.
         if (draft() === value) {
             setDraft(null)
@@ -78,7 +81,7 @@ export function createAutosave(
             untrack(() => {
                 const value = draft()
                 if (value === null || (editKey !== null && same(editKey, next))) return
-                const context = { base: editBase ?? null, key: editKey }
+                const context = { base: editBase ?? null, key: editKey, from: editFrom }
                 clearTimeout(timer)
                 timer = undefined
                 setDraft(null)
@@ -117,6 +120,7 @@ export function createAutosave(
             if (draft() === null || (key && !sameRow(editKey))) {
                 editBase = untrack(() => base?.() ?? null)
                 editKey = key ? untrack(key) : null
+                editFrom = untrack(saved)
             }
             setDraft(value)
             clearTimeout(timer)

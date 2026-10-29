@@ -64,6 +64,15 @@ export type EntityRules<N extends EntityName> = {
      *  sprints), the held row's value is kept. */
     carry?(incoming: Row<N>, known: Row<N>): Row<N>
 
+    /** Optional, with `merge`: of the fields in `was` (an edit's fields as they
+     *  were when it began), the ones the server's `current` copy holds a different
+     *  value for, so someone else changed them too. An entity without it treats
+     *  every 409 as a conflict. */
+    clash?(current: Row<N>, was: Record<string, unknown>): string[]
+    /** `mine` (an edit's fields) with every field outside `keep` taken from the
+     *  server's `current` copy: what the edit becomes on top of their change. */
+    merge?(mine: Fields<N>, current: Row<N>, keep: string[]): Fields<N>
+
     /** The server's copy in this 409 is archived. */
     conflictIsArchive(conflict: Conflict<N>): boolean
     /** The change this 409 describes was made by `accountId`, as far as the
@@ -113,6 +122,8 @@ export type LooseRules = {
     restore(archived: any, stamp: Stamp): any
     copyOf(row: any): any
     carry?(incoming: any, known: any): any
+    clash?(current: any, was: Record<string, unknown>): string[]
+    merge?(mine: any, current: any, keep: string[]): any
     conflictIsArchive(conflict: any): boolean
     conflictIsBy(conflict: any, accountId: string): boolean
 }
