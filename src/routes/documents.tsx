@@ -1,43 +1,18 @@
-import { useNavigate, useParams } from '@solidjs/router'
-import { createSignal, Show } from 'solid-js'
-
-import { Button } from '@/components/ui/Button'
+import { useParams } from '@solidjs/router'
 
 import { session } from '@/features/auth'
-import { CONTENT_KEY } from '@/features/documents/content'
+import { DocumentList } from '@/features/documents/components/DocumentList'
 import { DocumentDetail } from '@/features/documents/components/DocumentDetail'
-import { createDocument, currentProject } from '@/sync'
 
-// The list is LAM-97's. Until it lands this page says so, and offers the one
-// thing that is needed to reach a document page: making a new one. The write is
-// local, so it works offline; the page opens at once under a temporary id.
+// /documents: every document, filterable by project, type and aspect type.
+// "New document" makes one locally (works offline) and opens it at once under
+// a temporary id.
 export function DocumentsPage() {
-    const navigate = useNavigate()
-    const [creating, setCreating] = createSignal(false)
-
-    async function create() {
-        setCreating(true)
-        const document = await createDocument({
-            title: '',
-            type: 'normal',
-            aspect_type_id: null,
-            team_id: null,
-            project_id: currentProject()?.id ?? null,
-            body: { [CONTENT_KEY]: '' },
-        })
-        navigate(`/documents/${document.id}`)
-    }
-
     return (
-        <Show when={session.status !== 'unknown'}>
-            <section>
-                <h1 class="t-screen-title">Documents</h1>
-                <p class="t-body">Browsing documents is not built yet.</p>
-                <Button variant="primary" disabled={creating()} onClick={() => void create()}>
-                    New document
-                </Button>
-            </section>
-        </Show>
+        <section>
+            <h1 class="t-screen-title">Documents</h1>
+            <DocumentList loading={session.status === 'unknown'} />
+        </section>
     )
 }
 

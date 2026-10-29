@@ -20,3 +20,49 @@
 .document__notice:not(:empty) {
   padding: var(--s-8) var(--s-12);
 }
+
+.doclist {
+  display: grid;
+  gap: var(--s-16);
+}
+
+.doclist__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-16);
+}
+
+.doclist__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-8);
+}
+
+.doclist__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-16);
+}
+
+.doclist__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-16);
+  color: var(--text-2);
+}
+
+.project-tabs {
+  display: flex;
+  gap: var(--s-16);
+  margin-bottom: var(--s-16);
+}
+
+.project-tabs a[aria-current='page'] {
+  font-weight: 600;
+  text-decoration: none;
+}

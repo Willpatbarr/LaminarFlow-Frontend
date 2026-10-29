@@ -7,7 +7,7 @@ import { HomePage } from '@/routes/index'
 import { DocumentPage, DocumentsPage } from '@/routes/documents'
 import { LoginPage } from '@/routes/login'
 import { NotFoundPage } from '@/routes/not-found'
-import { ProjectPage } from '@/routes/project'
+import { ProjectDocumentsPage, ProjectPage } from '@/routes/project'
 import { SignUpPage } from '@/routes/signup'
 import { TeamPage } from '@/routes/team'
 import { TeamSettingsPage } from '@/routes/team-settings'
@@ -34,6 +34,7 @@ const routes = defineRoutes([
             { path: '/teams/:teamId', component: TeamPage },
             { path: '/teams/:teamId/settings', component: TeamSettingsPage },
             { path: '/projects/:projectId', component: ProjectPage },
+            { path: '/projects/:projectId/documents', component: ProjectDocumentsPage },
             { path: '/epics', component: EpicsPage },
             { path: '/epics/:id', component: EpicPage },
             { path: '/sprints', component: SprintsPage },
