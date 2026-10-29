@@ -145,6 +145,13 @@ function RequestCard(props: PanelProps & { request: Comment }) {
             ? 'This is open again because the text it points at was edited.'
             : `This is open again: ${reason}.`
     }
+    // The approval that was set aside is kept on the request (decided_by), so say whose it was.
+    const hadApproved = () => {
+        const held = detail()
+        if (!staleNote() || !held || held.decided_by === undefined) return null
+        if (held.decided_by === null) return 'It had been approved on the earlier text.'
+        return `${held.decided_by === props.accountId ? 'You' : who(held.decided_by)} had approved the earlier text.`
+    }
 
     // Our own answer to a decision is held at once; the row follows when the change
     // feed delivers it. Whichever is newer says what the status is, so the card
@@ -225,7 +232,14 @@ function RequestCard(props: PanelProps & { request: Comment }) {
             <Show when={quote()}>
                 {(text) => <blockquote class="review-quote t-body">{text()}</blockquote>}
             </Show>
-            <Show when={staleNote()}>{(text) => <p class="t-meta review__stale">{text()}</p>}</Show>
+            <Show when={staleNote()}>
+                {(text) => (
+                    <p class="t-meta review__stale">
+                        {text()}
+                        <Show when={hadApproved()}>{(more) => <> {more()}</>}</Show>
+                    </p>
+                )}
+            </Show>
             <Show when={moved()}>
                 <p class="t-meta">The text has changed since this was requested.</p>
             </Show>

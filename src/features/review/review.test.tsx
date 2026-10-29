@@ -98,10 +98,21 @@ describe('open requests on a document', () => {
         expect(await screen.findByText('This is open again because the text it points at was edited.')).toBeInTheDocument()
     })
 
+    it('says who had approved the earlier text when a stale approval is open again', async () => {
+        await openApp('/documents/d-1', withRequest(request({ stale_reason: 'anchored text changed', decided_by: 'acc-bo', decided_at: stamp.updated_at })))
+        expect(await screen.findByText(/Bo Lin had approved the earlier text\./)).toBeInTheDocument()
+    })
+
+    it('does not name anyone when the earlier approver is not known', async () => {
+        await openApp('/documents/d-1', withRequest(request({ stale_reason: 'anchored text changed', decided_by: null })))
+        expect(await screen.findByText(/It had been approved on the earlier text\./)).toBeInTheDocument()
+    })
+
     it('says nothing about it when there is no reason', async () => {
         await openApp('/documents/d-1', withRequest(request({ stale_reason: null })))
         await screen.findByText('Review requested by Sam Ortiz')
         expect(screen.queryByText(/open again/)).toBeNull()
+        expect(screen.queryByText(/had approved/)).toBeNull()
     })
 })
 
@@ -274,6 +285,16 @@ describe('author names on comments', () => {
         })
         expect(await screen.findByText('Sam Ortiz', { selector: '.comments__author' })).toBeInTheDocument()
         expect(screen.queryByText('Someone else')).toBeNull()
+    })
+})
+
+describe('the request dialog\'s reviewer list', () => {
+    it('shows names, with the email only on hover', async () => {
+        stubFetch({ ...MEMBERS })
+        render(() => <RequestReviewDialog documentId="d-1" fieldId={null} quote="Hello" start={0} end={5} accountId={ME} onDone={() => {}} onClose={() => {}} />)
+        const box = await screen.findByRole('checkbox', { name: /Sam Ortiz/ })
+        expect(screen.queryByText('Sam Ortiz@x.test')).toBeNull()
+        expect(box.closest('label')).toHaveAttribute('title', 'Sam Ortiz@x.test')
     })
 })
 
