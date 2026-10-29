@@ -5,7 +5,7 @@
 }
 
 /* The rail stays put while the main area scrolls, like the specimen's. */
-.app-shell > :first-child {
+.app-shell:not(.app-shell--narrow) > :first-child {
   position: sticky;
   top: 0;
   height: 100svh;
@@ -52,24 +52,131 @@
   pointer-events: auto;
 }
 
-/* Narrow screens: the rail becomes a bar above the content instead of eating
- * two thirds of the width. */
-@media (max-width: 640px) {
+/* Narrow screens: the rail does not fit beside the content, so it is a drawer
+ * over it, opened from a slim top bar that stays on screen (LAM-139). Keep the
+ * breakpoint in step with NARROW_QUERY in useNarrowScreen.ts. */
+@media (max-width: 767px) {
   .app-shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
-  }
-  .app-shell > :first-child {
-    position: static;
-    width: auto;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
   }
   .app-shell__banners:has(> *) {
     padding: var(--s-8) var(--s-16) 0;
   }
   .app-shell__main {
     padding: var(--s-16);
+  }
+}
+
+.app-shell--narrow {
+  --topbar-h: 48px;
+}
+
+.app-shell__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  height: var(--topbar-h);
+  padding: 0 var(--s-8);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-shell__menu {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--r-card);
+  background: transparent;
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+.app-shell__menu:hover {
+  color: var(--accent);
+}
+
+.app-shell__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell__status {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+/* Under the top bar, over the content. Closed it is hidden and inert, so
+ * nothing in it is reachable; the visibility change waits for the slide out. */
+.app-shell__drawer {
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: 0;
+  left: 0;
+  z-index: 7;
+  width: min(300px, 85vw);
+  overflow-y: auto;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 180ms ease-out, visibility 0s linear 180ms;
+}
+
+.app-shell__drawer:focus {
+  outline: none;
+}
+
+.app-shell__drawer--open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 180ms ease-out, visibility 0s;
+}
+
+/* The rail inside fills the drawer. The collapse button is for the desktop
+ * rail: the drawer is already the collapsed form. */
+.app-shell__drawer .side-nav {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  border-right: none;
+}
+
+.app-shell__drawer .side-nav__collapse {
+  display: none;
+}
+
+.app-shell__scrim {
+  position: fixed;
+  inset: var(--topbar-h) 0 0 0;
+  z-index: 6;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.app-shell__scrim[hidden] {
+  display: none;
+}
+
+.app-shell--narrow .app-shell__banners {
+  top: var(--topbar-h);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__drawer,
+  .app-shell__drawer--open {
+    transition: none;
   }
 }

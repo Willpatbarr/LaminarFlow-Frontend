@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, onSettled, Show } from 'solid-j
 
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
+import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { can, logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
@@ -52,6 +53,8 @@ export function AppLayout(props: RouteSectionProps) {
     useEditorLinks()
     // A temporary id in the address becomes the real one once the engine re-keys it.
     useRekeyRoute()
+    // Below 768px the nav is a drawer and the sync status lives in the top bar.
+    const narrow = useNarrowScreen()
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
     // The epic, sprint or milestone being made from the sidebar (LAM-105).
     const [making, setMaking] = createSignal<Kind | null>(null)
@@ -128,6 +131,21 @@ export function AppLayout(props: RouteSectionProps) {
         () => setCreatingTicket(true),
         () => homeProject() !== undefined,
     )
+    // Where the user is, for the top bar on a narrow screen: the nav entry the
+    // path is under, else the project or saved view named in it.
+    const pageTitle = () => {
+        const path = location.pathname
+        const link = LINKS.filter((l) => (l.href === '/' ? path === '/' : path === l.href || path.startsWith(`${l.href}/`))).sort(
+            (a, b) => b.href.length - a.href.length,
+        )[0]
+        if (link) return link.label
+        const project = /^\/projects\/([^/]+)/.exec(path)
+        if (project) return sync.projects.find((p) => p.id === decodeURIComponent(project[1]))?.name ?? 'Project'
+        if (path.startsWith('/boards/')) return 'Board'
+        if (path.startsWith('/tickets/')) return 'Ticket'
+        if (path.startsWith('/teams/')) return 'Team'
+        return 'LaminarFlow'
+    }
     const teams = createMemo(() => sync.teams.toSorted((a, b) => a.name.localeCompare(b.name)))
     const projectLinks = () =>
         sync.projects
@@ -166,6 +184,14 @@ export function AppLayout(props: RouteSectionProps) {
     return (
         <RequireAuth>
             <AppShell
+                title={pageTitle()}
+                route={location.pathname}
+                status={
+                    <Show when={sync.active}>
+                        <PendingChanges />
+                        <ConnectionIndicator state={sync.connection} />
+                    </Show>
+                }
                 nav={
                     <SideNav
                         links={links()}
@@ -191,7 +217,7 @@ export function AppLayout(props: RouteSectionProps) {
                         userName={session.me?.display_name}
                         loading={stillAsking()}
                         status={
-                            <Show when={sync.active}>
+                            <Show when={sync.active && !narrow()}>
                                 <PendingChanges />
                                 <ConnectionIndicator state={sync.connection} />
                             </Show>
