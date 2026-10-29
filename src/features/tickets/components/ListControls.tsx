@@ -1,8 +1,9 @@
-import { createEffect, createSignal, For, Show, untrack } from 'solid-js'
+import { createEffect, createSignal, For, onSettled, Show, untrack } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { ensureMembers, members } from '@/features/members/members'
 import {
     epicsForProject,
     labelsForProject,
@@ -62,6 +63,7 @@ const LEGEND: Record<PickField, string> = {
 }
 
 export function ListControls(props: ListControlsProps) {
+    onSettled(() => void ensureMembers())
     const model = () => fromGroup(props.config.filter)
     const columns = () => visibleColumns(props.config)
     const sortKey = () => props.config.sort?.[0]
@@ -101,7 +103,12 @@ export function ListControls(props: ListControlsProps) {
             case 'status':
                 return statusesForProject(id).map((s) => ({ id: s.id, label: s.name }))
             case 'assignee':
-                return [{ id: props.viewer.accountId, label: 'You' }]
+                return [
+                    { id: props.viewer.accountId, label: 'You' },
+                    ...members()
+                        .filter((m) => m.account_id !== props.viewer.accountId)
+                        .map((m) => ({ id: m.account_id, label: m.display_name })),
+                ]
             case 'epic':
                 return epicsForProject(id).map((e) => ({ id: e.id, label: e.name }))
             case 'milestone':

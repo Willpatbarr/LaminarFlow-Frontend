@@ -127,13 +127,6 @@
   gap: var(--s-16);
 }
 
-.ticket__assignee {
-  display: flex;
-  align-items: center;
-  gap: var(--s-12);
-  min-height: 40px;
-}
-
 .ticket__hint {
   color: var(--text-3);
 }

@@ -11,6 +11,7 @@ import { PAGE_SIZE } from '@/sync/http'
 │      Member            the server's body: account_id, display_name, email, role
 │      members()         the list last loaded, by name; empty until it is
 │      loadMembers()     asks for it (one request at a time); true when it answered
+│      ensureMembers()   loadMembers() once: a no-op after it has answered (LAM-128)
 │      memberName(id)    a person's display name, or undefined when not known
 */
 // Not a sync entity: nothing in the change feed announces a joiner, so the list
@@ -22,6 +23,7 @@ export type Member = components['schemas']['MemberBody']
 
 const [list, setList] = createSignal<Member[]>([])
 let inFlight: Promise<boolean> | null = null
+let answered = false
 
 export const members = list
 
@@ -38,6 +40,7 @@ export function loadMembers(): Promise<boolean> {
                 cursor = data.next_cursor
             }
             setList(found)
+            answered = true
             return true
         } catch {
             return false
@@ -48,6 +51,12 @@ export function loadMembers(): Promise<boolean> {
     return inFlight
 }
 
+/** For screens that only need names to be there (assignee markers, pickers):
+ *  asks once, and again only after a failed ask or a `clearMembers`. */
+export function ensureMembers(): Promise<boolean> {
+    return answered ? Promise.resolve(true) : loadMembers()
+}
+
 export function memberName(id: string | null): string | undefined {
     if (id === null) return undefined
     return list().find((member) => member.account_id === id)?.display_name
@@ -56,4 +65,5 @@ export function memberName(id: string | null): string | undefined {
 /** Forgets the list, for when the account changes. */
 export function clearMembers() {
     setList([])
+    answered = false
 }
