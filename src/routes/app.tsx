@@ -19,6 +19,8 @@ import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
 import { boardById, boardsForProject, currentProject, savedViewsForTeam, statusesForProject, sync, unsyncedCount } from '@/sync'
 
+import { useRekeyRoute } from './rekey'
+
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [
     { label: 'Tickets', href: '/', icon: ICONS.list },
@@ -48,6 +50,8 @@ export function AppLayout(props: RouteSectionProps) {
     const location = useLocation()
     // Internal links in every editor below: titles, navigation, the picker.
     useEditorLinks()
+    // A temporary id in the address becomes the real one once the engine re-keys it.
+    useRekeyRoute()
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
     // The epic, sprint or milestone being made from the sidebar (LAM-105).
     const [making, setMaking] = createSignal<Kind | null>(null)

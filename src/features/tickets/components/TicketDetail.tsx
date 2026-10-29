@@ -81,7 +81,6 @@ type TicketDetailProps = {
 // own shape - a label over a field, in the same places - instead of "not
 // found": a ticket that has not arrived yet is not a ticket that is missing.
 export function TicketDetail(props: TicketDetailProps) {
-    const navigate = useNavigate()
     const ticket = createMemo(() => ticketById(props.id))
     const busy = () => props.loading || isLoading()
 
@@ -96,14 +95,8 @@ export function TicketDetail(props: TicketDetailProps) {
         if (options?.focus) noticeEl?.focus()
     }
 
-    createEffect(
-        () => resolveTicketId(props.id),
-        (resolved) => {
-            if (resolved !== untrack(() => props.id)) {
-                navigate(`/tickets/${resolved}`, { replace: true })
-            }
-        },
-    )
+    // A temporary id in the address is swapped for the real one by `useRekeyRoute`
+    // (routes/rekey.ts), the same rule for every kind of row.
 
     return (
         <section class="tickets ticket" aria-busy={busy() ? 'true' : undefined}>

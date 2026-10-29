@@ -33,8 +33,10 @@ let disconnect = () => {}
 async function open(url: string, routes: Routes) {
     stubFetch({ 'GET /api/v1/auth/me': () => ok(me), ...routes })
     await refresh()
-    const Router = createAppRouter(memoryHistory(url))
+    const history = memoryHistory(url)
+    const Router = createAppRouter(history)
     render(() => <Router />)
+    return history
 }
 
 beforeEach(() => {
@@ -198,6 +200,34 @@ describe('sprints', () => {
             expect(posts).toEqual([{ project_id: 'p-1', name: 'Sprint 2', start_date: '2026-04-01', end_date: '2026-04-14' }]),
         )
         expect(await screen.findByRole('heading', { name: 'Sprint 2' })).toBeInTheDocument()
+    })
+
+    it('replaces the temporary id in the address with the real one once the server answers (LAM-133)', async () => {
+        let answer: (response: Response) => void = () => {}
+        const history = await open(
+            '/sprints',
+            everything({
+                'POST /api/v1/sprints': async (request) => {
+                    const body = await bodyOf(request)
+                    return new Promise<Response>((resolve) => {
+                        answer = (r) => resolve(r)
+                        void body
+                    })
+                },
+            }),
+        )
+        const user = userEvent.setup()
+        await user.click(await pageButton('New sprint'))
+        const dialog = await screen.findByRole('dialog')
+        await user.type(within(dialog).getByLabelText('Name'), 'Sprint 3')
+        await user.click(within(dialog).getByRole('button', { name: 'Create sprint' }))
+
+        await vi.waitFor(() => expect(history.get()).toMatch(/^\/sprints\/tmp_sprint_/))
+        expect(await screen.findByRole('heading', { name: 'Sprint 3' })).toBeInTheDocument()
+
+        answer(ok({ id: 'sp-new', project_id: 'p-1', name: 'Sprint 3', start_date: null, end_date: null, ...stamp }))
+        await vi.waitFor(() => expect(history.get()).toBe('/sprints/sp-new'))
+        expect(screen.getByRole('heading', { name: 'Sprint 3' })).toBeInTheDocument()
     })
 
     it('will not make a sprint that ends before it starts', async () => {

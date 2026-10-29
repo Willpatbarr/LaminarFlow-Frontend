@@ -15,6 +15,7 @@ import {
     epicById,
     epicHead,
     isLoading,
+    resolveId,
     milestoneById,
     milestoneHead,
     sprintById,
@@ -37,6 +38,10 @@ import './hierarchy.css'
 import '../tickets/components/tickets.css'
 
 type Row = Epic | Sprint | Milestone
+
+// A new row's temporary id and its real id are the same row, so the server's
+// answer mid-edit does not flush the draft early (as TicketDetail does).
+const sameRow = (a: string, b: string) => resolveId(a) === resolveId(b)
 
 const lookup = (kind: Kind, id: string): Row | undefined =>
     kind === 'epic' ? epicById(id) : kind === 'sprint' ? sprintById(id) : milestoneById(id)
@@ -106,6 +111,7 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             delay: 1000,
             base: () => props.row.version,
             key: id,
+            same: sameRow,
             canSave: (value) => value.trim() !== '' && !overMessage('Name', nameCount(value)),
         },
     )
@@ -116,6 +122,7 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             delay: 1000,
             base: () => props.row.version,
             key: id,
+            same: sameRow,
             canSave: (value) => !overMessage('Description', descriptionCount(value)),
         },
     )
@@ -127,6 +134,7 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             delay: 1000,
             base: () => props.row.version,
             key: id,
+            same: sameRow,
             canSave,
         })
     const start = date(

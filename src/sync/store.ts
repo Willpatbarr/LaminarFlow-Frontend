@@ -138,7 +138,8 @@ export type SyncState = {
     outbox: OutboxEntry[]
     /** The project the user last picked, if it still exists. */
     projectId: string | null
-    /** Temporary id -> the id the server gave that ticket or document, for this session. */
+    /** Temporary id -> the id the server gave that row (any kind). Kept in the
+     *  local database, so a tmp URL bookmarked before the swap still resolves. */
     aliases: Record<string, string>
 }
 
@@ -193,6 +194,7 @@ let reading: Promise<void> = Promise.resolve()
 function refresh(running: Running, change: SyncChange): Promise<void> {
     const mine = ++latestRead
     const status = running.engine.status()
+    let aliasesToSave: Record<string, string> | null = null
 
     setState((draft) => {
         draft.hydration = status.hydration
@@ -205,6 +207,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
         if (change.swap) {
             const { from, to } = change.swap
             draft.aliases[from] = to
+            aliasesToSave = { ...draft.aliases }
             const row =
                 draft.tickets.find((ticket) => ticket.id === from) ??
                 draft.documents.find((document) => document.id === from) ??
@@ -213,6 +216,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
         }
     })
     flush()
+    if (aliasesToSave) void running.db.setMeta(META_ALIASES, trimAliases(aliasesToSave)).catch(() => {})
 
     reading = running.db.snapshot().then((snapshot) => {
         // A newer read is on its way, or the engine this belongs to is gone:
@@ -300,6 +304,14 @@ function inOrder<T>(step: () => Promise<T>): Promise<T> {
 
 const META_ACCOUNT = 'account_id'
 const META_PROJECT = 'last_project_id'
+const META_ALIASES = 'id_aliases'
+const MAX_ALIASES = 500
+
+/** The newest aliases only: an old bookmark is not worth an unbounded map. */
+function trimAliases(all: Record<string, string>): Record<string, string> {
+    const entries = Object.entries(all)
+    return entries.length <= MAX_ALIASES ? all : Object.fromEntries(entries.slice(-MAX_ALIASES))
+}
 
 async function halt() {
     if (!current) return
@@ -381,9 +393,11 @@ export function startSync(accountId: string, options: StartOptions = {}): Promis
         current = started
 
         const projectId = (await db.getMeta<string>(META_PROJECT)) ?? null
+        const aliases = (await db.getMeta<Record<string, string>>(META_ALIASES)) ?? {}
         setState((draft) => {
             draft.active = true
             draft.projectId = projectId
+            draft.aliases = aliases
         })
         // What is already on disk is shown before the server is asked.
         await refresh(started, {})
