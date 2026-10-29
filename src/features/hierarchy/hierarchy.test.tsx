@@ -329,7 +329,11 @@ describe('typing through the id swap (LAM-169)', () => {
         const dialog = await screen.findByRole('dialog')
         await user.type(within(dialog).getByLabelText('Name'), 'Onboarding')
         await user.click(within(dialog).getByRole('button', { name: 'Create epic' }))
-        const field = await screen.findByLabelText('Description')
+        // The dialog has a Description field of its own: wait until it is gone and the
+        // epic's page (still under its temporary id) is the only one there is.
+        await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        await vi.waitFor(() => expect(history.get()).toMatch(/^\/epics\/tmp_/))
+        const field = screen.getByLabelText('Description')
         await user.type(field, 'Find')
         release()
         await vi.waitFor(() => expect(history.get()).toBe('/epics/e-new'))
