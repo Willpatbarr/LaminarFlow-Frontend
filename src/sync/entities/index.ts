@@ -1,5 +1,6 @@
 import type { EntityName } from '../types'
 import { boardEntity } from './board'
+import { commentEntity } from './comment'
 import { documentEntity } from './document'
 import { epicEntity, milestoneEntity, sprintEntity } from './hierarchy'
 import { labelEntity } from './label'
@@ -25,6 +26,7 @@ export const ENTITIES: readonly Entity[] = [
     milestoneEntity,
     labelEntity,
     savedViewEntity,
+    commentEntity,
 ] as unknown as readonly Entity[]
 
 /** The registered entity called `name`. */

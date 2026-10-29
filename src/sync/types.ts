@@ -192,6 +192,33 @@ export type SavedViewFields = Pick<SavedView, 'name' | 'is_shared' | 'config'>
 export type NewSavedView = SavedViewFields &
     Pick<SavedView, 'team_id' | 'project_id' | 'board_id' | 'layout'>
 
+/** A comment on a ticket or a document (LAM-112). Exactly one of `ticket_id` and
+ *  `document_id` is set. The server keeps no version for a comment (no `If-Match`,
+ *  none on a change feed frame), so `version` is always 1, as for a status.
+ *  `review_status` is carried because the API sends it; review requests are
+ *  LAM-121 and nothing here sets it. */
+export type Comment = {
+    id: string
+    ticket_id: string | null
+    document_id: string | null
+    /** The aspect field a comment is anchored to; no screen sets it yet. */
+    field_id: string | null
+    region_start: number | null
+    region_end: number | null
+    /** Null once the author's account is deleted: shown as authorless. */
+    author_id: string | null
+    body: string
+    review_status: 'pending' | 'approved' | 'changes_requested' | null
+    created_at: string
+    updated_at: string
+    version: number
+}
+
+/** An edit changes `body` and nothing else. */
+export type CommentFields = Pick<Comment, 'body'>
+
+export type NewComment = CommentFields & Pick<Comment, 'ticket_id' | 'document_id'>
+
 /** Read-only entities answer no 409; the type exists so the maps are complete. */
 export type ReadOnlyConflict<Row> = { code: 'read_only_conflict'; current: Row; changed_at: string }
 
@@ -240,7 +267,7 @@ export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 /** Every kind of thing the sync engine carries. Adding one means adding it to
  *  the four maps below and registering it (`entities/index.ts`). */
-export type EntityName = 'ticket' | 'document' | 'status' | 'board' | 'epic' | 'sprint' | 'milestone' | 'label' | 'saved_view'
+export type EntityName = 'ticket' | 'document' | 'status' | 'board' | 'epic' | 'sprint' | 'milestone' | 'label' | 'saved_view' | 'comment'
 
 /** The row each entity keeps locally. */
 export type EntityRows = {
@@ -253,6 +280,7 @@ export type EntityRows = {
     milestone: Milestone
     label: Label
     saved_view: SavedView
+    comment: Comment
 }
 /** What a user edits; `PUT` replaces all of it. */
 export type EntityFields = {
@@ -265,6 +293,7 @@ export type EntityFields = {
     milestone: MilestoneFields
     label: LabelFields
     saved_view: SavedViewFields
+    comment: CommentFields
 }
 /** What a create carries. */
 export type EntityCreates = {
@@ -277,6 +306,7 @@ export type EntityCreates = {
     milestone: MilestoneFields & Pick<Milestone, 'project_id'>
     label: LabelFields & Pick<Label, 'team_id'>
     saved_view: NewSavedView
+    comment: NewComment
 }
 /** What an archive carries. A ticket or document archive needs nothing; deleting
  *  a status says where its tickets go (`move_to`, a status of the same team). */
@@ -290,6 +320,7 @@ export type EntityArchives = {
     milestone: null
     label: null
     saved_view: null
+    comment: null
 }
 /** The body of a 409, kept on the entry so LAM-71 can show both sides. */
 export type EntityConflicts = {
@@ -302,6 +333,7 @@ export type EntityConflicts = {
     milestone: ReadOnlyConflict<Milestone>
     label: ReadOnlyConflict<Label>
     saved_view: ReadOnlyConflict<SavedView>
+    comment: ReadOnlyConflict<Comment>
 }
 
 type EntryBase<N extends EntityName> = {
@@ -359,6 +391,7 @@ export type EpicEntry = EntryOf<'epic'>
 export type SprintEntry = EntryOf<'sprint'>
 export type MilestoneEntry = EntryOf<'milestone'>
 export type SavedViewEntry = EntryOf<'saved_view'>
+export type CommentEntry = EntryOf<'comment'>
 
 /** An entry before IndexedDB has numbered it. */
 export type NewOutboxEntry = OutboxEntry extends infer E ? (E extends unknown ? Omit<E, 'id'> : never) : never

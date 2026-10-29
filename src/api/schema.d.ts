@@ -418,6 +418,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comment on a ticket or a document (safe to retry with Idempotency-Key)
+         * @description A plain comment: `review_status` is null and not accepted here. Send exactly one of `ticket_id` and `document_id`. `field_id` anchors it to one field of a document and must belong to the document's aspect type; `region_start`/`region_end` mark a range, both or neither. A target the caller cannot see (absent, archived, another workspace) is a 404. The comment is indexed for search in the same transaction. Send `Idempotency-Key` to make the create safe to retry after a lost response: the first request with a key creates the comment and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original comment, same status 200. A replay publishes nothing on the change feed and ignores its body.
+         */
+        post: operations["create-comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comments/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List comments (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `author_id` (uuid)
+         *     - `created_at` (time)
+         *     - `document_id` (uuid)
+         *     - `field_id` (uuid)
+         *     - `ticket_id` (uuid)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-comments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit a comment's body (author only)
+         * @description Changes `body` and nothing else; the target, anchor and region are fixed at creation. A comment whose author's account was deleted can be edited by nobody. Reindexed for search in the same transaction.
+         */
+        put: operations["update-comment"];
+        post?: never;
+        /**
+         * Delete a comment (author only)
+         * @description A hard delete: a comment has no archive state. Removed from search in the same transaction.
+         */
+        delete: operations["delete-comment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents": {
         parameters: {
             query?: never;
@@ -1447,6 +1523,46 @@ export interface components {
             /** @description The statuses whose tickets this column shows. A status is in at most one column of a board. */
             status_ids: string[] | null;
         };
+        CommentBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CommentBody.json
+             */
+            readonly $schema?: string;
+            /** @description Null when the author's account has been deleted: render an authorless comment. */
+            author_id: string | null;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The document commented on. */
+            document_id: string | null;
+            /** @description The aspect field of the document the comment is anchored to; null for a whole-document or ticket comment, and after that field is removed from the type. */
+            field_id: string | null;
+            id: string;
+            /**
+             * Format: int64
+             * @description End of the range; equal to region_start for a caret.
+             */
+            region_end: number | null;
+            /**
+             * Format: int64
+             * @description Start of the highlighted range, a character offset into the anchored content. Null with region_end, or both set.
+             */
+            region_start: number | null;
+            /**
+             * @description Null for a plain comment, which is everything these endpoints create. A non-null value marks a review request (LAM-113).
+             * @enum {string|null}
+             */
+            review_status: "pending" | "approved" | "changes_requested" | null;
+            /** @description The ticket commented on. Exactly one of ticket_id and document_id is set. */
+            ticket_id: string | null;
+            /**
+             * Format: date-time
+             * @description When the body last changed.
+             */
+            updated_at: string;
+        };
         Condition: {
             /** @description A name from this resource's filter vocabulary. */
             field: string;
@@ -1491,6 +1607,38 @@ export interface components {
             group_by: "status";
             /** @description 1 to 100 characters (not bytes), and not only whitespace. */
             name: string;
+        };
+        CreateCommentInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateCommentInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Up to 50,000 characters (not bytes); not blank. */
+            body: string;
+            /**
+             * Format: uuid
+             * @description The document to comment on.
+             */
+            document_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Anchor the comment to one aspect field. Documents only, and the field must belong to the document's aspect type: 422 at body.field_id otherwise.
+             */
+            field_id?: string | null;
+            /** Format: int64 */
+            region_end?: number | null;
+            /**
+             * Format: int64
+             * @description With region_end, the range the comment is about. Both or neither; 0 <= region_start <= region_end (equal is a caret).
+             */
+            region_start?: number | null;
+            /**
+             * Format: uuid
+             * @description The ticket to comment on. Exactly one of ticket_id and document_id.
+             */
+            ticket_id?: string | null;
         };
         CreateDocumentInputBody: {
             /**
@@ -2120,6 +2268,18 @@ export interface components {
             readonly $schema?: string;
             has_more: boolean;
             items: components["schemas"]["BoardBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
+        ListEnvelopeCommentBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeCommentBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["CommentBody"][] | null;
             /** @description Pass back as cursor for the next page. Null when there is none. */
             next_cursor: string | null;
         };
@@ -2925,6 +3085,16 @@ export interface components {
             readonly $schema?: string;
             is_visible?: boolean;
             name?: string;
+        };
+        UpdateCommentInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/UpdateCommentInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The new text, up to 50,000 characters; not blank. The only thing an edit changes. */
+            body: string;
         };
         UpdateDocumentInputBody: {
             /**
@@ -3907,6 +4077,140 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ColumnBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-comment": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account returns the comment the first call created instead of creating another, with Idempotent-Replayed: true. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and live as long as the comment: once it is deleted the key is free again. A replay ignores the body it carries. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCommentInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeCommentBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCommentInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

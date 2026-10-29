@@ -177,7 +177,7 @@ export function listRoutes(
     tickets: Ticket[] = [],
     documents: Doc[] = [],
     boards: unknown[] = [],
-    hierarchy: { epics?: unknown[]; sprints?: unknown[]; milestones?: unknown[]; labels?: unknown[]; savedViews?: unknown[] } = {},
+    hierarchy: { epics?: unknown[]; sprints?: unknown[]; milestones?: unknown[]; labels?: unknown[]; savedViews?: unknown[]; comments?: unknown[] } = {},
 ) {
     return {
         'POST /api/v1/epics/list': () => page(hierarchy.epics ?? []),
@@ -185,6 +185,7 @@ export function listRoutes(
         'POST /api/v1/milestones/list': () => page(hierarchy.milestones ?? []),
         'POST /api/v1/labels/list': () => page(hierarchy.labels ?? []),
         'POST /api/v1/saved-views/list': () => page(hierarchy.savedViews ?? []),
+        'POST /api/v1/comments/list': () => page(hierarchy.comments ?? []),
         'POST /api/v1/boards/list': () => page(boards),
         'POST /api/v1/teams/list': () => page([TEAM]),
         'POST /api/v1/projects/list': () => page([PROJECT]),

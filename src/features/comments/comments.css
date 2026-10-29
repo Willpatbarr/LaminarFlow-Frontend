@@ -1,0 +1,75 @@
+/* The comment thread at the foot of the ticket and document pages. */
+.comments {
+  display: grid;
+  gap: var(--s-12);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--border);
+}
+
+.comments__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-12);
+}
+
+.comments__item {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+}
+
+.comments__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-8);
+}
+
+.comments__author {
+  font-weight: 600;
+}
+
+.comments__actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--s-4);
+}
+
+.comments__none,
+.comments__meta {
+  color: var(--text-3);
+}
+
+.comments__failure {
+  display: grid;
+  gap: var(--s-8);
+  justify-items: start;
+  color: var(--text-1);
+}
+
+/* A comment is read, not edited: no box, no dashed read-only border, and the
+ * editor is only as tall as its text. */
+.comments__body .md-editor__box,
+.comments__body .md-editor[data-readonly='true'] .md-editor__box {
+  border: 0;
+  background: transparent;
+}
+
+.comments__body .md-editor__content {
+  min-height: 0;
+  padding: 0;
+}
+
+.comments__form {
+  display: grid;
+  gap: var(--s-8);
+  justify-items: start;
+}
+
+.comments__form .md-editor__content {
+  min-height: 5em;
+}
