@@ -26,6 +26,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/activity/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List the history of one ticket or document (a read - see the description for why it is a POST)
+         * @description Reads a page. POST rather than GET because nested and/or filters do not encode cleanly in a query string, and a per-caller ticket list is not cacheable - so a GET would buy nothing and cost expressiveness. Nothing is written.
+         *
+         *     Pagination is keyset: pass the previous page's `next_cursor` back as `cursor`. A cursor is only valid for the filter and sort it was minted under; changing either restarts from the first page.
+         *
+         *     Filterable and sortable fields:
+         *
+         *     - `actor_id` (uuid)
+         *     - `created_at` (time)
+         *     - `entity_id` (uuid)
+         *     - `entity_type` (text)
+         *     - `kind` (text)
+         *
+         *     Page size defaults to 50 and may not exceed 200.
+         */
+        post: operations["list-activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/aspect-types": {
         parameters: {
             query?: never;
@@ -1087,6 +1119,7 @@ export interface paths {
          *     Registered keys:
          *
          *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.
          *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
          */
         get: operations["list-settings"];
@@ -1112,6 +1145,7 @@ export interface paths {
          *     Registered keys:
          *
          *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.
          *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
          */
         get: operations["get-setting"];
@@ -1122,6 +1156,7 @@ export interface paths {
          *     Registered keys:
          *
          *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.
          *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
          */
         put: operations["set-setting"];
@@ -1133,6 +1168,7 @@ export interface paths {
          *     Registered keys:
          *
          *     - `board.column_sources` (team-scoped) — The sources a board may derive its columns from. Not a board - the menu a board is built from.
+         *     - `review.stale_threshold_percent` (workspace-scoped) — Percent of an approved review request's anchored text that may change before the approval goes stale. Default 10.
          *     - `sprint.length_days` (team-scoped) — How many days a new sprint runs. Written into sprint.end_date once, at creation.
          */
         delete: operations["unset-setting"];
@@ -1546,6 +1582,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActivityBody: {
+            /** @description The account that made the change; a token acts as its owner. Null when the account has been deleted or the write had none: render "someone". */
+            actor_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            entity_id: string;
+            /** @enum {string} */
+            entity_type: "ticket" | "document";
+            /** @description Only for field_changed: ticket - title, description or milestone; document - title or fields. */
+            field: string | null;
+            id: string;
+            /**
+             * @description What happened. Document entries are only created, archived, unarchived, aspect_type_changed and field_changed.
+             * @enum {string}
+             */
+            kind: "created" | "status_changed" | "assignee_changed" | "parent_changed" | "label_added" | "label_removed" | "archived" | "unarchived" | "aspect_type_changed" | "field_changed";
+            /** @description The value after the change, in the same form. label_added carries the label id here. */
+            summary_after: string | null;
+            /** @description The value before the change; null for none. status_changed, assignee_changed, parent_changed (the epic), label_removed, aspect_type_changed and milestone carry the id of the thing, so they stay true after a rename. title and description carry the text, cut to 200 characters. A document's fields carry the sorted ids of the fields that had a value. */
+            summary_before: string | null;
+        };
         AddColumnInputBody: {
             /**
              * Format: uri
@@ -2395,6 +2453,18 @@ export interface components {
              */
             type?: "normal" | "aspect";
         };
+        ListEnvelopeActivityBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeActivityBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["ActivityBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
         ListEnvelopeBoardBody: {
             /**
              * Format: uri
@@ -2941,6 +3011,8 @@ export interface components {
              */
             review_status: "pending" | "approved" | "changes_requested";
             reviewers: components["schemas"]["ReviewerBody"][] | null;
+            /** @description Why an approved request went back to pending: "anchored text changed" when a document edit changed more of the anchored text than review.stale_threshold_percent allows (docs/review-requests.md). Null otherwise; cleared when a reviewer approves or requests changes. */
+            stale_reason: string | null;
             /**
              * Format: date-time
              * @description When the body or the review_status last changed.
@@ -3497,6 +3569,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteAccountOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeActivityBody"];
                 };
             };
             /** @description Error */
@@ -5717,7 +5822,12 @@ export interface operations {
     };
     "get-setting": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Which level the setting hangs at. */
+                scope: "workspace" | "team";
+                /** @description The workspace's or the team's id, matching scope. */
+                target_id: string;
+            };
             header?: never;
             path: {
                 /** @description A registered key. An unregistered one is a 422 rather than a stored row nobody reads. */
@@ -5749,9 +5859,17 @@ export interface operations {
     };
     "set-setting": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Which level the setting hangs at. */
+                scope: "workspace" | "team";
+                /** @description The workspace's or the team's id, matching scope. */
+                target_id: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                /** @description A registered key. An unregistered one is a 422 rather than a stored row nobody reads. */
+                key: string;
+            };
             cookie?: never;
         };
         requestBody: {
@@ -5782,7 +5900,12 @@ export interface operations {
     };
     "unset-setting": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Which level the setting hangs at. */
+                scope: "workspace" | "team";
+                /** @description The workspace's or the team's id, matching scope. */
+                target_id: string;
+            };
             header?: never;
             path: {
                 /** @description A registered key. An unregistered one is a 422 rather than a stored row nobody reads. */

@@ -143,3 +143,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-card);
 }
+
+.review__stale {
+  color: var(--text-2);
+}

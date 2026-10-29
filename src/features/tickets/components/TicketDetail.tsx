@@ -39,6 +39,7 @@ import {
 
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import type { Kind } from '@/features/hierarchy/kinds'
+import { ActivityFeed } from '@/features/activity/ActivityFeed'
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedDocuments } from '@/features/links/LinkedDocuments'
 import { describeFailure } from '../entryFailure'
@@ -212,6 +213,11 @@ function LoadingTicket() {
                     </span>
                     <span class="ticket__skeleton-line">
                         <SkeletonLine width="20ch" height="14px" />
+                    </span>
+                </div>
+                <div class="activity">
+                    <span class="ticket__skeleton-line">
+                        <SkeletonLine width="8ch" height="16px" />
                     </span>
                 </div>
                 <div class="t-meta ticket__hint ticket__skeleton-line">
@@ -731,6 +737,8 @@ function TicketEditor(props: TicketEditorProps) {
             <LinkedDocuments ticketId={props.routeId} projectId={project()} disabled={locked()} />
 
             <CommentThread parent={{ ticketId: props.routeId }} accountId={props.viewer.accountId} disabled={locked()} />
+
+            <ActivityFeed entityType="ticket" entityId={props.routeId} accountId={props.viewer.accountId} />
 
             <p class="t-meta ticket__hint">
                 {locked() && !conflicted()

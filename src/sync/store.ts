@@ -25,6 +25,7 @@ import {
     type SocketClass,
     type Visibility,
 } from './socket'
+import { publishActivityFrame } from './activityEvents'
 import { publishLinkFrame } from './linkEvents'
 import type {
     Board,
@@ -349,6 +350,7 @@ export function startSync(accountId: string, options: StartOptions = {}): Promis
                 void engine.applyRemote(frame)
                 // Link events are not rows; the screens that show links hear them here.
                 publishLinkFrame(frame)
+                publishActivityFrame(frame)
             },
             onOpen: ({ first }) => {
                 // Delivery is best-effort and there is no replay: whatever was

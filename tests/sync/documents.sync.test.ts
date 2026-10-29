@@ -220,7 +220,7 @@ describe('hydration and the change feed', () => {
     await serverArchiveDoc(other, created.id, 2)
     await eventually('the archived document is removed', async () => ((await localDoc(rig, created.id)) === undefined ? true : undefined))
 
-    const frames = rig.frames.filter((f) => (f.frame as { document_id?: string }).document_id === created.id)
+    const frames = rig.frames.filter((f) => (f.frame as { document_id?: string }).document_id === created.id && !f.frame.type?.startsWith('activity.'))
     expect(frames.map((f) => f.frame.type)).toEqual(['document.created', 'document.updated', 'document.archived'])
     expect(await Promise.all(frames.map((f) => f.changed))).toEqual([true, true, true])
   })

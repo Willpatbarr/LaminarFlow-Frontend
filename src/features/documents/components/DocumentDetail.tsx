@@ -23,6 +23,7 @@ import {
 } from '@/sync'
 import type { EntryError } from '@/sync'
 
+import { ActivityFeed } from '@/features/activity/ActivityFeed'
 import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
 import { openRequestsFor } from '@/features/review/feed'
@@ -335,6 +336,8 @@ function DocumentEditor(props: DocumentEditorProps) {
             <LinkedTickets documentId={props.routeId} disabled={locked()} />
 
             <CommentThread parent={{ documentId: props.routeId }} accountId={props.accountId} disabled={locked()} />
+
+            <ActivityFeed entityType="document" entityId={props.routeId} accountId={props.accountId} />
         </div>
     )
 }
