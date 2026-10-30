@@ -12,7 +12,12 @@
 
 /* A modal genuinely floats, so it is one of the few things with a shadow. */
 .modal {
+  display: flex;
+  flex-direction: column;
   width: min(340px, 100%);
+  /* Never taller than what is visible: dvh shrinks with the phone keyboard.
+   * The body scrolls and the footer stays in view. */
+  max-height: calc(100dvh - 2 * var(--s-16));
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
@@ -22,6 +27,9 @@
 
 .modal__body {
   display: grid;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: var(--s-4);
   padding: var(--s-16);
 }
@@ -40,6 +48,7 @@
 }
 
 .modal__footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -68,12 +77,5 @@
 }
 
 .modal[data-wide] {
-  display: flex;
-  flex-direction: column;
   width: min(560px, 100%);
-  max-height: calc(100dvh - 2 * var(--s-16));
-}
-
-.modal[data-wide] .modal__body {
-  overflow-y: auto;
 }
