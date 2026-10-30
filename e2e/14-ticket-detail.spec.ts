@@ -33,8 +33,8 @@ test('every field set on the ticket page reaches the server and survives a reloa
     await connectionIs(page, 'Connected')
 
     // Everything unset reads "None", not an error.
-    for (const name of ['Epic', 'Sprint', 'Milestone']) await expect(page.getByLabel(name)).toHaveValue('')
-    await expect(page.getByLabel('Epic')).toContainText('None')
+    for (const name of ['Epic', 'Sprint', 'Milestone']) await expect(page.getByLabel(name, { exact: true })).toHaveValue('')
+    await expect(page.getByLabel('Epic', { exact: true })).toContainText('None')
 
     await page.getByLabel('Title').fill('Detail page, renamed')
     await page.getByLabel('Title').blur()
@@ -42,9 +42,9 @@ test('every field set on the ticket page reaches the server and survives a reloa
     await page.getByRole('textbox', { name: 'Description' }).blur()
     await page.getByLabel('Status').selectOption({ label: world.statusNames[1] })
     await page.getByLabel('Assignee').selectOption({ label: `${account.displayName} (you)` })
-    await page.getByLabel('Epic').selectOption({ label: 'Checkout' })
-    await page.getByLabel('Sprint').selectOption({ label: 'Sprint 1' })
-    await page.getByLabel('Milestone').selectOption({ label: 'v1.0' })
+    await page.getByLabel('Epic', { exact: true }).selectOption({ label: 'Checkout' })
+    await page.getByLabel('Sprint', { exact: true }).selectOption({ label: 'Sprint 1' })
+    await page.getByLabel('Milestone', { exact: true }).selectOption({ label: 'v1.0' })
     await page.getByRole('checkbox', { name: 'bug' }).check()
     await page.getByRole('checkbox', { name: 'ui' }).check()
 
@@ -82,9 +82,9 @@ test('every field set on the ticket page reaches the server and survives a reloa
         await expect(page.getByRole('textbox', { name: 'Description' })).toHaveText('Everything on one page')
         await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[1])
         await expect(page.getByLabel('Assignee')).toHaveValue(account.accountId)
-        await expect(page.getByLabel('Epic')).toHaveValue(epic.id)
-        await expect(page.getByLabel('Sprint')).toHaveValue(sprint.id)
-        await expect(page.getByLabel('Milestone')).toHaveValue(milestone.id)
+        await expect(page.getByLabel('Epic', { exact: true })).toHaveValue(epic.id)
+        await expect(page.getByLabel('Sprint', { exact: true })).toHaveValue(sprint.id)
+        await expect(page.getByLabel('Milestone', { exact: true })).toHaveValue(milestone.id)
         await expect(page.getByRole('checkbox', { name: 'bug' })).toBeChecked()
         await expect(page.getByRole('checkbox', { name: 'ui' })).toBeChecked()
     }
@@ -96,7 +96,7 @@ test('every field set on the ticket page reaches the server and survives a reloa
     await shown()
 
     // And "None" again clears them.
-    await page.getByLabel('Epic').selectOption({ label: 'None' })
+    await page.getByLabel('Epic', { exact: true }).selectOption({ label: 'None' })
     await page.getByRole('checkbox', { name: 'bug' }).uncheck()
     await expect.poll(async () => (await serverTicket(account, ticket.id))?.epic_id).toBeNull()
     await expect.poll(async () => (await serverTicket(account, ticket.id))?.label_ids).toEqual([ui.id])

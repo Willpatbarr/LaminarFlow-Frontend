@@ -84,7 +84,7 @@ test('a sprint made in the UI holds tickets from two epics, and a ticket with no
     await page.goto(`/tickets/${loose.id}`)
     await expect(page.getByLabel('Title')).toHaveValue('Loose end')
     for (const picker of ['Epic', 'Sprint', 'Milestone']) {
-        await expect(page.getByLabel(picker)).toHaveValue('')
+        await expect(page.getByLabel(picker, { exact: true })).toHaveValue('')
     }
     await expect(page.getByRole('alert')).toHaveCount(0)
 

@@ -310,7 +310,7 @@ describe('tickets with no parent', () => {
             }),
         )
         const user = userEvent.setup()
-        await user.click(await pageButton('New epic'))
+        await user.click(await pageButton('New epic for this ticket'))
         const dialog = await screen.findByRole('dialog')
         await user.type(within(dialog).getByLabelText('Name'), 'Onboarding')
         await user.click(within(dialog).getByRole('button', { name: 'Create epic' }))

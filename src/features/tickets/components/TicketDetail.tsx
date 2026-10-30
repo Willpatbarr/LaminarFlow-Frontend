@@ -691,13 +691,13 @@ function TicketEditor(props: TicketEditorProps) {
             </div>
 
             <div class="ticket__new-parent">
-                <Button variant="ghost" size="sm" disabled={locked()} onClick={() => setMakingParent('epic')}>
+                <Button variant="ghost" size="sm" disabled={locked()} aria-label="New epic for this ticket" onClick={() => setMakingParent('epic')}>
                     New epic
                 </Button>
-                <Button variant="ghost" size="sm" disabled={locked()} onClick={() => setMakingParent('sprint')}>
+                <Button variant="ghost" size="sm" disabled={locked()} aria-label="New sprint for this ticket" onClick={() => setMakingParent('sprint')}>
                     New sprint
                 </Button>
-                <Button variant="ghost" size="sm" disabled={locked()} onClick={() => setMakingParent('milestone')}>
+                <Button variant="ghost" size="sm" disabled={locked()} aria-label="New milestone for this ticket" onClick={() => setMakingParent('milestone')}>
                     New milestone
                 </Button>
             </div>
