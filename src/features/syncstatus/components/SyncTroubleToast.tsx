@@ -23,6 +23,7 @@ export function SyncTroubleToast() {
     return (
         <Show when={trouble() && !dismissed()}>
             <Toast
+                hue="amber"
                 title={
                     trouble() === 'network'
                         ? "Can't reach the server"
