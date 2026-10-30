@@ -1,33 +1,3 @@
-.theme-switch {
-  display: flex;
-  gap: var(--s-2);
-  padding: var(--s-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-card);
-  background: var(--bg-base);
-}
-
-.theme-switch__option {
-  flex: 1;
-  height: 26px;
-  padding: 0 var(--s-6);
-  border: none;
-  border-radius: var(--r-control);
-  background: transparent;
-  color: var(--text-2);
-  cursor: pointer;
-}
-
-.theme-switch__option:hover {
-  color: var(--text-1);
-}
-
-.theme-switch__option[aria-checked='true'] {
-  background: var(--bg-overlay);
-  color: var(--text-1);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-}
-
 /* The collapsed rail is narrow: one icon button that cycles replaces the group
  * (the radios and their names are still one press away, not gone). */
 .theme-switch__cycle {
@@ -59,10 +29,6 @@
 
 /* Touch (LAM-186). */
 @media (pointer: coarse) {
-  .theme-switch__option {
-    height: var(--touch-target);
-  }
-
   .theme-switch__cycle {
     height: var(--touch-target);
   }

@@ -48,7 +48,15 @@ test('a dragged card changes status and keeps its place; the move survives a rel
 
     // Reachable from the project's ticket list.
     await page.goto(`/projects/${world.projectId}`)
-    await page.getByRole('link', { name: 'Board', exact: true }).click()
+    const views = page.getByRole('navigation', { name: 'View' })
+    await expect(views.getByRole('link', { name: 'List', exact: true })).toHaveAttribute('aria-current', 'page')
+    await views.getByRole('link', { name: 'Board', exact: true }).click()
+    await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
+    // The same switch is on the board, with the way back to the list.
+    await expect(views.getByRole('link', { name: 'Board', exact: true })).toHaveAttribute('aria-current', 'page')
+    await views.getByRole('link', { name: 'List', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/projects/${world.projectId}`))
+    await views.getByRole('link', { name: 'Board', exact: true }).click()
     await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
     await expect.poll(() => cardsIn(page, todoName)).toEqual(['Card one', 'Card two'])
     await expect.poll(() => cardsIn(page, doingName)).toEqual(['Card three'])
