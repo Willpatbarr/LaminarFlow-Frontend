@@ -1,5 +1,8 @@
 .tickets {
   display: grid;
+  /* The track may shrink below its content's min-width, so a long row or a
+   * wide child cannot push the page sideways (LAM-182). */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-16);
   max-width: 760px;
 }
