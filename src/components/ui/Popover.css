@@ -1,3 +1,6 @@
+/* The one place the dropdown surface is defined (Specimens/Dropdown and
+ * Tooltip): 4px padding, --border, --r-panel, shadow. Callers style only
+ * what is inside. */
 /* Fixed, so it is placed against the viewport and no scroll area clips it.
  * Position and max-height are set from script once it is measured. */
 .popover {
@@ -8,11 +11,12 @@
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   overflow: auto;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-card);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
   background: var(--bg-overlay);
   color: var(--text-1);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
   animation: popover-in 120ms ease-out;
 }
 

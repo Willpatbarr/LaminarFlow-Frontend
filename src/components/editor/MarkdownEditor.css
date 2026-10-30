@@ -154,7 +154,6 @@
   width: max-content;
   min-width: 14rem;
   max-width: min(26rem, calc(100vw - 16px));
-  padding: var(--s-4);
 }
 
 .link-suggest__row {
