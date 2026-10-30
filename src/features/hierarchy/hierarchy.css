@@ -28,7 +28,7 @@
 
 .hierarchy__fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: var(--s-16);
   max-width: 760px;
 }
@@ -40,7 +40,7 @@
 .hierarchy__add {
   display: grid;
   gap: var(--s-8);
-  max-width: 560px;
+  max-width: min(560px, 100%);
 }
 
 .hierarchy__results {

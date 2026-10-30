@@ -33,6 +33,8 @@
 
 .app-shell__main {
   padding: var(--s-22) var(--s-32);
+  /* A grid/flex child never grows past the column because of its content. */
+  min-width: 0;
 }
 
 /* Over the corner, above the content but under a modal (z-index 10). The
