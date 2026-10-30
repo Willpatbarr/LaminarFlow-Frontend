@@ -186,6 +186,9 @@ test('the column menu is not clipped, closes on Escape and outside click, and on
         }
     })
     expect(inside).toEqual({ fits: true, noScroll: true, inColumn: false })
+    // The fade-in finishes: fully opaque, and still a popover, not a sheet.
+    await expect(panel(todoName)).toHaveCSS('opacity', '1')
+    await expect(panel(todoName)).not.toHaveAttribute('aria-modal')
 
     // Escape closes it and focus goes back to the button.
     await page.keyboard.press('Escape')
@@ -203,6 +206,60 @@ test('the column menu is not clipped, closes on Escape and outside click, and on
     // An outside click closes it.
     await page.getByRole('heading', { name: board.name }).click()
     await expect(panel(doingName)).toHaveCount(0)
+})
+
+// LAM-191 (QA finding T9): at phone width the column menu is a bottom sheet.
+test.describe('on a phone', () => {
+    test.use({ viewport: { width: 375, height: 667 } })
+
+    test('the column menu is a bottom sheet that scrolls inside and closes on Done, Escape and an outside tap', async ({
+        page,
+        context,
+        baseURL,
+    }) => {
+        const alice = await newAccount('sheet')
+        const world = await projectOf(alice)
+        const [todoName] = world.statusNames
+        const board = await boardOf(alice, world)
+
+        await signedInAs(context, alice, baseURL!)
+        await page.goto(`/boards/${board.id}`)
+        await expect(column(page, todoName)).toBeVisible()
+
+        const button = page.getByRole('button', { name: `Column options for ${todoName}` })
+        const sheet = page.getByRole('dialog', { name: `Column ${todoName}` })
+
+        await button.click()
+        await expect(sheet).toBeVisible()
+        await expect(sheet).toHaveAttribute('aria-modal', 'true')
+        const measure = () =>
+            sheet.evaluate((el) => {
+                const r = el.getBoundingClientRect()
+                return { left: r.left, right: r.right, bottom: r.bottom, height: r.height, vw: window.innerWidth, vh: window.innerHeight }
+            })
+        // Wait out the slide-in, then it is flush with the bottom edge.
+        await expect.poll(async () => (await measure()).bottom).toBe(667)
+        const box = await measure()
+        expect(box.left).toBe(0)
+        expect(box.right).toBe(box.vw)
+        expect(box.height).toBeLessThanOrEqual(box.vh * 0.8 + 1)
+        await expect(sheet.getByLabel(`Name of column ${todoName}`)).toBeFocused()
+
+        await sheet.getByRole('button', { name: 'Done' }).click()
+        await expect(sheet).toHaveCount(0)
+        await expect(button).toBeFocused()
+
+        await button.click()
+        await expect(sheet).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(sheet).toHaveCount(0)
+        await expect(button).toBeFocused()
+
+        await button.click()
+        await expect(sheet).toBeVisible()
+        await page.mouse.click(187, 20)
+        await expect(sheet).toHaveCount(0)
+    })
 })
 
 // LAM-148 (QA findings P10, P20): three columns fit at 1024 px with no sideways
