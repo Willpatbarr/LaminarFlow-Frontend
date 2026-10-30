@@ -1,6 +1,6 @@
 import { render, screen } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ICON_PATHS } from './icons/Icon'
 import { initialsOf, monogram, SideNav } from './SideNav'
@@ -31,6 +31,8 @@ describe('initialsOf', () => {
 })
 
 describe('SideNav', () => {
+    beforeEach(() => localStorage.clear())
+
     it('has a Search button with the shortcut beside it that calls back with the button', async () => {
         const onClick = vi.fn()
         render(() => (
@@ -259,5 +261,60 @@ describe('SideNav', () => {
             // Projects, Create, Saved views, the foot, and the one under the team picker.
             expect(container.querySelectorAll('hr.side-nav__divider')).toHaveLength(5)
         })
+    })
+})
+
+// A screen of the given kind: 'tablet' is 768-1024px, 'phone' under 768, else a desktop.
+function screenIs(kind: 'phone' | 'tablet' | 'desktop') {
+    vi.stubGlobal(
+        'matchMedia',
+        vi.fn().mockImplementation((query: string) => ({
+            matches: kind === 'phone' ? query.includes('max-width: 767px') : kind === 'tablet' && query.includes('min-width: 768px'),
+            media: query,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+        })),
+    )
+}
+
+describe('SideNav default width (LAM-185)', () => {
+    beforeEach(() => localStorage.clear())
+    afterEach(() => vi.unstubAllGlobals())
+
+    const nav = () => <SideNav links={[{ label: 'Tickets', href: '/' }]} userName="Ada Lovelace" onLogout={() => {}} />
+
+    it('starts as the rail on a tablet, every link still there, and can be expanded', async () => {
+        screenIs('tablet')
+        const { container } = render(nav)
+        expect(container.querySelector('.side-nav--collapsed')).not.toBeNull()
+        expect(screen.getByRole('link', { name: 'Tickets' })).toBeTruthy()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Expand sidebar' }))
+        expect(container.querySelector('.side-nav--collapsed')).toBeNull()
+    })
+
+    it('starts expanded on a desktop', () => {
+        screenIs('desktop')
+        const { container } = render(nav)
+        expect(container.querySelector('.side-nav--collapsed')).toBeNull()
+    })
+
+    it('remembers an explicit choice, which beats the tablet default', async () => {
+        screenIs('tablet')
+        const first = render(nav)
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Expand sidebar' }))
+        first.unmount()
+        const second = render(nav)
+        expect(second.container.querySelector('.side-nav--collapsed')).toBeNull()
+    })
+
+    it('keeps a stored collapse on a desktop, and never collapses inside the phone drawer', () => {
+        localStorage.setItem('lf-side-nav-collapsed', '1')
+        screenIs('desktop')
+        const desktop = render(nav)
+        expect(desktop.container.querySelector('.side-nav--collapsed')).not.toBeNull()
+        desktop.unmount()
+        screenIs('phone')
+        const phone = render(nav)
+        expect(phone.container.querySelector('.side-nav--collapsed')).toBeNull()
     })
 })

@@ -5,11 +5,34 @@ import { Avatar } from './Avatar'
 import { Icon, ICON_PATHS, type IconName } from './icons/Icon'
 import { Select, type SelectOption } from './Select'
 import { SkeletonCircle, SkeletonLine } from './Skeleton'
+import { NARROW_QUERY, TABLET_QUERY, useMediaQuery } from './useNarrowScreen'
 import './SideNav.css'
 
 // A create action wears the icon of the thing it makes, shrunk, with a plus in
 // the corner: "New epic" is not mistaken for "New sprint" when only icons show.
 const PLUS_BADGE = 'M19 16v6M16 19h6'
+
+// The user's own choice to collapse or expand the rail, kept across visits. It
+// is only written when they press the button, so "nothing stored" still means
+// "no preference" and the default (a rail on a tablet) can apply.
+const COLLAPSED_KEY = 'lf-side-nav-collapsed'
+
+function storedCollapsed(): boolean | undefined {
+    try {
+        const value = localStorage.getItem(COLLAPSED_KEY)
+        return value === '1' ? true : value === '0' ? false : undefined
+    } catch {
+        return undefined
+    }
+}
+
+function storeCollapsed(collapsed: boolean) {
+    try {
+        localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0')
+    } catch {
+        // Private mode or a full store: the choice lasts until the page closes.
+    }
+}
 
 export type SideNavLink = {
     label: string
@@ -98,7 +121,21 @@ export function SideNav(props: SideNavProps) {
     // Collapsing narrows the rail to icons. Nothing is removed from it: every
     // label stays in the accessibility tree and as a tooltip, and the team
     // switcher stays a working control.
-    const [collapsed, setCollapsed] = createSignal(false)
+    //
+    // On a tablet (768-1024px) the full sidebar would leave the content too
+    // little room, so with no stored choice it starts as the rail; expanded, it
+    // floats over the content instead of pushing it (AppShell.css). A choice the
+    // user has made always wins, at any width. In the phone drawer it never
+    // collapses: the drawer is already the compact form.
+    const [chosen, setChosen] = createSignal<boolean | undefined>(storedCollapsed())
+    const tablet = useMediaQuery(TABLET_QUERY)
+    const phone = useMediaQuery(NARROW_QUERY)
+    const collapsed = () => !phone() && (chosen() ?? tablet())
+    const toggle = () => {
+        const next = !collapsed()
+        setChosen(next)
+        storeCollapsed(next)
+    }
     return (
         <aside
             class={`side-nav${collapsed() ? ' side-nav--collapsed' : ''}`}
@@ -118,7 +155,7 @@ export function SideNav(props: SideNavProps) {
                                 class="side-nav__collapse t-meta"
                                 aria-expanded={collapsed() ? 'false' : 'true'}
                                 aria-label={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
-                                onClick={() => setCollapsed(!collapsed())}
+                                onClick={toggle}
                             >
                                 <Icon name={collapsed() ? 'chevron-right-duo' : 'chevron-left-duo'} size={16} />
                             </button>

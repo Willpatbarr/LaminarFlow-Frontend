@@ -1,4 +1,7 @@
 .table {
+  /* The rows stack when this box is narrow, not only when the screen is
+   * (below, LAM-185). */
+  container: table / inline-size;
   /* Not hidden: a row's tooltip must be able to leave the card. The corners are
    * rounded on the first and last row instead (below). */
   border: 1px solid var(--border);
@@ -26,6 +29,7 @@
 /* One header for a stack of tables: no card of its own, just the overline row,
  * inset by the card's border so its columns sit over theirs. */
 .table-head {
+  container: table / inline-size;
   padding-inline: 1px;
 }
 
@@ -46,7 +50,11 @@
 }
 
 .table__row {
-  height: var(--row-h);
+  /* 34px when everything fits on one line. A cell that cannot (label chips in a
+   * narrow title column) makes the row taller instead of spilling out of it
+   * over the rows below (LAM-185). */
+  min-height: var(--row-h);
+  padding-block: var(--s-4);
   color: var(--text-1);
   text-decoration: none;
 }
@@ -156,6 +164,62 @@
  * (aria-hidden, no clicks), and sorting is the list toolbar's "Sort by".
  * Keep the breakpoint in step with NARROW_QUERY in useNarrowScreen.ts. */
 @media (max-width: 767px) {
+  .table__header,
+  .table-head {
+    display: none;
+  }
+
+  .table__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-6) var(--s-8);
+    height: auto;
+    min-height: var(--row-h);
+    padding-block: var(--s-8);
+  }
+
+  .table__row > :first-child {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .table__row > .table__text {
+    max-width: 100%;
+  }
+
+  /* The row's buttons sit over its end (absolute, below), so the last line
+   * keeps their room, and is as tall as they are. */
+  .table__item:has(> .table__actions) > .table__row::after {
+    content: '';
+    flex: 0 0 64px;
+    min-height: 28px;
+  }
+
+  .table__actions {
+    inset-block: auto var(--s-8);
+    min-height: 28px;
+  }
+
+  .table__actions .icon-button:not(:disabled) {
+    color: var(--text-1);
+  }
+
+  /* An edited row is a form: title, then status and the buttons. */
+  .table__row--editing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .table__edit-actions {
+    grid-column: 1;
+  }
+}
+
+/* The same stacking when the table itself is narrow, whatever the screen
+ * (LAM-185): a tablet with a rail beside it, or a desktop with the sidebar open
+ * and a 700px-wide column. Keep the two blocks identical. */
+@container table (max-width: 659px) {
   .table__header,
   .table-head {
     display: none;
