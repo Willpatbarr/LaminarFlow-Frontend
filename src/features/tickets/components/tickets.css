@@ -341,6 +341,13 @@ a.view-switch__item:hover {
   width: 100%;
 }
 
+/* Same height as the fields beside them (22px line + 8px padding + 1px border,
+ * each side), so the row's controls share a top and a bottom. */
+.list-controls__direction > .button,
+.list-controls__clear > .button {
+  height: 40px;
+}
+
 .list-controls__clear {
   display: flex;
   flex: 0 0 8.5rem;
