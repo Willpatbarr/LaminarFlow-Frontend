@@ -55,7 +55,7 @@ export function HierarchyDetail(props: { kind: Kind; id: string; viewer: Viewer 
     const busy = () => session.status === 'unknown' || isLoading()
     const row = createMemo(() => lookup(props.kind, props.id))
     return (
-        <section class="tickets" aria-busy={busy() ? 'true' : undefined}>
+        <section class="tickets tickets--list tickets--scoped" aria-busy={busy() ? 'true' : undefined}>
             <p class="t-meta">
                 <a class="icon-text" href={KINDS[props.kind].path} aria-label={`← ${KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}`}>
                     <Icon name="chevron-left" size={16} />

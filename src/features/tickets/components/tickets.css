@@ -25,6 +25,24 @@
   max-width: 1080px;
 }
 
+/* Epic, sprint and milestone pages (LAM-193): the tickets table has the list's
+ * width, and while it is a table (not stacked) a row's chips stay on one line
+ * after the title. The title keeps a readable minimum and the chips give way
+ * (clipped at the cell's edge), so rows stay 34px at any desktop width. */
+@container table (min-width: 660px) {
+  .tickets--scoped .label-chips {
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tickets--scoped .ticket__title-cell > .table__text {
+    flex: 1 1 auto;
+    min-width: 240px;
+  }
+}
+
 .tickets__picker {
   width: 220px;
 }
