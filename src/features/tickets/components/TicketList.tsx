@@ -47,6 +47,7 @@ import { NewTicketDialog } from './NewTicketDialog'
 import { SavedViewBar } from './SavedViewBar'
 import { TicketDetail } from './TicketDetail'
 import { TicketRow } from './TicketRow'
+import { ViewSwitch } from './ViewSwitch'
 import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
 
@@ -407,15 +408,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                 <div class="tickets__actions">
                     <Show when={boardsForProject(props.project.id)[0]}>
                         {(board) => (
-                            <nav class="view-switch" aria-label="View">
-                                <span class="view-switch__item view-switch__item--current" aria-current="page">
-                                    List
-                                </span>
-                                <a class="view-switch__item" href={`/boards/${board().id}`}>
-                                    Board
-                                </a>
-                                <ShortcutHint id="nav.board" />
-                            </nav>
+                            <ViewSwitch current="list" projectId={props.project.id} boardId={board().id} filter={view().config.filter} />
                         )}
                     </Show>
                     <a class="button button--ghost" href={`/teams/${props.project.team_id}/settings`}>

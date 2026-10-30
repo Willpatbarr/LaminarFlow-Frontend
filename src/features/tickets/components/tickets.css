@@ -38,37 +38,17 @@
   margin-left: auto;
 }
 
-/* List | Board, with the key for the other view beside it. */
+/* List | Board (ViewSwitch): the segmented control, with the key for the other
+ * view beside it. */
 .view-switch {
   display: inline-flex;
   align-items: center;
+  gap: var(--s-8);
 }
 
-.view-switch__item {
-  padding: var(--s-6) var(--s-12);
-  border: 1px solid var(--border-strong);
-  color: var(--text-2);
-  font: 400 13.5px/1 var(--sans);
-  text-decoration: none;
-}
-
-.view-switch__item:first-child {
-  border-radius: var(--r-control) 0 0 var(--r-control);
-}
-
-.view-switch__item:nth-child(2) {
-  margin-left: -1px;
-  border-radius: 0 var(--r-control) var(--r-control) 0;
-}
-
-.view-switch__item--current {
-  background: var(--bg-overlay);
-  color: var(--text-1);
-}
-
-a.view-switch__item:hover {
-  background-image: linear-gradient(var(--row-hover), var(--row-hover));
-  color: var(--text-1);
+.view-switch .segmented__option {
+  flex: none;
+  padding-inline: var(--s-12);
 }
 
 .tickets__group {
@@ -562,16 +542,9 @@ a.view-switch__item:hover {
   cursor: pointer;
 }
 
-/* Touch (LAM-186): the List | Board switch, group folds, the list-controls
+/* Touch (LAM-186): group folds, the list-controls
  * disclosures and the "Open ticket" link are 44px tap targets. */
 @media (pointer: coarse) {
-  .view-switch__item {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--touch-target);
-    padding-block: 0;
-  }
-
   .tickets__group-toggle,
   .list-controls__summary {
     min-height: var(--touch-target);

@@ -48,6 +48,7 @@ import { ListControls } from './ListControls'
 import { SavedViewBar } from './SavedViewBar'
 import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
+import { ViewSwitch } from './ViewSwitch'
 import { Icon } from '@/components/ui/icons/Icon'
 import './board.css'
 import { Checkbox } from '@/components/ui/Checkbox'
@@ -298,6 +299,7 @@ export function Board(props: BoardProps) {
                     </a>
                 </p>
                 <h1 class="t-screen-title">{project() ? `${project()!.name} · ${props.board.name}` : props.board.name}</h1>
+                <ViewSwitch current="board" projectId={props.board.project_id} boardId={props.board.id} filter={config().filter} />
             </header>
 
             <Show when={project()} keyed>
