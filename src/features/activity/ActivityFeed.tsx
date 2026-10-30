@@ -148,7 +148,7 @@ export function ActivityFeed(props: ActivityFeedProps) {
 
     return (
         <section class="activity" aria-labelledby="activity-title" aria-busy={loading() ? 'true' : undefined}>
-            <h2 id="activity-title" class="t-section">
+            <h2 id="activity-title" class="t-section" tabindex="-1">
                 Activity
             </h2>
             <Show when={loading()}>

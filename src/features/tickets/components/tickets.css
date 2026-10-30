@@ -520,3 +520,53 @@
     min-height: var(--touch-target);
   }
 }
+
+/* The section bar (LAM-189): phones only. Sticky under the top bar; the section
+ * headings keep clear of both bars when a link scrolls to them. */
+.ticket__sections {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .ticket {
+    --ticket-sections-h: 44px;
+  }
+
+  .ticket__sections {
+    position: sticky;
+    top: var(--topbar-h, 0px);
+    z-index: 4;
+    display: flex;
+    align-items: stretch;
+    height: var(--ticket-sections-h);
+    /* Out to the page's edge so the content does not show beside the bar. */
+    margin-inline: calc(-1 * var(--s-16));
+    padding-inline: var(--s-16);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-base);
+  }
+
+  .ticket__section-link {
+    display: inline-flex;
+    align-items: center;
+    padding-inline: var(--s-12);
+    border-bottom: 2px solid transparent;
+    color: var(--text-2);
+    text-decoration: none;
+  }
+
+  .ticket__section-link:first-child {
+    padding-left: 0;
+  }
+
+  .ticket__section-link[aria-current='location'] {
+    border-bottom-color: var(--accent);
+    color: var(--text-1);
+  }
+
+  #ticket-details,
+  #comments-title,
+  #activity-title {
+    scroll-margin-top: calc(var(--topbar-h, 0px) + var(--ticket-sections-h, 0px) + var(--s-8));
+  }
+}
