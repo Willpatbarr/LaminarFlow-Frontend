@@ -31,6 +31,27 @@ describe('initialsOf', () => {
 })
 
 describe('SideNav', () => {
+    it('has a Search button with the shortcut beside it that calls back with the button', async () => {
+        const onClick = vi.fn()
+        render(() => (
+            <SideNav
+                links={[{ label: 'Tickets', href: '/' }]}
+                search={{ onClick, hint: '⌘K' }}
+                userName="Ada Lovelace"
+                onLogout={() => {}}
+            />
+        ))
+        const button = screen.getByRole('button', { name: /^Search/ })
+        expect(button).toHaveTextContent('⌘K')
+        await userEvent.click(button)
+        expect(onClick).toHaveBeenCalledWith(button)
+    })
+
+    it('has no Search button unless it is given one', () => {
+        render(() => <SideNav links={[{ label: 'Tickets', href: '/' }]} userName="Ada" onLogout={() => {}} />)
+        expect(screen.queryByRole('button', { name: /^Search/ })).toBeNull()
+    })
+
     it('lists the links it is given and offers logout once a user is known', async () => {
         const onLogout = vi.fn()
         render(() => (

@@ -21,13 +21,15 @@ type AppShellProps = {
     /** Narrow screens only: changes whenever the user has gone somewhere (the
      *  path). The drawer shuts when it does. */
     route?: string
+    /** Narrow screens only: a Search button in the top bar, beside the menu button. */
+    onSearch?: (button: HTMLButtonElement) => void
     children: JSX.Element
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
 // A click on one of these inside the drawer is "going somewhere", so the drawer
 // gets out of the way: a link, or a button that opens a dialog.
-const GOES_SOMEWHERE = 'a[href], .side-nav__create, .side-nav__logout'
+const GOES_SOMEWHERE = 'a[href], .side-nav__create, .side-nav__search, .side-nav__logout'
 
 // The frame every signed-in screen sits in: the rail beside the main area.
 // Domain-agnostic on purpose - what goes in the rail, what the notices say, and
@@ -108,6 +110,18 @@ export function AppShell(props: AppShellProps) {
                         <Icon name="menu" />
                     </button>
                     <span class="app-shell__title t-cell">{props.title}</span>
+                    <Show when={props.onSearch}>
+                        {(onSearch) => (
+                            <button
+                                type="button"
+                                class="app-shell__menu app-shell__search"
+                                aria-label="Search"
+                                onClick={(event) => onSearch()(event.currentTarget)}
+                            >
+                                <Icon name="search" />
+                            </button>
+                        )}
+                    </Show>
                     <div class="app-shell__status">{props.status}</div>
                 </header>
                 <div

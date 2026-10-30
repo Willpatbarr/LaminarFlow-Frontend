@@ -54,6 +54,9 @@ type SideNavProps = {
     /** Sits at the foot of the rail, above the log-out button: a quiet status
      *  such as the connection indicator. Optional, and the caller's to fill. */
     status?: JSX.Element
+    /** The Search button at the top of the rail (LAM-183). Absent: none. `hint` is
+     *  the shortcut written beside it. */
+    search?: { onClick: (button: HTMLButtonElement) => void; hint?: string }
     onLogout: () => void
     /** Draw the rail's own placeholder: the profile slot and one bar per link,
      *  with nothing to click. For the moment before the session is known. */
@@ -145,6 +148,27 @@ export function SideNav(props: SideNavProps) {
                                         onChange={teams().onChange}
                                     />
                                 </div>
+                            )}
+                        </Show>
+                        <Show when={props.search}>
+                            {(search) => (
+                                <button
+                                    type="button"
+                                    class="side-nav__link side-nav__search t-body"
+                                    aria-keyshortcuts={search().hint ? 'Control+K Meta+K' : undefined}
+                                    title={collapsed() ? 'Search' : undefined}
+                                    onClick={(event) => search().onClick(event.currentTarget)}
+                                >
+                                    <Icon class="side-nav__icon" name="search" />
+                                    <span class="side-nav__label">Search</span>
+                                    <Show when={search().hint}>
+                                        {(hint) => (
+                                            <kbd class="side-nav__hint t-meta" aria-hidden="true">
+                                                {hint()}
+                                            </kbd>
+                                        )}
+                                    </Show>
+                                </button>
                             )}
                         </Show>
                         <nav aria-label="Main">
