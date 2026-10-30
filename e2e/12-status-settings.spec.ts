@@ -47,6 +47,12 @@ test('rename, reorder and delete with a move reach the server, and the list surv
     await field.blur()
     await expect.poll(async () => (await serverStatuses()).map((s) => s.name)).toEqual(['Backlog', doingName, doneName])
 
+    // Recolour (LAM-192): the server stores the hue name, and it survives the reload below.
+    await page.getByLabel(`Colour of ${doneName}`).selectOption({ label: 'Violet' })
+    await expect
+        .poll(async () => (await serverStatuses()).find((s) => s.id === done)?.color)
+        .toBe('violet')
+
     // Reorder: the last one up to the top.
     await page.getByRole('button', { name: `Move ${doneName} up` }).click()
     await page.getByRole('button', { name: `Move ${doneName} up` }).click()
@@ -73,4 +79,5 @@ test('rename, reorder and delete with a move reach the server, and the list surv
     // The list survives a reload.
     await page.reload()
     await expect.poll(names).toEqual([doneName, 'Backlog', 'Review'])
+    await expect(page.getByLabel(`Colour of ${doneName}`)).toHaveValue('violet')
 })
