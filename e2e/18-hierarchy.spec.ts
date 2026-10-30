@@ -33,6 +33,7 @@ test('a sprint made in the UI holds tickets from two epics, and a ticket with no
     // Make the sprint from the sprints page.
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Sprints' }).click()
     await expect(page.getByRole('heading', { name: 'Sprints' })).toBeVisible()
+    await expect(page).toHaveTitle('Sprints · LaminarFlow')
     await page.getByRole('button', { name: 'New sprint' }).last().click()
     const dialog = page.getByRole('dialog', { name: 'New sprint' })
     await dialog.getByLabel('Name').fill('Sprint 1')
@@ -40,6 +41,7 @@ test('a sprint made in the UI holds tickets from two epics, and a ticket with no
     await dialog.getByLabel('End date').fill('2026-03-14')
     await dialog.getByRole('button', { name: 'Create sprint' }).click()
     await expect(page.getByRole('heading', { name: 'Sprint 1' })).toBeVisible()
+    await expect(page).toHaveTitle('Sprint 1 · LaminarFlow')
 
     const serverSprints = async () =>
         (await account.api.POST('/api/v1/sprints/list', { body: { project_id: world.projectId } })).data?.items ?? []

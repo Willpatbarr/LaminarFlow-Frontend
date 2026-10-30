@@ -6,9 +6,12 @@ import { loadMembers, memberName } from '@/features/members/members'
 import { loadNeedsMine, needsMine } from '@/features/review/feed'
 import { documentById } from '@/sync'
 
+import { usePageTitle } from './pageTitle'
+
 // /reviews: the review requests that name the signed-in account, newest first.
 // Only open ones: a request leaves this list when anyone listed answers it.
 export function ReviewsPage() {
+    usePageTitle(() => 'Needs my review')
     createEffect(
         () => session.me?.account_id ?? '',
         (me) => {

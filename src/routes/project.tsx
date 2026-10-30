@@ -8,6 +8,7 @@ import { TicketList } from '@/features/tickets/components/TicketList'
 import { currentProject, isLoading, selectProject, sync } from '@/sync'
 
 import { viewer } from './viewer'
+import { usePageTitle } from './pageTitle'
 
 // /projects/:projectId: that project's tickets. The ticket list shows the
 // picked project, so the URL picks it. Until the pick lands the list stays in
@@ -24,6 +25,11 @@ export function ProjectPage(props: { tab?: 'tickets' | 'documents' }) {
         },
     )
 
+    usePageTitle(() => {
+        const found = sync.projects.find((project) => project.id === params.projectId)
+        if (!found) return exists() || session.status === 'unknown' || isLoading() ? undefined : 'Project not found'
+        return props.tab === 'documents' ? `${found.name} · Documents` : found.name
+    })
     const picked = () => currentProject()?.id === params.projectId
     return (
         <Show

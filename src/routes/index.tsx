@@ -2,6 +2,7 @@ import { session } from '@/features/auth'
 import { TicketList } from '@/features/tickets/components/TicketList'
 
 import { viewer } from './viewer'
+import { usePageTitle } from './pageTitle'
 
 // Wiring only: choose which feature components this URL shows, and lay them
 // out. Logic that grows here belongs in the feature instead.
@@ -10,5 +11,6 @@ import { viewer } from './viewer'
 // AppLayout), so each page says for itself that it is waiting: the list draws
 // its own placeholder rather than the layout guessing which page this is.
 export function HomePage() {
+    usePageTitle(() => 'Tickets')
     return <TicketList viewer={viewer()} loading={session.status === 'unknown'} />
 }

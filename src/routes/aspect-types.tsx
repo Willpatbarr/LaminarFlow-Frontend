@@ -5,6 +5,7 @@ import { AspectTypeEditor } from '@/features/aspects/components/AspectTypeEditor
 import { AspectTypeList } from '@/features/aspects/components/AspectTypeList'
 import { session } from '@/features/auth'
 import { isLoading, sync } from '@/sync'
+import { usePageTitle } from './pageTitle'
 
 // /teams/:teamId/aspect-types and /teams/:teamId/aspect-types/:id (LAM-98). Which
 // teams exist comes from the local store; the aspect types themselves are asked
@@ -13,6 +14,7 @@ function useTeam() {
     const params = useParams<{ teamId: string; id?: string }>()
     const team = () => sync.teams.find((candidate) => candidate.id === params.teamId)
     const busy = () => session.status === 'unknown' || isLoading()
+    usePageTitle(() => (team() ? `${params.id ? 'Edit aspect type' : 'Aspect types'} · ${team()!.name}` : undefined))
     return { params, team, busy }
 }
 
