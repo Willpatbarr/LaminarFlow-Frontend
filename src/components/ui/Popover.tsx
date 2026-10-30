@@ -1,12 +1,12 @@
 import { Portal, type JSX } from '@solidjs/web'
-import { createEffect, createSignal, createUniqueId, Show } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, Show, untrack } from 'solid-js'
 
 import './Popover.css'
 
 /** What a trigger must spread onto its button: the wiring the pattern needs. */
 export type PopoverTriggerProps = {
     ref: (el: HTMLElement) => void
-    'aria-haspopup': 'dialog' | 'menu'
+    'aria-haspopup': 'dialog' | 'menu' | 'listbox'
     'aria-expanded': 'true' | 'false'
     'aria-controls': string | undefined
     onClick: () => void
@@ -24,10 +24,18 @@ type PopoverProps = {
     /** `dialog` (default) is the disclosure pattern, for a panel that holds form
      *  controls: Tab moves through it. `menu` is the WAI-ARIA menu: children are
      *  `role="menuitem"` elements, arrow keys / Home / End move between them,
-     *  and activating one closes the popover. */
-    role?: 'dialog' | 'menu'
-    /** Where to hang the panel when there is no trigger. Defaults to the trigger. */
-    anchor?: HTMLElement | { x: number; y: number }
+     *  and activating one closes the popover. `listbox` is for a list that
+     *  belongs to a field whose focus stays put (an `@` picker in the editor):
+     *  it never takes focus, and a press inside it does not move focus either.
+     *  The owner drives the highlight (`aria-activedescendant` on the field)
+     *  and picks. */
+    role?: 'dialog' | 'menu' | 'listbox'
+    /** The panel's id, for the owner's `aria-controls`. */
+    id?: string
+    /** Where to hang the panel when there is no trigger. Defaults to the trigger.
+     *  A function is read each time the panel is placed (a caret rect that moves
+     *  with scrolling); pass a new one to have the panel placed again. */
+    anchor?: HTMLElement | { x: number; y: number } | (() => DOMRect | null)
     /** Controlled use. Omit both for the popover to keep its own state. */
     open?: boolean
     onOpenChange?: (open: boolean) => void
@@ -54,7 +62,7 @@ const [openId, setOpenId] = createSignal<string | null>(null)
 // would otherwise be lost: the press may have landed on something else).
 export function Popover(props: PopoverProps) {
     const id = createUniqueId()
-    const panelId = `${id}-panel`
+    const panelId = props.id ?? `${id}-panel`
     const [own, setOwn] = createSignal(false)
     const controlled = () => props.open !== undefined
     const isOpen = () => (controlled() ? props.open === true : own() && openId() === id)
@@ -82,11 +90,14 @@ export function Popover(props: PopoverProps) {
 
     function place() {
         if (!panel) return
-        const anchor = props.anchor
+        // Called from events and effects alike: never a tracking scope of its own.
+        const anchor = untrack(() => props.anchor)
         const rect =
-            anchor && !(anchor instanceof HTMLElement)
-                ? { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y }
-                : anchorEl()?.getBoundingClientRect()
+            typeof anchor === 'function'
+                ? anchor()
+                : anchor && !(anchor instanceof HTMLElement)
+                  ? { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y }
+                  : anchorEl()?.getBoundingClientRect()
         if (!rect) return
         const vw = document.documentElement.clientWidth
         const vh = window.innerHeight
@@ -99,7 +110,7 @@ export function Popover(props: PopoverProps) {
         const flip = height > below && above > below
         const space = flip ? above : below
         const top = flip ? rect.top - GAP - Math.min(height, space) : rect.bottom + GAP
-        const wanted = (props.align ?? 'end') === 'end' ? rect.right - width : rect.left
+        const wanted = (untrack(() => props.align) ?? 'end') === 'end' ? rect.right - width : rect.left
         const left = Math.max(MARGIN, Math.min(wanted, vw - width - MARGIN))
         panel.style.maxHeight = `${Math.max(space, 120)}px`
         panel.style.top = `${Math.max(MARGIN, top)}px`
@@ -107,12 +118,22 @@ export function Popover(props: PopoverProps) {
         panel.dataset.placement = flip ? 'top' : 'bottom'
     }
 
+    // The caret moves while a list is open at it: follow it.
+    createEffect(
+        () => props.anchor,
+        () => place(),
+    )
+
     createEffect(isOpen, (opened) => {
         if (!opened) return
         place()
-        const first =
-            role() === 'menu' ? panel?.querySelector<HTMLElement>(MENU_ITEMS) : panel?.querySelector<HTMLElement>(FOCUSABLE)
-        ;(first ?? panel)?.focus({ preventScroll: true })
+        if (role() !== 'listbox') {
+            const first =
+                role() === 'menu'
+                    ? panel?.querySelector<HTMLElement>(MENU_ITEMS)
+                    : panel?.querySelector<HTMLElement>(FOCUSABLE)
+            ;(first ?? panel)?.focus({ preventScroll: true })
+        }
 
         const onPointerDown = (event: Event) => {
             const target = event.target as Node
@@ -195,7 +216,11 @@ export function Popover(props: PopoverProps) {
                         class="popover"
                         role={role()}
                         aria-label={props.label}
-                        tabindex="-1"
+                        tabindex={role() === 'listbox' ? undefined : '-1'}
+                        onMouseDown={(event: MouseEvent) => {
+                            // Keep focus where it is (in the field) when an option is pressed.
+                            if (role() === 'listbox') event.preventDefault()
+                        }}
                         onKeyDown={onPanelKeyDown}
                         onClick={onPanelClick}
                     >

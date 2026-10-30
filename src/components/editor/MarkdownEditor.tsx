@@ -2,13 +2,15 @@ import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
 import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
-import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
 
 import { FieldFoot } from '../ui/CharacterCount'
 import { describedBy, isOver, type Count } from '../ui/count'
 import { AttachmentImage, ImageFiles, type ImageUpload } from './images'
 import { editorLinks } from './internalLinks'
-import { InternalLink, insertChipAt, LinkOrChip } from './internalLinkNode'
+import { InternalLink, LinkOrChip } from './internalLinkNode'
+import { keyAction, LinkSuggest, matchTargets, type Session } from './linkSuggest'
+import { LinkSuggestList, optionId } from './LinkSuggestList'
 import { MarkdownPaste } from './markdownPaste'
 import './MarkdownEditor.css'
 
@@ -30,8 +32,9 @@ import './MarkdownEditor.css'
 // would be lost the first time the value was saved. Internal links are plain
 // links to `lf://ticket|document|project/<id>`; the `lf` scheme is allowed so
 // they survive a round trip. They are drawn as chips (internalLinkNode.ts), and
-// typing `[[` or `@` opens the app's picker when the shell has registered one
-// (internalLinks.ts).
+// typing `[[` or `@` opens a list of what can be linked at the caret when the
+// shell has registered it (internalLinks.ts, linkSuggest.ts). Focus stays in
+// the editor: the field names the highlighted option with aria-activedescendant.
 
 /** Schemes a link may use. TipTap drops a link whose scheme it does not know,
  *  which would silently turn `lf://` links into plain text. */
@@ -76,8 +79,39 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     let editor: Editor | undefined
     // The Markdown the editor last agreed on with the caller.
     let known = ''
-    // Where in the text the picker was opened, while it is open.
-    const [picking, setPicking] = createSignal<number | null>(null)
+    // The open link list, if any, and which option is highlighted.
+    const [session, setSession] = createSignal<Session | null>(null)
+    const [active, setActive] = createSignal(0)
+    const listId = `${labelId}-links`
+    const links = () => (session() ? editorLinks() : null)
+    const matches = createMemo(() => {
+        const open = session()
+        const all = open ? (editorLinks()?.targets() ?? []) : []
+        return { shown: matchTargets(all, open?.query ?? ''), total: matchTargets(all, open?.query ?? '', Infinity).length }
+    })
+    const listed = () => matches().shown
+    // The top result is the one to beat: a new query starts over at it.
+    const query = createMemo(() => session()?.query)
+    createEffect(query, () => {
+        setActive(0)
+    })
+    // The caret has to stay visible: scroll the highlighted option into the list.
+    createEffect(
+        () => [active(), listed().length] as const,
+        ([at]) => {
+            document.getElementById(optionId(listId, at))?.scrollIntoView?.({ block: 'nearest' })
+        },
+    )
+
+    function onLinkKey(event: KeyboardEvent) {
+        const open = session()
+        if (!open || !links()) return false
+        const action = keyAction(event, active(), listed().length)
+        if (action === 'none') return false
+        if (action === 'pick') open.pick(listed()[active()])
+        else setActive(action.move)
+        return true
+    }
     // Images going up, and why the last one that failed did.
     const [uploads, setUploads] = createSignal<{ id: number; name: string; fraction: number }[]>([])
     const [uploadError, setUploadError] = createSignal('')
@@ -129,7 +163,8 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                 }),
                 LinkOrChip.configure({ openOnClick: false, protocols: LINK_PROTOCOLS, autolink: true }),
                 Markdown,
-                InternalLink.configure({ onPicker: setPicking }),
+                InternalLink,
+                LinkSuggest.configure({ onSession: setSession, onKey: onLinkKey }),
                 MarkdownPaste,
                 AttachmentImage,
                 ImageFiles.configure({ onFiles: (files, at) => void takeFiles(files, at) }),
@@ -180,6 +215,25 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         },
     )
 
+    // The editable element is ProseMirror's, so the list is tied to the field the
+    // same way: it controls the list and names the highlighted option.
+    createEffect(
+        () => ({ open: links() !== null, at: active(), none: listed().length === 0 }),
+        ({ open, at, none }) => {
+            const dom = editor?.view.dom
+            if (!dom) return
+            if (!open) {
+                for (const name of ['aria-controls', 'aria-activedescendant', 'aria-haspopup', 'aria-autocomplete']) dom.removeAttribute(name)
+                return
+            }
+            dom.setAttribute('aria-haspopup', 'listbox')
+            dom.setAttribute('aria-autocomplete', 'list')
+            dom.setAttribute('aria-controls', listId)
+            if (none) dom.removeAttribute('aria-activedescendant')
+            else dom.setAttribute('aria-activedescendant', optionId(listId, at))
+        },
+    )
+
     // ProseMirror owns the editable element, so what it should say about the
     // field's state is set on it directly: when it changes, and once the editor
     // exists (the first run of the effect can come before it does).
@@ -214,18 +268,19 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                     element = el
                 }}
             />
-            <Show when={picking() !== null}>
-                {editorLinks()?.picker({
-                    onPick: (target) => {
-                        const at = picking()
-                        setPicking(null)
-                        if (editor && at !== null) insertChipAt(editor, at, target, target.title)
-                    },
-                    onClose: () => {
-                        setPicking(null)
-                        editor?.commands.focus()
-                    },
-                })}
+            <Show when={links() !== null && session()}>
+                {(open) => (
+                    <LinkSuggestList
+                        id={listId}
+                        options={listed()}
+                        total={matches().total}
+                        active={active()}
+                        anchor={open().rect}
+                        onActive={setActive}
+                        onPick={open().pick}
+                        onClose={open().dismiss}
+                    />
+                )}
             </Show>
             <Show when={uploads().length > 0}>
                 <div class="md-editor__uploads t-meta" role="status">

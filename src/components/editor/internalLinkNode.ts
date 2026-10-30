@@ -8,8 +8,7 @@ import { editorLinks, lfHref, onTitlesChanged, parseInternal, routeOf, type Link
 ┌─ components/editor ─────────────────────────────
 │  the chip: an internal link drawn as a small inline pill (LAM-108)
 ├─ out ───────────────────────────────────────────
-│      InternalLink   the TipTap node; options.onPicker(position) is called when
-│                     the user types `[[` or `@` and the app has a picker
+│      InternalLink   the TipTap node (the list that makes one is linkSuggest.ts)
 ├─ example ───────────────────────────────────────
 │      [Plan](lf://ticket/a1)   ⇄   the chip "Plan" (or the ticket's current title)
 */
@@ -23,8 +22,6 @@ import { editorLinks, lfHref, onTitlesChanged, parseInternal, routeOf, type Link
 // character by character. Its parse handler sits ahead of the Link mark's for
 // the same Markdown token, and answers only for `lf://` links.
 
-type Options = { onPicker: (position: number) => void }
-
 const escapeLabel = (label: string) => label.replace(/[\\[\]]/g, '\\$&')
 
 function fallbackLabel(kind: LinkKind) {
@@ -35,17 +32,13 @@ export function chipLabel(ref: LinkRef): string {
     return editorLinks()?.titleOf(ref) ?? fallbackLabel(ref.kind)
 }
 
-export const InternalLink = Node.create<Options>({
+export const InternalLink = Node.create({
     name: 'internalLink',
     priority: 1000,
     group: 'inline',
     inline: true,
     atom: true,
     selectable: true,
-
-    addOptions() {
-        return { onPicker: () => {} }
-    },
 
     addAttributes() {
         return {
@@ -120,7 +113,6 @@ export const InternalLink = Node.create<Options>({
 
     addProseMirrorPlugins() {
         const { editor } = this
-        const options = this.options
         const insertChip = (ref: LinkRef, at?: number) => {
             const chip = { type: 'internalLink', attrs: { ...ref, label: chipLabel(ref) } }
             return editor.chain().focus().insertContentAt(at ?? editor.state.selection.from, [chip]).run()
@@ -129,22 +121,6 @@ export const InternalLink = Node.create<Options>({
             new Plugin({
                 key: new PluginKey('internalLink'),
                 props: {
-                    // `[[` and `@` (at the start of a word) open the picker instead
-                    // of typing; with no picker registered they type as usual.
-                    handleTextInput(view, from, to, text) {
-                        if (!editorLinks()) return false
-                        const before = from > 0 ? view.state.doc.textBetween(from - 1, from, '\n', '\0') : ''
-                        if (text === '[' && before === '[') {
-                            view.dispatch(view.state.tr.delete(from - 1, to))
-                            options.onPicker(from - 1)
-                            return true
-                        }
-                        if (text === '@' && (before === '' || /\s|\0|\n/.test(before))) {
-                            options.onPicker(from)
-                            return true
-                        }
-                        return false
-                    },
                     // A lone internal URL (copied from the address bar, or the stored
                     // lf:// form) becomes a chip. Anything else is not ours.
                     handlePaste(_view, event) {
@@ -175,16 +151,4 @@ export const LinkOrChip = Link.extend({
 
 function parseInternalHref(href: unknown): LinkRef | null {
     return typeof href === 'string' && href.startsWith('lf://') ? parseInternal(href) : null
-}
-
-export { insertChipAt }
-
-/** Puts a chip (and a space after it, to keep typing) where the picker was opened. */
-function insertChipAt(editor: import('@tiptap/core').Editor, position: number, ref: LinkRef, label: string) {
-    const at = Math.min(position, editor.state.doc.content.size)
-    return editor
-        .chain()
-        .focus()
-        .insertContentAt(at, [{ type: 'internalLink', attrs: { ...ref, label } }, { type: 'text', text: ' ' }])
-        .run()
 }

@@ -1,15 +1,13 @@
 import { createEffect, createRoot, onSettled } from 'solid-js'
 import { useNavigate } from '@solidjs/router'
 
-import { LINK_KINDS, setEditorLinks, titlesChanged, type LinkKind, type LinkPickerProps, type LinkRef, type LinkTarget } from '@/components/editor/internalLinks'
+import { setEditorLinks, titlesChanged, type LinkRef, type LinkTarget } from '@/components/editor/internalLinks'
 import { documentById, isTempId, sync, ticketById } from '@/sync'
-
-import { LinkPicker, type PickOption } from './LinkPicker'
 
 /*
 ┌─ links ─────────────────────────────────────────
 │  the app's side of internal links in the editor (LAM-108): titles, going to a
-│  target, and the picker, all from the local store
+│  target, and what can be linked, all from the local store
 ├─ out ───────────────────────────────────────────
 │      useEditorLinks()   registers them with the editor while the shell is mounted
 │      titleOf(ref)       the target's current title, if the store has it
@@ -17,8 +15,6 @@ import { LinkPicker, type PickOption } from './LinkPicker'
 */
 // Offline-first: nothing here asks the server. A target that has not synced
 // has no title yet, and the chip falls back to the label written in the text.
-
-const PROJECT_HINT: Record<LinkKind, string> = { ticket: 'Ticket', document: 'Document', project: 'Project' }
 
 export function titleOf(ref: LinkRef): string | undefined {
     switch (ref.kind) {
@@ -42,30 +38,6 @@ export function candidates(): LinkTarget[] {
     return all.filter((target) => !isTempId(target.id))
 }
 
-function InternalLinkPicker(props: LinkPickerProps) {
-    const options = (): PickOption[] =>
-        candidates().map((target) => ({
-            id: `${target.kind}/${target.id}`,
-            label: target.title || '(untitled)',
-            hint: PROJECT_HINT[target.kind],
-        }))
-    return (
-        <LinkPicker
-            title="Link to a ticket, document or project"
-            noun="item"
-            searchLabel="Search tickets, documents and projects"
-            options={options()}
-            onPick={(key) => {
-                const [kind, ...rest] = key.split('/')
-                const id = rest.join('/')
-                const target = candidates().find((t) => t.kind === kind && t.id === id)
-                if (target && LINK_KINDS.includes(target.kind)) props.onPick(target)
-            }}
-            onClose={props.onClose}
-        />
-    )
-}
-
 // Tells the chips on screen when a title they may show has changed. One
 // watcher for the app, not one per chip. Its compute is a key over every title.
 createRoot(() => {
@@ -81,7 +53,7 @@ createRoot(() => {
 export function useEditorLinks() {
     const navigate = useNavigate()
     onSettled(() => {
-        setEditorLinks({ titleOf, open: (route) => navigate(route), picker: (props) => <InternalLinkPicker {...props} /> })
+        setEditorLinks({ titleOf, open: (route) => navigate(route), targets: candidates })
         return () => setEditorLinks(null)
     })
 }

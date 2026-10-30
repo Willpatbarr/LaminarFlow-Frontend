@@ -28,6 +28,7 @@
     "@tiptap/markdown": "3.32.1",
     "@tiptap/pm": "3.32.1",
     "@tiptap/starter-kit": "3.32.1",
+    "@tiptap/suggestion": "3.32.1",
     "idb": "8.0.4",
     "openapi-fetch": "^0.17.0",
     "solid-js": "2.0.0-rc.7"

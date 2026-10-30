@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { MarkdownEditor } from './MarkdownEditor'
 import type { ImageUpload } from './images'
-import { setEditorLinks, titlesChanged } from './internalLinks'
+import { setEditorLinks, titlesChanged, type LinkTarget } from './internalLinks'
 
 // The editor mounted for real in jsdom: Markdown in, Markdown out.
 
@@ -128,16 +128,13 @@ describe('MarkdownEditor limits and state', () => {
 describe('internal links as chips', () => {
     const titles: Record<string, string> = { 'document/d-1': 'Launch runbook' }
     const open = vi.fn()
-    const picker = vi.fn()
+    const targets: LinkTarget[] = [
+        { kind: 'document', id: 'd-1', title: 'Launch runbook' },
+        { kind: 'ticket', id: 't-1', title: 'Launch checklist' },
+        { kind: 'project', id: 'p-1', title: 'Atlas' },
+    ]
     function register() {
-        setEditorLinks({
-            titleOf: (ref) => titles[`${ref.kind}/${ref.id}`],
-            open,
-            picker: (props) => {
-                picker(props)
-                return <div role="dialog">Pick</div>
-            },
-        })
+        setEditorLinks({ titleOf: (ref) => titles[`${ref.kind}/${ref.id}`], open, targets: () => targets })
     }
 
     it('draws an lf link as a chip with the target\'s current title, and stores it unchanged', async () => {
@@ -178,34 +175,129 @@ describe('internal links as chips', () => {
         expect(editor.getMarkdown().trim()).toBe('[a \\[b\\] c](lf://ticket/t)')
     })
 
-    it('opens the picker on [[ and on @ at the start of a word, and inserts the pick', async () => {
+    // Text goes in as a transaction and keys as real keydown events on the field,
+    // which is what ProseMirror (and so the suggestion) listens to.
+    const press = (editor: Editor, key: string, init: KeyboardEventInit = {}) => {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
+        editor.view.dom.dispatchEvent(event)
+        return event.defaultPrevented
+    }
+    const typeText = (editor: Editor, text: string) => editor.view.dispatch(editor.state.tr.insertText(text))
+    const options = () => screen.queryAllByRole('option').map((o) => o.textContent)
+
+    it('opens a listbox at the caret on @ at the start of a word and keeps focus in the editor', async () => {
         register()
         const editor = await mount('')
-        editor.commands.focus()
-        const view = editor.view
-        const type = (text: string) => {
-            const { from, to } = editor.state.selection
-            if (!view.someProp('handleTextInput', (f) => f(view, from, to, text, () => false as never))) editor.commands.insertContent(text)
-        }
-        type('a')
-        type(' ')
-        type('[')
-        expect(picker).not.toHaveBeenCalled()
-        type('[')
-        await waitFor(() => expect(picker).toHaveBeenCalledTimes(1))
-        expect(editor.getText()).toBe('a ')
-        picker.mock.calls[0][0].onPick({ kind: 'document', id: 'd-1', title: 'Launch runbook' })
-        await waitFor(() => expect(screen.getByRole('link', { name: 'Launch runbook' })).toBeInTheDocument())
-        expect(editor.getMarkdown().trim()).toBe('a [Launch runbook](lf://document/d-1)')
+        editor.view.dom.focus()
+        typeText(editor, 'a@b')
+        expect(screen.queryByRole('listbox')).toBeNull()
+        typeText(editor, ' @')
+        const list = await screen.findByRole('listbox', { name: 'Link to a ticket, document or project' })
+        expect(screen.getAllByRole('option')).toHaveLength(3)
+        expect(screen.queryByRole('dialog')).toBeNull()
+        const box = screen.getByRole('textbox', { name: 'Notes' })
+        expect(box).toHaveFocus()
+        expect(box).toHaveAttribute('aria-controls', list.id)
+        // The top result is highlighted by default.
+        const first = screen.getAllByRole('option')[0]
+        expect(first).toHaveAttribute('aria-selected', 'true')
+        expect(box).toHaveAttribute('aria-activedescendant', first.id)
         setEditorLinks(null)
     })
 
-    it('types [[ and @ as plain text when the app has no picker', async () => {
+    it('filters as you type, and shows a row when nothing matches', async () => {
+        register()
         const editor = await mount('')
         editor.commands.focus()
-        const view = editor.view
-        const handled = view.someProp('handleTextInput', (f) => f(view, 1, 1, '@', () => false as never))
-        expect(handled).toBeFalsy()
+        typeText(editor, '@')
+        await screen.findByRole('listbox')
+        typeText(editor, 'launch')
+        await waitFor(() => expect(options()).toHaveLength(2))
+        // A space does not end the query: titles have spaces.
+        typeText(editor, ' chec')
+        await waitFor(() => expect(options()).toEqual(['Launch checklistTicket']))
+        typeText(editor, 'zzz')
+        await waitFor(() => expect(options()).toEqual(['No tickets, documents or projects match']))
+        expect(screen.getByRole('option')).toHaveAttribute('aria-disabled', 'true')
+        // With nothing to pick, Enter is the editor's own.
+        press(editor, 'Enter')
+        expect(editor.state.doc.childCount).toBe(2)
+        setEditorLinks(null)
+    })
+
+    it('moves the highlight with the arrows, wrapping, and picks with Enter', async () => {
+        register()
+        const onChange = vi.fn()
+        const editor = await mount('Ask ', { onChange })
+        editor.view.dom.focus()
+        editor.commands.focus('end')
+        typeText(editor, '@launch')
+        await waitFor(() => expect(options()).toHaveLength(2))
+        const selected = () => screen.getAllByRole('option').findIndex((o) => o.getAttribute('aria-selected') === 'true')
+        expect(selected()).toBe(0)
+        expect(press(editor, 'ArrowDown')).toBe(true)
+        await waitFor(() => expect(selected()).toBe(1))
+        press(editor, 'ArrowDown')
+        await waitFor(() => expect(selected()).toBe(0))
+        press(editor, 'ArrowUp')
+        await waitFor(() => expect(selected()).toBe(1))
+        expect(press(editor, 'Enter')).toBe(true)
+        await waitFor(() => expect(screen.getByRole('link', { name: 'Launch checklist' })).toBeInTheDocument())
+        expect(screen.queryByRole('listbox')).toBeNull()
+        // The trigger and the query are replaced, not left behind.
+        expect(editor.getMarkdown().trim()).toBe('Ask [Launch checklist](lf://ticket/t-1)')
+        expect(screen.getByRole('textbox', { name: 'Notes' })).toHaveFocus()
+        setEditorLinks(null)
+    })
+
+    it('picks the top result with Tab, and a click picks that option', async () => {
+        register()
+        const editor = await mount('')
+        editor.commands.focus()
+        typeText(editor, '@')
+        await screen.findByRole('listbox')
+        expect(press(editor, 'Tab')).toBe(true)
+        await waitFor(() => expect(screen.getByRole('link', { name: 'Launch runbook' })).toBeInTheDocument())
+        typeText(editor, '@at')
+        const atlas = await screen.findByRole('option', { name: /Atlas/ })
+        atlas.click()
+        await waitFor(() => expect(screen.getByRole('link', { name: 'Atlas' })).toBeInTheDocument())
+        expect(editor.getMarkdown().trim()).toBe('[Launch runbook](lf://document/d-1) [Atlas](lf://project/p-1)')
+        setEditorLinks(null)
+    })
+
+    it('closes on Escape and leaves what was typed', async () => {
+        register()
+        const editor = await mount('')
+        editor.commands.focus()
+        typeText(editor, '@lau')
+        await screen.findByRole('listbox')
+        expect(press(editor, 'Escape')).toBe(true)
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        expect(editor.getText()).toBe('@lau')
+        expect(screen.getByRole('textbox', { name: 'Notes' })).not.toHaveAttribute('aria-controls')
+        setEditorLinks(null)
+    })
+
+    it('opens on [[ anywhere and replaces the brackets and query on pick', async () => {
+        register()
+        const editor = await mount('')
+        editor.commands.focus()
+        typeText(editor, 'See[[atl')
+        await waitFor(() => expect(options()).toHaveLength(1))
+        press(editor, 'Enter')
+        await waitFor(() => expect(screen.getByRole('link', { name: 'Atlas' })).toBeInTheDocument())
+        expect(editor.getMarkdown().trim()).toBe('See[Atlas](lf://project/p-1)')
+        setEditorLinks(null)
+    })
+
+    it('leaves Enter and the arrows alone when no list is open, and when the app registered nothing', async () => {
+        const editor = await mount('')
+        editor.commands.focus()
+        typeText(editor, '@')
+        expect(screen.queryByRole('listbox')).toBeNull()
+        expect(press(editor, 'ArrowDown')).toBe(false)
+        expect(editor.getText()).toBe('@')
     })
 
     it('turns a pasted internal URL into a chip and leaves other URLs alone', async () => {
