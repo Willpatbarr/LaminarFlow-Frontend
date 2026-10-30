@@ -23,7 +23,7 @@ test('an edit made offline waits, says so, and reaches the server when the netwo
     const ticket = await serverCreate(account, world.projectId, fields('Before going offline'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Before going offline')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Chromium's offline mode stops requests and fires the page's `offline`
     // event, but leaves an already-open WebSocket standing. The indicator is
@@ -44,7 +44,7 @@ test('an edit made offline waits, says so, and reaches the server when the netwo
 
     await expect(page.getByRole('button', { name: /waiting/ })).toHaveCount(0)
     await expect(page.getByRole('main').getByRole('status')).not.toContainText('Not synced yet')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await expect(page.getByLabel('Title')).toHaveValue('Edited with no network')
     expect((await serverTicket(account, ticket.id))?.title).toBe('Edited with no network')
 })
@@ -58,7 +58,7 @@ test('a ticket created offline is opened under a temporary id and gets its real 
     const world = await projectOf(account)
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await context.setOffline(true)
     await page.getByRole('button', { name: 'New ticket' }).click()
@@ -81,7 +81,7 @@ test('a ticket created offline is opened under a temporary id and gets its real 
     expect(page.url().endsWith(`/tickets/${onServer[0].id}`)).toBe(true)
 })
 
-test('going offline flips the indicator to Offline at once, with the socket still standing, and back to Live on return', async ({
+test('going offline flips the indicator to Offline at once, with the socket still standing, and back to Connected on return', async ({
     page,
     context,
     baseURL,
@@ -91,14 +91,14 @@ test('going offline flips the indicator to Offline at once, with the socket stil
     const ticket = await serverCreate(account, world.projectId, fields('Watching the indicator'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Watching the indicator')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Chromium leaves the open WebSocket standing when the context goes offline,
-    // so the socket alone would go on saying "Live". The browser's `offline`
+    // so the socket alone would go on saying "Connected". The browser's `offline`
     // event is what the indicator follows.
     await context.setOffline(true)
     await connectionIs(page, 'Offline')
 
     await context.setOffline(false)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 })

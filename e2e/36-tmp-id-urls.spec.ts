@@ -13,7 +13,7 @@ test('new epic, sprint, milestone and saved view: no tmp_ in the address after s
     const world = await projectOf(account)
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     const nav = page.getByRole('navigation', { name: 'Main' })
 
     for (const [kind, path, label] of [

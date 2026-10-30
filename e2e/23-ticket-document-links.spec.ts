@@ -18,7 +18,7 @@ test('link a document from a ticket, see the ticket on the document, and unlink 
 
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Plan the launch')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Link: search the local store, pick, confirm.
     const documents = page.getByRole('region', { name: 'Documents' })
@@ -57,7 +57,7 @@ test('a document made from the ticket page is linked, and a link made elsewhere 
     const ticket = await serverCreate(account, world.projectId, fields('Write the spec'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Write the spec')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const documents = page.getByRole('region', { name: 'Documents' })
     await documents.getByRole('button', { name: 'New document' }).click()

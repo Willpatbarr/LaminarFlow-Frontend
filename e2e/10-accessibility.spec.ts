@@ -78,7 +78,7 @@ for (const scheme of SCHEMES) {
 
             await openProject(page, world)
             await expect(page.getByRole('link', { name: /Scanned ticket/ })).toBeVisible()
-            await connectionIs(page, 'Live')
+            await connectionIs(page, 'Connected')
             await scan(page, `ticket-list-${scheme}`, testInfo)
 
             await openTicket(page, ticket.id, 'Scanned ticket')

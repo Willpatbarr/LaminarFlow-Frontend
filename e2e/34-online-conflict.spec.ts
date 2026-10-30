@@ -13,7 +13,7 @@ async function setup(page: Page, context: BrowserContext, baseURL: string) {
     const ticket = await serverCreate(alice, world.projectId, fields('Shared ticket', { description: 'Shared body' }))
     await signedInAs(context, alice, baseURL)
     await openTicket(page, ticket.id, 'Shared ticket')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     return { alice, bob, ticket }
 }
 

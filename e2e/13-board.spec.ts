@@ -55,8 +55,8 @@ test('a dragged card changes status and keeps its place; the move survives a rel
 
     await bobPage.goto(`/boards/${board.id}`)
     await expect.poll(() => cardsIn(bobPage, todoName)).toEqual(['Card one', 'Card two'])
-    await connectionIs(page, 'Live')
-    await connectionIs(bobPage, 'Live')
+    await connectionIs(page, 'Connected')
+    await connectionIs(bobPage, 'Connected')
 
     // Drag "Card one" onto the lower half of "Card three": after it, in the other column.
     const target = column(page, doingName).getByRole('listitem', { name: 'Card three' })
@@ -118,7 +118,7 @@ test('the column menu renames, hides and shows a column, and the board survives 
     await signedInAs(context, alice, baseURL!)
     await page.goto(`/boards/${board.id}`)
     await expect(column(page, todoName)).toBeVisible()
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const serverColumns = async () => {
         const { data } = await alice.api.GET('/api/v1/boards/{id}', { params: { path: { id: board.id } } })

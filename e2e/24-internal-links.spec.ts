@@ -23,7 +23,7 @@ test('link document A to document B with [[, click the chip, and land on B', asy
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${a}`)
     await expect(page.getByLabel('Title')).toHaveValue('Doc A')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const editor = page.getByRole('textbox', { name: 'Text' })
     await editor.click()
@@ -64,7 +64,7 @@ test('@ links a ticket and a pasted internal URL becomes a chip', async ({ page,
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${id}`)
     await expect(page.getByLabel('Title')).toHaveValue('Notes')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     const editor = page.getByRole('textbox', { name: 'Text' })
     await editor.click()
     await page.keyboard.type('Blocked on @')

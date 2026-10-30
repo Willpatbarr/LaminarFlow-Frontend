@@ -24,7 +24,7 @@ test('a sprint made in the UI holds tickets from two epics, and a ticket with no
 
     // The pages list what the server has.
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Epics' }).click()
     const epics = page.getByRole('list', { name: 'Epics' })
     await expect(epics.getByRole('link', { name: 'Checkout' })).toBeVisible()

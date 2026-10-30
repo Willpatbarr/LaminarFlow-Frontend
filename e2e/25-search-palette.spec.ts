@@ -13,7 +13,7 @@ test('find a ticket by title and open it without the mouse', async ({ page, cont
     await signedInAs(context, account, baseURL!)
     await page.goto('/')
     await listLoaded(page)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.keyboard.press('Control+k')
     const palette = page.getByRole('dialog', { name: 'Search' })
@@ -50,7 +50,7 @@ test('find a document by text in its body, from inside the editor', async ({ pag
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${start}`)
     await expect(page.getByLabel('Title')).toHaveValue(/Start here/)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // The chord works with the cursor in the editor, and typing there is untouched.
     const editor = page.getByRole('textbox', { name: 'Text' })
@@ -77,7 +77,7 @@ test('Escape closes it and the New ticket command opens the dialog', async ({ pa
     await signedInAs(context, account, baseURL!)
     await page.goto('/')
     await listLoaded(page)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.keyboard.press('Control+k')
     await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible()

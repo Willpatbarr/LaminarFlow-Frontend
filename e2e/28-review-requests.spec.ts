@@ -31,7 +31,7 @@ test('one user requests a review on a paragraph, a second user approves it, and 
     for (const p of [page, bobPage]) {
         await p.goto(`/documents/${documentId}`)
         await expect(p.getByLabel('Title')).toHaveValue('Launch plan')
-        await connectionIs(p, 'Live')
+        await connectionIs(p, 'Connected')
     }
 
     // Nothing is selected, so there is nothing to ask about yet.
@@ -101,7 +101,7 @@ test('Request changes asks for a note, confirms in place, and the requester sees
     for (const p of [page, bobPage]) {
         await p.goto(`/documents/${documentId}`)
         await expect(p.getByLabel('Title')).toHaveValue('Launch plan')
-        await connectionIs(p, 'Live')
+        await connectionIs(p, 'Connected')
     }
 
     // One click only opens the note; nothing is sent yet.
@@ -171,7 +171,7 @@ test('offsets count characters, not UTF-16 units: a selection after emoji lands 
     await signedInAs(context, alice, baseURL!)
     await page.goto(`/documents/${documentId}`)
     await expect(page.getByLabel('Title')).toHaveValue('Launch plan')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByRole('textbox', { name: 'Text' }).click({ clickCount: 3 })
     await page.getByRole('button', { name: 'Request review' }).click()

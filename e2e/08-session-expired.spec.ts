@@ -1,4 +1,5 @@
 import {
+    connectionIs,
     expect,
     expireSession,
     fields,
@@ -32,7 +33,11 @@ test('a session that ends mid-edit keeps the page and the text, and signing in f
     await expect(banner).toBeVisible()
     await expect(page).toHaveURL(`/tickets/${ticket.id}`)
     await expect(page.getByLabel('Title')).toHaveValue('Typed after the session ended')
-    await expect(page.getByRole('button', { name: 'Sign in to sync 1 change' })).toBeVisible()
+    // One place says how many: the banner. The rail has no row for it and reads
+    // "Signed out", not "Offline".
+    await expect(banner).toContainText('1 change waiting')
+    await expect(page.getByRole('button', { name: /Sign in to sync/ })).toHaveCount(0)
+    await connectionIs(page, 'Signed out')
     await expect(page.getByRole('main').getByRole('status')).toContainText('Not synced: sign in again')
 
     await banner.getByRole('button', { name: 'Sign in' }).click()

@@ -56,7 +56,7 @@ test('a ticket takes an attachment, downloads it and deletes it', async ({ page,
     const ticket = await serverCreate(account, world.projectId, fields('Has files'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Has files')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const section = page.getByRole('region', { name: 'Attachments' })
     await expect(section.getByText('No attachments.')).toBeVisible()

@@ -32,7 +32,7 @@ test('a label created inline is applied, reaches the server and shows as a chip 
     }
 
     await openTicket(page, ticket.id, 'Needs a label')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByLabel('New label name').fill('regression')
     await page.getByRole('button', { name: 'Create and apply' }).click()
@@ -74,7 +74,7 @@ test('team settings renames a label and deletes it, and the ticket loses its chi
 
     await page.goto(`/teams/${world.teamId}/settings`)
     await expect(page.getByRole('heading', { name: 'Team settings' })).toBeVisible()
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const field = page.getByLabel('Name of bug')
     await field.fill('defect')

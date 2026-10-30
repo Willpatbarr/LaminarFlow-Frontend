@@ -39,7 +39,7 @@ test('rename, reorder and delete with a move reach the server, and the list surv
     await page.getByRole('link', { name: 'Edit statuses' }).click()
     await expect(page.getByRole('heading', { name: 'Team settings' })).toBeVisible()
     await expect.poll(names).toEqual([todoName, doingName, doneName])
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Rename.
     const field = page.getByLabel(`Name of ${todoName}`)

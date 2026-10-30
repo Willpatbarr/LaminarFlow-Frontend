@@ -36,7 +36,7 @@ test('a new document keeps its title and text typed through the id swap', async 
     const account = await newAccount('swapdoc')
     await signedInAs(context, account, baseURL!)
     await page.goto('/documents')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await slowCreate(page, '/api/v1/documents')
 
     await page.getByRole('button', { name: 'New document' }).click()
@@ -59,7 +59,7 @@ test('a new ticket keeps its description typed through the id swap', async ({ pa
     const world = await projectOf(account)
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await slowCreate(page, '/api/v1/tickets')
 
     await page.getByRole('button', { name: 'New ticket' }).click()
@@ -89,7 +89,7 @@ for (const [kind, path] of [
         const world = await projectOf(account)
         await signedInAs(context, account, baseURL!)
         await openProject(page, world)
-        await connectionIs(page, 'Live')
+        await connectionIs(page, 'Connected')
         await slowCreate(page, `/api/v1/${path}`)
 
         await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: `${kind[0].toUpperCase()}${kind.slice(1)}s` }).click()

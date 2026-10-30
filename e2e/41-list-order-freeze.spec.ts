@@ -36,7 +36,7 @@ test('after an inline edit, Archive at the same spot archives the edited ticket'
     const { first } = await seeded(account, world.projectId, world.statusIds[0])
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await expect(rowTitles(page)).toHaveText(['Third', 'Second', 'First'])
 
     await page.getByRole('button', { name: 'Edit First' }).click()
@@ -61,7 +61,7 @@ test('the list re-sorts when the pointer leaves it', async ({ page, context, bas
     await seeded(account, world.projectId, world.statusIds[0])
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByRole('button', { name: 'Edit First' }).click()
     await page.getByLabel('Title').fill('First, renamed')
@@ -79,7 +79,7 @@ test('focus in the list freezes it too, for a change made by someone else', asyn
     const { first } = await seeded(account, world.projectId, world.statusIds[0])
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await page.mouse.move(2, 2)
     await page.getByRole('button', { name: 'New ticket' }).focus()
 
