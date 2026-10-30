@@ -146,3 +146,50 @@ describe('delete', () => {
         await waitFor(() => expect(query).toBe('?move_to=s-doing'))
     })
 })
+
+// LAM-188: on a phone each status is one line, and its actions live in a ⋯ menu.
+describe('on a phone', () => {
+    function phone() {
+        vi.stubGlobal(
+            'matchMedia',
+            vi.fn().mockImplementation((query: string) => ({
+                matches: true,
+                media: query,
+                addEventListener: () => {},
+                removeEventListener: () => {},
+            })),
+        )
+    }
+
+    it('folds move and delete into a menu per row, and moving from it reorders', async () => {
+        phone()
+        const user = userEvent.setup()
+        let order: unknown
+        await openApp(SETTINGS, {
+            ...listRoutes(),
+            [`POST ${BASE}/reorder`]: async (request) => {
+                order = ((await bodyOf(request)) as { status_ids: string[] }).status_ids
+                return ok({ ...TEAM, statuses: [TEAM.statuses[1], TEAM.statuses[0], TEAM.statuses[2]].map((s, i) => ({ ...s, position: i + 1 })) })
+            },
+        })
+        await screen.findByLabelText('Name of To Do')
+        expect(screen.queryByRole('button', { name: 'Move To Do down' })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Actions for To Do' }))
+        const menu = await screen.findByRole('menu')
+        expect(within(menu).getByRole('menuitem', { name: /Move up/ })).toHaveAttribute('aria-disabled', 'true')
+        expect(within(menu).getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+        await user.click(within(menu).getByRole('menuitem', { name: 'Move down' }))
+
+        await waitFor(() => expect(order).toEqual(['s-doing', 's-todo', 's-done']))
+    })
+
+    it('starts the Labels section folded, with its count', async () => {
+        phone()
+        await openApp(SETTINGS, listRoutes())
+        await screen.findByLabelText('Name of To Do')
+        const summary = screen.getByRole('heading', { name: 'Labels' }).closest('summary')!
+        expect(summary).toHaveTextContent(/Labels\s*\(\d+\)/)
+        expect(summary.closest('details')).not.toHaveAttribute('open')
+    })
+})

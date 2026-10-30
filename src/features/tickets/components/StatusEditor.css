@@ -73,10 +73,24 @@
 }
 
 @media (max-width: 640px) {
-  .status-editor__row,
   .status-editor__new {
     grid-template-columns: 1fr;
   }
+}
+
+/* A phone (LAM-188): one line per status or label, the actions in a ⋯ menu.
+ * `data-compact` is set from useNarrowScreen, the same width the menu's bottom
+ * sheet switches at. The first column is the chip; it gives way before the name. */
+.status-editor__row[data-compact='true'] {
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  gap: var(--s-8);
+}
+
+.status-editor__row[data-compact='true'] > .chip {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* LabelEditor (LAM-104): a chip, a name, a colour and a delete. */
@@ -89,10 +103,13 @@
 }
 
 @media (max-width: 640px) {
-  .label-editor__row,
   .label-editor__new {
     grid-template-columns: 1fr;
   }
+}
+
+.status-editor__row.label-editor__row[data-compact='true'] {
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
 }
 
 /* AspectTypeEditor / AspectTypeList (LAM-98): a handle, a label, three buttons. */

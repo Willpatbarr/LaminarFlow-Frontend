@@ -1,4 +1,5 @@
 import { Button } from './Button'
+import { Icon } from './icons/Icon'
 
 type MoveButtonsProps = {
     /** What is being moved, for the accessible names: "Move <name> up". */
@@ -24,7 +25,7 @@ export function MoveButtons(props: MoveButtonsProps) {
                 disabledReason={props.disabledReason ?? (props.first ? 'Already first' : undefined)}
                 aria-label={`Move ${props.name} up`}
                 onClick={() => props.onMove(-1)}>
-                ↑
+                <Icon name="arrow-up" size={16} />
             </Button>
             <Button
                 variant="ghost"
@@ -32,7 +33,7 @@ export function MoveButtons(props: MoveButtonsProps) {
                 disabledReason={props.disabledReason ?? (props.last ? 'Already last' : undefined)}
                 aria-label={`Move ${props.name} down`}
                 onClick={() => props.onMove(1)}>
-                ↓
+                <Icon name="arrow-down" size={16} />
             </Button>
         </>
     )

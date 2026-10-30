@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/Button'
 import { MoveButtons } from '@/components/ui/MoveButtons'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { RowMenu, RowMenuItem } from '@/components/ui/RowMenu'
 import { Select } from '@/components/ui/Select'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import {
     createStatus,
     deleteStatus,
@@ -117,6 +119,7 @@ export function StatusEditor(props: StatusEditorProps) {
                                 if (moved && moved !== status().id) void place(moved, index())
                             }}
                             onMove={(by) => void place(status().id, index() + by)}
+                            onMoveTo={(to) => void place(status().id, to)}
                             onDelete={() => askDelete(status())}
                         />
                     )}
@@ -152,13 +155,16 @@ type StatusRowProps = {
     onDragEnd: () => void
     onDropOn: () => void
     onMove: (by: number) => void
+    onMoveTo: (index: number) => void
     onDelete: () => void
 }
 
 function StatusRow(props: StatusRowProps) {
     // The text being typed, or null while the row shows the saved name.
     const [draft, setDraft] = createSignal<string | null>(null)
+    const narrow = useNarrowScreen()
     const head = () => statusHead(props.status.id)
+    const moveDenied = () => denial('team:write', 'change statuses')
     const name = () => draft() ?? props.status.name
     const tooLong = () => overMessage('Name', nameCount(name()))
 
@@ -173,6 +179,7 @@ function StatusRow(props: StatusRowProps) {
     return (
         <li
             class="status-editor__row"
+            data-compact={narrow() ? 'true' : undefined}
             data-dragging={props.dragging ? 'true' : undefined}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
@@ -180,6 +187,7 @@ function StatusRow(props: StatusRowProps) {
                 props.onDropOn()
             }}
         >
+            <Show when={!narrow()}>
             <span
                 class="status-editor__handle"
                 draggable="true"
@@ -194,6 +202,7 @@ function StatusRow(props: StatusRowProps) {
             >
                 <Icon name="drag" size={16} />
             </span>
+            </Show>
             <StatusPill label={props.status.name} hue={hueFor(props.status.color)} active={isStarted(props.status)} />
             <form
                 class="status-editor__name"
@@ -212,12 +221,36 @@ function StatusRow(props: StatusRowProps) {
                     error={tooLong()}
                 />
             </form>
-            <span class="status-editor__actions">
-                <MoveButtons name={props.status.name} first={props.first} last={props.last} disabledReason={denial('team:write', 'change statuses')} onMove={props.onMove} />
-                <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'delete statuses')} aria-label={`Delete ${props.status.name}`} onClick={() => props.onDelete()}>
-                    Delete
-                </Button>
-            </span>
+            <Show
+                when={!narrow()}
+                fallback={
+                    <RowMenu label={`Actions for ${props.status.name}`}>
+                        <RowMenuItem onSelect={() => props.onMoveTo(0)} disabledReason={moveDenied() ?? (props.first ? 'Already first' : undefined)}>
+                            Move to top
+                        </RowMenuItem>
+                        <RowMenuItem onSelect={() => props.onMove(-1)} disabledReason={moveDenied() ?? (props.first ? 'Already first' : undefined)}>
+                            Move up
+                        </RowMenuItem>
+                        <RowMenuItem onSelect={() => props.onMove(1)} disabledReason={moveDenied() ?? (props.last ? 'Already last' : undefined)}>
+                            Move down
+                        </RowMenuItem>
+                        <RowMenuItem onSelect={() => props.onMoveTo(Number.MAX_SAFE_INTEGER)} disabledReason={moveDenied() ?? (props.last ? 'Already last' : undefined)}>
+                            Move to bottom
+                        </RowMenuItem>
+                        <hr class="row-menu__rule" />
+                        <RowMenuItem destructive onSelect={() => props.onDelete()} disabledReason={denial('team:write', 'delete statuses')}>
+                            Delete
+                        </RowMenuItem>
+                    </RowMenu>
+                }
+            >
+                <span class="status-editor__actions">
+                    <MoveButtons name={props.status.name} first={props.first} last={props.last} disabledReason={moveDenied()} onMove={props.onMove} />
+                    <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'delete statuses')} aria-label={`Delete ${props.status.name}`} onClick={() => props.onDelete()}>
+                        Delete
+                    </Button>
+                </span>
+            </Show>
             <Show when={head()?.state === 'failed' && head()} keyed>
                 {(entry) => (
                     <p class="status-editor__problem t-meta" role="alert">
