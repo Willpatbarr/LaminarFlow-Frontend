@@ -31,6 +31,7 @@ import {
 import { createAutosave } from '../documents/autosave'
 import { descriptionCount, nameCount, overMessage } from '../tickets/limits'
 import type { Viewer } from '../tickets/viewer'
+import { ProgressBar } from '@/components/ui/ProgressBar'
 import { AddTicketsToSprint } from './AddTicketsToSprint'
 import { KINDS, scopeConfig, type Kind } from './kinds'
 import { progressFor, scopedTickets, ScopedTickets } from './ScopedTickets'
@@ -188,11 +189,11 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             <h1 class="t-screen-title">{props.row.name}</h1>
 
             <div class="hierarchy__progress">
-                <progress
-                    class="hierarchy__bar"
-                    max={Math.max(progress().total, 1)}
-                    value={progress().done}
-                    aria-label={`Progress of ${props.row.name}`}
+                <ProgressBar
+                    done={progress().done}
+                    total={progress().total}
+                    label={`Progress of ${props.row.name}`}
+                    valueText={`${progress().done} of ${progress().total} ${progress().total === 1 ? 'ticket' : 'tickets'} done`}
                 />
                 <span class="t-meta">
                     {progress().total === 0

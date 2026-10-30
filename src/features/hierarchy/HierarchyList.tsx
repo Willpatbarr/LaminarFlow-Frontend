@@ -3,6 +3,7 @@ import { createSignal, For, Show } from 'solid-js'
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Select } from '@/components/ui/Select'
 import { session } from '@/features/auth'
 import {
@@ -17,7 +18,7 @@ import {
 
 import { doneStatusIds } from './ScopedTickets'
 import { NewHierarchyDialog } from './NewHierarchyDialog'
-import { formatDay, KINDS, progressOf, type Kind } from './kinds'
+import { formatDay, groupSprints, KINDS, localToday, progressOf, type Kind } from './kinds'
 import './hierarchy.css'
 import '../tickets/components/tickets.css'
 
@@ -72,20 +73,12 @@ export function HierarchyList(props: { kind: Kind }) {
                                 </div>
                             }
                         >
-                            <ul class="hierarchy__list" aria-label={title()}>
-                                <For each={itemsFor(props.kind, project().id)} keyed={(item) => item.id}>
-                                    {(item) => (
-                                        <li class="hierarchy__item">
-                                            <a class="t-body" href={`${info().path}/${item().id}`}>
-                                                {item().name}
-                                            </a>
-                                            <span class="hierarchy__meta t-meta">
-                                                <Summary kind={props.kind} id={item().id} projectId={project().id} row={item()} />
-                                            </span>
-                                        </li>
-                                    )}
-                                </For>
-                            </ul>
+                            <Show
+                                when={props.kind === 'sprint'}
+                                fallback={<ItemList label={title()} kind={props.kind} projectId={project().id} items={itemsFor(props.kind, project().id)} />}
+                            >
+                                <SprintGroupsView projectId={project().id} items={itemsFor('sprint', project().id)} />
+                            </Show>
                         </Show>
                         <Show when={creating()}>
                             <NewHierarchyDialog
@@ -99,6 +92,96 @@ export function HierarchyList(props: { kind: Kind }) {
                 )}
             </Show>
         </section>
+    )
+}
+
+type Item = { id: string; name: string }
+
+function ItemList(props: { label: string; kind: Kind; projectId: string; items: Item[] }) {
+    return (
+        <ul class="hierarchy__list" aria-label={props.label}>
+            <For each={props.items} keyed={(item) => item.id}>
+                {(item) => (
+                    <li class="hierarchy__item">
+                        <a class="t-body" href={`${KINDS[props.kind].path}/${item().id}`}>
+                            {item().name}
+                        </a>
+                        <span class="hierarchy__meta t-meta">
+                            <Summary kind={props.kind} id={item().id} projectId={props.projectId} row={item()} />
+                        </span>
+                    </li>
+                )}
+            </For>
+        </ul>
+    )
+}
+
+const PAST_KEY = 'lf-sprints-past-open'
+const readPastOpen = () => {
+    try {
+        return localStorage.getItem(PAST_KEY) === '1'
+    } catch {
+        return false
+    }
+}
+const writePastOpen = (open: boolean) => {
+    try {
+        localStorage.setItem(PAST_KEY, open ? '1' : '0')
+    } catch {
+        // Not remembered: the group still works.
+    }
+}
+
+// Sprints by date: Current, Upcoming, No dates, and Past, which is collapsed to
+// a count by default (collapsed, never hidden) and remembered per device.
+function SprintGroupsView(props: { projectId: string; items: (Item & { start_date?: string | null; end_date?: string | null })[] }) {
+    const groups = () => groupSprints(props.items, localToday())
+    const [pastOpen, setPastOpen] = createSignal(readPastOpen())
+    const toggle = () => {
+        const next = !pastOpen()
+        setPastOpen(next)
+        writePastOpen(next)
+    }
+    const plain = [
+        ['Current', () => groups().current],
+        ['Upcoming', () => groups().upcoming],
+        ['No dates', () => groups().undated],
+    ] as const
+    return (
+        <>
+            <For each={plain}>
+                {([heading, rows]) => (
+                    <Show when={rows().length > 0}>
+                        <section class="hierarchy__group" aria-labelledby={`sprints-${heading}`}>
+                            <h2 class="t-section" id={`sprints-${heading}`}>
+                                {heading}
+                            </h2>
+                            <ItemList label={heading} kind="sprint" projectId={props.projectId} items={rows()} />
+                        </section>
+                    </Show>
+                )}
+            </For>
+            <Show when={groups().past.length > 0}>
+                <section class="hierarchy__group">
+                    <h2 class="t-section">
+                        <button
+                            type="button"
+                            class="hierarchy__group-toggle"
+                            aria-expanded={pastOpen() ? 'true' : 'false'}
+                            aria-controls="sprints-past"
+                            onClick={toggle}
+                        >
+                            {pastOpen() ? '▾' : '▸'} Past ({groups().past.length})
+                        </button>
+                    </h2>
+                    <div id="sprints-past">
+                        <Show when={pastOpen()}>
+                            <ItemList label="Past" kind="sprint" projectId={props.projectId} items={groups().past} />
+                        </Show>
+                    </div>
+                </section>
+            </Show>
+        </>
     )
 }
 
@@ -129,6 +212,14 @@ function Summary(props: { kind: Kind; id: string; projectId: string; row: object
                 {progress().total === 0
                     ? 'No tickets'
                     : `${progress().done} of ${progress().total} ${progress().total === 1 ? 'ticket' : 'tickets'} done`}
+            </span>
+            <span class="hierarchy__row-bar">
+                <ProgressBar
+                    done={progress().done}
+                    total={progress().total}
+                    label={`Progress of ${(props.row as { name?: string }).name ?? props.kind}`}
+                    valueText={`${progress().done} of ${progress().total} ${progress().total === 1 ? 'ticket' : 'tickets'} done`}
+                />
             </span>
         </>
     )
