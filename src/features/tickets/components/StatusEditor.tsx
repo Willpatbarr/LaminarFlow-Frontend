@@ -166,6 +166,9 @@ function StatusRow(props: StatusRowProps) {
     const head = () => statusHead(props.status.id)
     const moveDenied = () => denial('team:write', 'change statuses')
     const name = () => draft() ?? props.status.name
+    // The hue of the row; an older hex shows as the hue it is drawn in.
+    const colour = () => hueFor(props.status.color)
+    const recolourDenied = () => denial('team:write', 'recolour statuses')
     const tooLong = () => overMessage('Name', nameCount(name()))
 
     function commit() {
@@ -225,6 +228,26 @@ function StatusRow(props: StatusRowProps) {
                 when={!narrow()}
                 fallback={
                     <RowMenu label={`Actions for ${props.status.name}`}>
+                        <p class="t-overline row-menu__head" aria-hidden="true">
+                            Colour
+                        </p>
+                        <For each={COLOURS}>
+                            {(option) => (
+                                <RowMenuItem
+                                    checked={colour() === option.value}
+                                    label={`Colour ${option.label}`}
+                                    disabledReason={recolourDenied()}
+                                    onSelect={() => void updateStatus(props.status.id, { color: option.value })}
+                                >
+                                    <span class="row-menu__swatch" style={{ background: `var(--${option.value})` }} />
+                                    {option.label}
+                                    <Show when={colour() === option.value}>
+                                        <Icon name="check" size={16} class="row-menu__check" />
+                                    </Show>
+                                </RowMenuItem>
+                            )}
+                        </For>
+                        <hr class="row-menu__rule" />
                         <RowMenuItem onSelect={() => props.onMoveTo(0)} disabledReason={moveDenied() ?? (props.first ? 'Already first' : undefined)}>
                             Move to top
                         </RowMenuItem>
@@ -244,6 +267,16 @@ function StatusRow(props: StatusRowProps) {
                     </RowMenu>
                 }
             >
+                <span class="status-editor__colour" title={recolourDenied()}>
+                    <Select
+                        label={`Colour of ${props.status.name}`}
+                        hideLabel
+                        value={colour()}
+                        options={COLOURS}
+                        onChange={(value) => void updateStatus(props.status.id, { color: value })}
+                        disabled={recolourDenied() !== undefined}
+                    />
+                </span>
                 <span class="status-editor__actions">
                     <MoveButtons name={props.status.name} first={props.first} last={props.last} disabledReason={moveDenied()} onMove={props.onMove} />
                     <Button variant="ghost" size="sm" disabledReason={denial('team:write', 'delete statuses')} aria-label={`Delete ${props.status.name}`} onClick={() => props.onDelete()}>

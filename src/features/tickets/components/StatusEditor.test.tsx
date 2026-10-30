@@ -4,8 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { connectSyncToSession, wipeLocalData } from '@/sync'
 import { listRoutes, TEAM, ticket } from '@/sync/testing/harness'
-import { openApp } from '@/testing/app'
+import { openApp, ME_BODY } from '@/testing/app'
 import { bodyOf, ok } from '@/testing/fetch'
+import { ALL_PERMISSIONS } from '@/testing/permissions'
 
 import { reorderedIds } from './StatusEditor'
 
@@ -104,6 +105,35 @@ it('adds a status at the end', async () => {
     await waitFor(() => expect(body).toEqual({ name: 'Review', color: 'slate', category: 'not_started', position: 4 }))
 })
 
+// LAM-192: an existing status can be recoloured, by hue name.
+describe('colour', () => {
+    it('shows the hue the status is drawn in and sends the chosen hue name', async () => {
+        const user = userEvent.setup()
+        let body: unknown
+        await openApp(SETTINGS, {
+            ...listRoutes(),
+            [`PUT ${BASE}/s-todo`]: async (request) => {
+                body = await bodyOf(request)
+                return ok({ ...TEAM.statuses[0], color: 'violet' })
+            },
+        })
+        const select = (await screen.findByLabelText('Colour of To Do')) as HTMLSelectElement
+        expect(select.value).toBe('slate') // the seed's #94a3b8
+
+        await user.selectOptions(select, 'Violet')
+
+        await waitFor(() => expect(body).toMatchObject({ color: 'violet' }))
+        await waitFor(() => expect((screen.getByLabelText('Colour of To Do') as HTMLSelectElement).value).toBe('violet'))
+    })
+
+    it('is disabled with a tooltip without team:write', async () => {
+        await openApp(SETTINGS, listRoutes(), { ...ME_BODY, permissions: ALL_PERMISSIONS.filter((p) => p !== 'team:write') })
+        const select = await screen.findByLabelText('Colour of To Do')
+        expect(select).toBeDisabled()
+        expect(select.closest('.status-editor__colour')).toHaveAttribute('title', "You don't have permission to recolour statuses.")
+    })
+})
+
 describe('delete', () => {
     it('asks where the tickets go when some use the status, and sends move_to', async () => {
         const user = userEvent.setup()
@@ -182,6 +212,29 @@ describe('on a phone', () => {
         await user.click(within(menu).getByRole('menuitem', { name: 'Move down' }))
 
         await waitFor(() => expect(order).toEqual(['s-doing', 's-todo', 's-done']))
+    })
+
+    it('puts a Colour section in the row menu, and choosing a hue sends it', async () => {
+        phone()
+        const user = userEvent.setup()
+        let body: unknown
+        await openApp(SETTINGS, {
+            ...listRoutes(),
+            [`PUT ${BASE}/s-todo`]: async (request) => {
+                body = await bodyOf(request)
+                return ok({ ...TEAM.statuses[0], color: 'teal' })
+            },
+        })
+        await screen.findByLabelText('Name of To Do')
+        expect(screen.queryByLabelText('Colour of To Do')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Actions for To Do' }))
+        const menu = await screen.findByRole('menu')
+        expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(8)
+        expect(within(menu).getByRole('menuitemradio', { name: 'Colour Slate' })).toHaveAttribute('aria-checked', 'true')
+        await user.click(within(menu).getByRole('menuitemradio', { name: 'Colour Teal' }))
+
+        await waitFor(() => expect(body).toMatchObject({ color: 'teal' }))
     })
 
     it('starts the Labels section folded, with its count', async () => {
