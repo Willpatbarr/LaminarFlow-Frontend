@@ -43,6 +43,7 @@ test('create with C, edit inline, archive and undo, each reaching the server', a
     // The list holds its order while the pointer is in it (LAM-145); the row
     // joins its new status group when the pointer leaves.
     await page.mouse.move(2, 2)
+    await page.getByRole('button', { name: 'New ticket' }).focus()
     const group = page.getByRole('region', { name: world.statusNames[0] })
     await expect(group.getByRole('link', { name: /Plan the launch party/ })).toBeVisible()
     await expect.poll(async () => (await serverTicket(account, id))?.title).toBe('Plan the launch party')
@@ -52,6 +53,7 @@ test('create with C, edit inline, archive and undo, each reaching the server', a
     await page.getByRole('button', { name: 'Archive Plan the launch party' }).click()
     // The archived row is held, dimmed, while the pointer is in the list.
     await page.mouse.move(2, 2)
+    await page.getByRole('button', { name: 'New ticket' }).focus()
     await expect(page.getByRole('link', { name: /Plan the launch party/ })).toHaveCount(0)
     await expect.poll(async () => (await serverTickets(account, world.projectId)).length).toBe(0)
 
@@ -77,6 +79,7 @@ test('an inline edit and an archive made offline sync when the network returns',
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.getByRole('button', { name: 'Archive Archive while offline' }).click()
     await page.mouse.move(2, 2)
+    await page.getByRole('button', { name: 'New ticket' }).focus()
 
     await expect(page.getByRole('link', { name: /Edited offline/ })).toBeVisible()
     await expect(page.getByRole('link', { name: /Archive while offline/ })).toHaveCount(0)

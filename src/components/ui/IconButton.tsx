@@ -12,6 +12,7 @@ type IconButtonProps = {
     /** The 16px icon, an <svg aria-hidden>. */
     children: JSX.Element
     onClick?: () => void
+    ref?: (el: HTMLButtonElement) => void
     disabled?: boolean
     /** Disables the button and says why in the tooltip. */
     disabledReason?: string
@@ -27,6 +28,7 @@ export function IconButton(props: IconButtonProps) {
             {(describedBy) => (
                 <button
                     type="button"
+                    ref={props.ref}
                     class="icon-button"
                     aria-label={props.label}
                     aria-describedby={describedBy}

@@ -69,6 +69,7 @@ test('the list re-sorts when the pointer leaves it', async ({ page, context, bas
     await expect(rowTitles(page)).toHaveText(['Third', 'Second', 'First, renamed'])
 
     await page.mouse.move(2, 2)
+    await page.getByRole('button', { name: 'New ticket' }).focus()
     await expect(rowTitles(page)).toHaveText(['First, renamed', 'Third', 'Second'])
 })
 
@@ -80,6 +81,7 @@ test('focus in the list freezes it too, for a change made by someone else', asyn
     await openProject(page, world)
     await connectionIs(page, 'Live')
     await page.mouse.move(2, 2)
+    await page.getByRole('button', { name: 'New ticket' }).focus()
 
     // Keyboard focus on a row; the pointer is elsewhere.
     await page.getByRole('link', { name: /Third/ }).focus()
