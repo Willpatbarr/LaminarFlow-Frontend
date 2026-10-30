@@ -103,3 +103,57 @@ test('the New document command makes a document and opens it', async ({ page, co
     await expect(page).toHaveURL(/\/documents\/[^/]+$/)
     await expect(page.getByRole('textbox', { name: 'Document text' })).toBeVisible()
 })
+
+// LAM-183: the palette has buttons, so it opens on a touch screen too.
+test('the Search button opens the palette and focus returns to it on Escape; Ctrl+K still works', async ({ page, context, baseURL }) => {
+    const account = await newAccount('palette4')
+    const world = await projectOf(account)
+    const title = unique('Heron census')
+    await serverCreate(account, world.projectId, fields(title))
+    await signedInAs(context, account, baseURL!)
+    await page.goto('/')
+    await listLoaded(page)
+
+    const button = page.getByRole('button', { name: 'Search', exact: false }).first()
+    await expect(button).toContainText(/K/)
+    await button.click()
+    const palette = page.getByRole('dialog', { name: 'Search' })
+    await expect(palette).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(palette).toHaveCount(0)
+    await expect(button).toBeFocused()
+
+    await page.keyboard.press('Control+k')
+    await expect(palette).toBeVisible()
+})
+
+test.describe('on a phone', () => {
+    test.use({ viewport: { width: 375, height: 812 } })
+
+    test('the top bar and the drawer both have Search; it finds a ticket', async ({ page, context, baseURL }) => {
+        const account = await newAccount('palette5')
+        const world = await projectOf(account)
+        const title = unique('Egret census')
+        const ticket = await serverCreate(account, world.projectId, fields(title))
+        await signedInAs(context, account, baseURL!)
+        await page.goto('/')
+        await listLoaded(page)
+
+        const topbarSearch = page.locator('.app-shell__topbar').getByRole('button', { name: 'Search' })
+        await topbarSearch.click()
+        const palette = page.getByRole('dialog', { name: 'Search' })
+        await expect(palette).toBeVisible()
+        await page.keyboard.type(title)
+        await page.keyboard.press('Escape')
+        await expect(palette).toHaveCount(0)
+        await expect(topbarSearch).toBeFocused()
+
+        // The same button in the drawer.
+        await page.getByRole('button', { name: 'Menu' }).click()
+        await page.locator('.app-shell__drawer').getByRole('button', { name: /^Search/ }).click()
+        await expect(palette).toBeVisible()
+        await page.keyboard.type(title)
+        await page.keyboard.press('Enter')
+        await expect(page).toHaveURL(new RegExp(`/tickets/${ticket.id}$`))
+    })
+})

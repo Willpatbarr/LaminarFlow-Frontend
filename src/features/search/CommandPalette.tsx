@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router'
 import { Portal } from '@solidjs/web'
-import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, onSettled, Show } from 'solid-js'
 
 import { makeDocument } from '@/features/documents/newDocument'
 import { useShortcut } from '@/features/shortcuts'
@@ -9,6 +9,7 @@ import { sync } from '@/sync'
 
 import { MAX_QUERY, searchServer, type SearchItem } from './api'
 import { highlight, parseSnippet, plain, wordsOf, type Piece } from './snippet'
+import { closePalette, paletteOpen, paletteOpener, togglePalette } from './paletteState'
 import './search.css'
 
 /*
@@ -127,15 +128,16 @@ type PaletteProps = {
 }
 
 export function CommandPalette(props: PaletteProps) {
-    const [open, setOpen] = createSignal(false)
-
     // Ctrl/Cmd+K is declared in the shortcut registry (LAM-124), which also
-    // keeps it working from a field and above a dialog.
-    useShortcut('palette.toggle', () => setOpen((now) => !now))
+    // keeps it working from a field and above a dialog. The buttons call
+    // `openPalette` from ./paletteState; the open state lives there (LAM-183).
+    useShortcut('palette.toggle', togglePalette)
+    // The state is module-wide: a palette that goes away takes it with it.
+    onCleanup(closePalette)
 
     return (
-        <Show when={open()}>
-            <Palette onNewTicket={props.onNewTicket} documentTarget={props.documentTarget} onClose={() => setOpen(false)} />
+        <Show when={paletteOpen()}>
+            <Palette onNewTicket={props.onNewTicket} documentTarget={props.documentTarget} onClose={closePalette} />
         </Show>
     )
 }
@@ -144,7 +146,6 @@ function Palette(props: PaletteProps & { onClose: () => void }) {
     const navigate = useNavigate()
     const listId = createUniqueId()
     const optionId = (key: string) => `${listId}-${key.replace(/[^a-zA-Z0-9_-]/g, '_')}`
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     let input: HTMLInputElement | undefined
     let leaving = false
 
@@ -164,7 +165,7 @@ function Palette(props: PaletteProps & { onClose: () => void }) {
     onSettled(() => {
         input?.focus()
         return () => {
-            if (!leaving && opener?.isConnected) opener.focus()
+            if (!leaving) paletteOpener()?.focus()
         }
     })
 

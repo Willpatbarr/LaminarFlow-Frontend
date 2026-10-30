@@ -35,6 +35,19 @@ function shell() {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('AppShell on a phone', () => {
+    it('puts a Search button in the top bar that calls back with the button', async () => {
+        screenIs(true)
+        const onSearch = vi.fn()
+        render(() => (
+            <AppShell nav={nav()} title="Tickets" route="/" onSearch={onSearch}>
+                <p>Page content</p>
+            </AppShell>
+        ))
+        const button = screen.getByRole('button', { name: 'Search' })
+        await userEvent.click(button)
+        expect(onSearch).toHaveBeenCalledWith(button)
+    })
+
     it('shows the content and a top bar, with the drawer shut and out of reach', () => {
         screenIs(true)
         render(() => shell())

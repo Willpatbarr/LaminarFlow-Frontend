@@ -14,6 +14,7 @@ import { clearMembers } from '@/features/members/members'
 import { clearReviewFeed, loadNeedsMine, needsMine, pendingSignature } from '@/features/review/feed'
 import { useEditorLinks } from '@/features/links/editorLinks'
 import { CommandPalette } from '@/features/search/CommandPalette'
+import { openPalette } from '@/features/search/paletteState'
 import { hintFor, installShortcutListener, ShortcutHelp, useScope, useShortcut } from '@/features/shortcuts'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
 import { ReviewRequestedToast } from '@/features/review/ReviewRequestedToast'
@@ -228,6 +229,7 @@ export function AppLayout(props: RouteSectionProps) {
             <AppShell
                 title={pageTitle()}
                 route={location.pathname}
+                onSearch={openPalette}
                 status={
                     <Show when={sync.active}>
                         {statusRows()}
@@ -256,6 +258,7 @@ export function AppLayout(props: RouteSectionProps) {
                                   }))
                                 : undefined
                         }
+                        search={{ onClick: openPalette, hint: hintFor('palette.toggle') }}
                         userName={session.me?.display_name}
                         account={<ThemeSwitch />}
                         loading={stillAsking()}
