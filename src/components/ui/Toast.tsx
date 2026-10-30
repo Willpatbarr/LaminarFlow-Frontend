@@ -10,8 +10,8 @@ type ToastProps = {
     /** Say what happened to the *work*, not to the request: a queued change is
      *  not a lost change. */
     detail?: string
-    /** The badge. Defaults to `!`; a good outcome passes `check` (the coolicons
-     *  Icon, not a text glyph). */
+    /** The badge. Defaults to the `warning` exclamation; a good outcome passes
+     *  `check`. Both are the coolicons Icon, not a text glyph. */
     mark?: 'check'
     /** Defaults to `rust`, the spec's default. `amber` is for a warning (work
      *  is safe but not done), and callers that mean it must say so. */
@@ -35,9 +35,7 @@ export function Toast(props: ToastProps) {
     return (
         <div class="toast" data-hue={props.hue ?? 'rust'} role={props.role ?? 'status'}>
             <span class="toast__mark" aria-hidden="true">
-                <Show when={props.mark === 'check'} fallback="!">
-                    <Icon name="check" size={12} />
-                </Show>
+                <Icon name={props.mark === 'check' ? 'check' : 'warning'} size={12} />
             </span>
             <div class="toast__body">
                 <span class="toast__title t-body">{props.title}</span>

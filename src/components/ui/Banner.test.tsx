@@ -137,4 +137,12 @@ describe('Toast', () => {
         expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
         expect(mark).not.toHaveTextContent('✓')
     })
+
+    it('draws the default mark as the warning Icon, not a text glyph', () => {
+        const { container } = render(() => <Toast title="Heads up" />)
+
+        const mark = container.querySelector('.toast__mark')!
+        expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+        expect(mark.textContent).toBe('')
+    })
 })
