@@ -70,3 +70,14 @@
   color: var(--text-2);
   white-space: nowrap;
 }
+
+.modal[data-wide] {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 2 * var(--s-16));
+}
+
+.modal[data-wide] .modal__body {
+  overflow-y: auto;
+}

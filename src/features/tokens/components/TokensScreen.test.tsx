@@ -13,7 +13,7 @@ const me = {
     email: 'ada@example.com',
     display_name: 'Ada Lovelace',
     workspace_id: 'ws-1',
-    permissions: ['ticket:read', 'ticket:write'],
+    permissions: ['ticket:read', 'ticket:write', 'account:delete'],
     scopes: null,
 }
 
@@ -60,8 +60,8 @@ describe('TokensScreen', () => {
         await user.type(screen.getByLabelText('Name'), 'Deploy')
         expect(create()).toBeDisabled()
         // From the session's permissions, none pre-selected.
-        expect(screen.getByLabelText('ticket:read')).not.toBeChecked()
-        await user.click(screen.getByLabelText('ticket:write'))
+        expect(screen.getByLabelText('Tickets and content Read (ticket:read)')).not.toBeChecked()
+        await user.click(screen.getByLabelText('Tickets and content Write (ticket:write)'))
         expect(create()).toBeEnabled()
         await user.click(create())
 
@@ -83,6 +83,43 @@ describe('TokensScreen', () => {
         expect(document.body.textContent).not.toContain('lam_abc_secret')
     })
 
+    it('describes scopes, keeps Write separate from Read, and asks twice for account:delete', async () => {
+        const user = userEvent.setup()
+        const fetchMock = stubFetch({
+            'POST /api/v1/auth/tokens/list': () => ok({ tokens: [] }),
+            'POST /api/v1/auth/tokens': () => ok({ ...existing, id: 't3', token: 'lam_x' }, 201),
+        })
+        render(() => <TokensScreen />)
+        await user.click(await screen.findByRole('button', { name: 'Create token' }))
+        const create = () => screen.getAllByRole('button', { name: 'Create token' }).at(-1)!
+        await user.type(screen.getByLabelText('Name'), 'Danger')
+
+        // Plain English beside the code; Write does not tick Read.
+        expect(screen.getByText('Create, edit and archive the same things.')).toBeInTheDocument()
+        expect(screen.getByText('ticket:write')).toBeInTheDocument()
+        await user.click(screen.getByLabelText('Tickets and content Write (ticket:write)'))
+        expect(screen.getByLabelText('Tickets and content Read (ticket:read)')).not.toBeChecked()
+
+        // The dangerous scope is set apart, with a warning, and needs a second yes.
+        const danger = screen.getByLabelText('Delete account (account:delete)')
+        expect(screen.getByText(/can delete your account, without signing in/)).toBeInTheDocument()
+        await user.click(danger)
+        expect(create()).toBeDisabled()
+        const understood = screen.getByLabelText('I understand this token could delete my account.')
+        await user.click(understood)
+        expect(create()).toBeEnabled()
+        // Unticking the scope drops the confirmation, so ticking it again asks again.
+        await user.click(danger)
+        await user.click(danger)
+        expect(screen.getByLabelText('I understand this token could delete my account.')).not.toBeChecked()
+        expect(create()).toBeDisabled()
+        await user.click(screen.getByLabelText('I understand this token could delete my account.'))
+        await user.click(create())
+
+        const post = fetchMock.mock.calls.find(([req]) => (req as Request).url.endsWith('/auth/tokens'))!
+        expect((await bodyOf(post[0])).scopes).toEqual(['ticket:write', 'account:delete'])
+    })
+
     it('puts an unknown_scope refusal under the permissions', async () => {
         const user = userEvent.setup()
         stubFetch({
@@ -92,7 +129,7 @@ describe('TokensScreen', () => {
         render(() => <TokensScreen />)
         await user.click(await screen.findByRole('button', { name: 'Create token' }))
         await user.type(screen.getByLabelText('Name'), 'Deploy')
-        await user.click(screen.getByLabelText('ticket:read'))
+        await user.click(screen.getByLabelText('Tickets and content Read (ticket:read)'))
         await user.click(screen.getAllByRole('button', { name: 'Create token' }).at(-1)!)
 
         expect(await screen.findByText(/not recognised/)).toBeInTheDocument()

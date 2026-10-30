@@ -7,6 +7,7 @@ import { Toast } from '@/components/ui/Toast'
 import { session } from '@/features/auth'
 
 import { describeFailure, type TokenFailure } from '../failures'
+import { DANGEROUS_SCOPES, DANGEROUS_WARNING, describeScope, layoutScopes } from '../scopes'
 import { createToken } from '../tokens'
 import './tokens.css'
 
@@ -32,21 +33,30 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
     const [failure, setFailure] = createSignal<TokenFailure>({})
     const [secret, setSecret] = createSignal<string | null>(null)
     const [copied, setCopied] = createSignal(false)
+    const [dangerOpen, setDangerOpen] = createSignal(false)
+    const [understood, setUnderstood] = createSignal(false)
 
     // The picker is whatever the server says this account can do - never a list
     // of names kept here.
-    const scopes = () => session.me?.permissions ?? []
+    const layout = () => layoutScopes(session.me?.permissions ?? [])
+    const dangerPicked = () => picked().some((s) => DANGEROUS_SCOPES.includes(s))
+    // A dangerous scope needs its own yes, on top of the tick.
+    const ready = () => !blank() && !tooLong() && picked().length > 0 && (!dangerPicked() || understood())
     const blank = () => label().trim() === ''
     const tooLong = () => Array.from(label().trim()).length > 100
     const labelError = () => (tooLong() ? 'Use 100 characters or fewer.' : failure().label)
 
     function toggle(scope: string, on: boolean) {
         setPicked((prior) => (on ? [...prior, scope] : prior.filter((s) => s !== scope)))
+        if (DANGEROUS_SCOPES.includes(scope)) {
+            setUnderstood(false)
+            if (on) setDangerOpen(true)
+        }
         setFailure((prior) => ({ ...prior, scopes: undefined }))
     }
 
     async function submit() {
-        if (saving() || blank() || tooLong() || picked().length === 0) return
+        if (saving() || !ready()) return
         setSaving(true)
         setFailure({})
         try {
@@ -72,6 +82,28 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
         }
     }
 
+    // One checkbox: the plain-English action, what it allows, the code in small
+    // monospace. The accessible name leads with the visible words and ends with
+    // the code, which is what an API user looks for.
+    function scopeBox(scope: () => string, area: () => string, action: () => string) {
+        const name = () => [area(), action()].filter(Boolean).join(' ')
+        return (
+            <label class="tokens__scope">
+                <input
+                    type="checkbox"
+                    aria-label={name() && name() !== scope() ? `${name()} (${scope()})` : scope()}
+                    checked={picked().includes(scope())}
+                    onChange={(event) => toggle(scope(), event.currentTarget.checked)}
+                />
+                <span class="tokens__scope-text">
+                    <span class="t-body">{action() || area()}</span>
+                    <span class="t-meta tokens__scope-desc">{describeScope(scope()) ?? 'No description yet.'}</span>
+                    <code class="tokens__code">{scope()}</code>
+                </span>
+            </label>
+        )
+    }
+
     return (
         <Show
             when={secret()}
@@ -80,7 +112,8 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                     title="Create API token"
                     consequence="A token acts as you, limited to the permissions you choose."
                     confirm="Create token"
-                    confirmDisabled={saving() || blank() || tooLong() || picked().length === 0}
+                    confirmDisabled={saving() || !ready()}
+                    wide
                     onConfirm={() => void submit()}
                     onCancel={props.onClose}
                 >
@@ -95,18 +128,48 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                     />
                     <fieldset class="tokens__scopes">
                         <legend class="t-body">Permissions</legend>
-                        <For each={scopes()}>
-                            {(scope) => (
-                                <label class="t-body tokens__scope">
-                                    <input
-                                        type="checkbox"
-                                        checked={picked().includes(scope)}
-                                        onChange={(event) => toggle(scope, event.currentTarget.checked)}
-                                    />{' '}
-                                    {scope}
-                                </label>
+                        <For each={layout().groups} keyed={(row) => row.group.id}>
+                            {(row) => (
+                                <div class="tokens__group">
+                                    <p class="t-body tokens__group-title">{row().group.title}</p>
+                                    <div class="tokens__pair">
+                                        <Show when={row().read}>{(scope) => scopeBox(scope, () => row().group.title, () => 'Read')}</Show>
+                                        <Show when={row().write}>{(scope) => scopeBox(scope, () => row().group.title, () => 'Write')}</Show>
+                                    </div>
+                                </div>
                             )}
                         </For>
+                        <For each={layout().other} keyed={(scope) => scope}>
+                            {(scope) => <div class="tokens__group">{scopeBox(scope, () => '', scope)}</div>}
+                        </For>
+                        <Show when={layout().dangerous.length > 0}>
+                            <details
+                                class="tokens__danger"
+                                open={dangerOpen()}
+                                onToggle={(event) => setDangerOpen(event.currentTarget.open)}
+                            >
+                                <summary class="t-body">
+                                    Dangerous permissions
+                                    <Show when={dangerPicked()}>
+                                        <span class="t-meta"> (1 chosen)</span>
+                                    </Show>
+                                </summary>
+                                <p class="t-meta tokens__warning">{DANGEROUS_WARNING}</p>
+                                <For each={layout().dangerous} keyed={(scope) => scope}>
+                                    {(scope) => scopeBox(scope, () => 'Delete account', () => '')}
+                                </For>
+                                <Show when={dangerPicked()}>
+                                    <label class="t-body tokens__confirm">
+                                        <input
+                                            type="checkbox"
+                                            checked={understood()}
+                                            onChange={(event) => setUnderstood(event.currentTarget.checked)}
+                                        />
+                                        <span>I understand this token could delete my account.</span>
+                                    </label>
+                                </Show>
+                            </details>
+                        </Show>
                         <Show when={failure().scopes}>
                             {(message) => (
                                 <p class="t-meta tokens__error" role="alert">
