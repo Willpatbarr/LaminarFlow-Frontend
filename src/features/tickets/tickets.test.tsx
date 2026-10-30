@@ -767,7 +767,7 @@ describe('live updates', () => {
         await vi.waitFor(() => expect(title).toHaveValue('Changed in another tab'))
     })
 
-    it('shows the connection quietly when live, and in words when not', async () => {
+    it('shows the connection in a word, polite and only on a change of state', async () => {
         await open('/', listRoutes([ticket()]))
         await screen.findByRole('link', { name: /Write the outbox/ })
         const nav = within(screen.getByRole('complementary'))
@@ -775,7 +775,7 @@ describe('live updates', () => {
         expect(nav.getByRole('status')).toHaveTextContent('Connecting')
 
         FakeWebSocket.last.hello()
-        await vi.waitFor(() => expect(nav.getByRole('status')).toHaveTextContent('Live'))
+        await vi.waitFor(() => expect(nav.getByRole('status')).toHaveTextContent('Connected'))
         expect(nav.getByRole('status')).toHaveAttribute('aria-live', 'polite')
 
         FakeWebSocket.last.drop()

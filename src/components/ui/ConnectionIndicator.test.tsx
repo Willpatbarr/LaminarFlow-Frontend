@@ -13,14 +13,31 @@ describe('ConnectionIndicator', () => {
         render(() => <ConnectionIndicator state={state} />)
 
         expect(screen.getByRole('status')).toHaveTextContent(words)
-        expect(screen.getByText(words)).not.toHaveClass('connection__label--quiet')
+        expect(screen.getByText(words, { selector: '.connection__label' })).toBeInTheDocument()
     })
 
-    it('is quiet when live: the words are for a screen reader only', () => {
-        render(() => <ConnectionIndicator state="live" />)
+    it('says Connected and Signed out, and names the state as its tooltip', () => {
+        const { unmount } = render(() => <ConnectionIndicator state="live" />)
+        expect(screen.getByRole('status')).toHaveTextContent('Connected')
+        expect(screen.getByText('Connected', { selector: '.connection__label' })).toBeInTheDocument()
+        expect(document.querySelector('.connection')).toHaveAttribute('title', 'Connected')
+        unmount()
 
-        expect(screen.getByRole('status')).toHaveTextContent('Live')
-        expect(screen.getByText('Live')).toHaveClass('connection__label--quiet')
+        render(() => <ConnectionIndicator state="signed_out" />)
+        expect(screen.getByRole('status')).toHaveTextContent('Signed out')
+        expect(document.querySelector('.connection')).toHaveAttribute('title', 'Signed out')
+    })
+
+    it('draws "Syncing N changes" while live, without putting the count in the live region', () => {
+        render(() => <ConnectionIndicator state="live" syncing={1} />)
+        expect(document.querySelector('.connection__label')).toHaveTextContent('Syncing 1 change')
+        expect(document.querySelector('.connection')).toHaveAttribute('title', 'Syncing 1 change')
+        expect(screen.getByRole('status')).toHaveTextContent(/^Connected$/)
+    })
+
+    it('does not say syncing when it is not connected', () => {
+        render(() => <ConnectionIndicator state="offline" syncing={3} />)
+        expect(document.querySelector('.connection__label')).toHaveTextContent(/^Offline$/)
     })
 
     it('is a polite live region, present before it changes', () => {

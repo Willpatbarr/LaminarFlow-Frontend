@@ -73,7 +73,12 @@ describe('the session ending mid-action', () => {
         expect(field).toHaveValue('Edited while signed out')
         expect(session.status).toBe('authenticated')
         await waitFor(() => expect(sync.outbox).toMatchObject([{ state: 'unauthorized' }]))
-        expect(await within(screen.getByRole('complementary')).findByRole('button', { name: 'Sign in to sync 1 change' })).toBeInTheDocument()
+        // One place says so: the banner counts the waiting change, and the
+        // rail has no row of its own for it, only "Signed out" (not "Offline").
+        expect(await screen.findByText(/1 change waiting/)).toBeInTheDocument()
+        const rail = within(screen.getByRole('complementary'))
+        expect(rail.queryByRole('button', { name: /Sign in to sync/ })).not.toBeInTheDocument()
+        expect(rail.getByRole('status')).toHaveTextContent('Signed out')
         expect(state.puts).toHaveLength(1)
 
         // The inline form: email is already there.
