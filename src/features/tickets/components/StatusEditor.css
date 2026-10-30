@@ -133,10 +133,14 @@
 }
 
 @media (max-width: 640px) {
-  .aspect-editor__row,
   .aspect-editor__new {
     grid-template-columns: 1fr;
   }
+}
+
+/* A phone (LAM-195): one line per field, name then the ⋯ menu (no handle). */
+.status-editor__row.aspect-editor__row[data-compact='true'] {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 /* Touch (LAM-186): the row's buttons (Button, IconButton) are 44px from their
