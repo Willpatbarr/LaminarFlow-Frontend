@@ -21,12 +21,14 @@ import {
 
 import { viewer } from './viewer'
 import './views.css'
+import { usePageTitle } from './pageTitle'
 
 const busy = () => session.status === 'unknown' || isLoading()
 
 // /views: every saved view of the account's teams, to open or delete. The same
 // views are in the sidebar; this is where a view that is no longer wanted goes.
 export function ViewsPage() {
+    usePageTitle(() => 'Views')
     const [deleting, setDeleting] = createSignal<SavedView | null>(null)
     const views = () => sync.savedViews.toSorted((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
     const teamName = (id: string) => sync.teams.find((team) => team.id === id)?.name ?? ''
@@ -160,6 +162,7 @@ function projectFor(view: SavedView): string | null {
 // /views/:id: opening a saved view is going to the list or board with the setup
 // it saved in the address (viewUrl). Nothing is shown of its own.
 export function ViewPage() {
+    usePageTitle(() => 'Views')
     const params = useParams<{ id: string }>()
     const navigate = useNavigate()
     const view = () => (busy() ? undefined : savedViewById(params.id))

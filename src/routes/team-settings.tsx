@@ -8,12 +8,14 @@ import { StatusEditor } from '@/features/tickets/components/StatusEditor'
 import { isLoading, sync } from '@/sync'
 
 import './team-settings.css'
+import { usePageTitle } from './pageTitle'
 
 // /teams/:teamId/settings. The team's statuses (LAM-95) and labels (LAM-104); the board's
 // column menu opens the same editor (LAM-107).
 export function TeamSettingsPage() {
     const params = useParams<{ teamId: string }>()
     const team = () => sync.teams.find((candidate) => candidate.id === params.teamId)
+    usePageTitle(() => (team() ? `Team settings · ${team()!.name}` : undefined))
     const busy = () => session.status === 'unknown' || isLoading()
     return (
         <section aria-busy={busy() ? 'true' : undefined}>

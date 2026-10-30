@@ -3,6 +3,7 @@ import { For, Show } from 'solid-js'
 
 import { session } from '@/features/auth'
 import { isLoading, sync } from '@/sync'
+import { usePageTitle } from './pageTitle'
 
 // /teams/:teamId. Read from the local store only: the team's name and its
 // projects, each a link to its tickets.
@@ -10,6 +11,7 @@ export function TeamPage() {
     const params = useParams<{ teamId: string }>()
     const team = () => sync.teams.find((candidate) => candidate.id === params.teamId)
     const projects = () => sync.projects.filter((project) => project.team_id === params.teamId)
+    usePageTitle(() => (team() ? team()!.name : undefined))
     const busy = () => session.status === 'unknown' || isLoading()
     return (
         <section aria-busy={busy() ? 'true' : undefined}>
