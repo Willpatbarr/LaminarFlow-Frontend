@@ -2,7 +2,7 @@ import { Extension, type Editor, type Range } from '@tiptap/core'
 import { exitSuggestion, Suggestion } from '@tiptap/suggestion'
 import { PluginKey } from '@tiptap/pm/state'
 
-import type { LinkTarget } from './internalLinks'
+import { editorLinks, type LinkTarget } from './internalLinks'
 
 /*
 ┌─ components/editor ─────────────────────────────
@@ -29,6 +29,21 @@ export type Session = {
     rect: () => DOMRect | null
     pick: (target: LinkTarget) => void
     dismiss: () => void
+}
+
+/** A query longer than this is prose, not a title being searched for. */
+export const MAX_QUERY = 40
+
+/** Whether the text typed after the trigger is still a search, or has turned
+ *  into prose and the list should close (leaving the text as it is). Spaces
+ *  are allowed because titles have them, so these end it:
+ *  - the query starts with a space ("meet @ noon"),
+ *  - two spaces in a row, or a newline,
+ *  - it passed MAX_QUERY characters,
+ *  - it holds a space and nothing matches it any more. */
+export function queryEnded(query: string, all: LinkTarget[]): boolean {
+    if (/^\s/.test(query) || /\s\s|\n/.test(query) || query.length > MAX_QUERY) return true
+    return /\s/.test(query) && matchTargets(all, query, 1).length === 0
 }
 
 export type KeyAction = 'pick' | 'none' | { move: number }
@@ -88,6 +103,10 @@ function trigger(editor: Editor, options: Options, name: string, char: string, a
         allowSpaces: true,
         // `@` only at the start of a word, so an address like a@b.c is just text.
         allowedPrefixes: anywhere ? null : [' ', '\n', '\t'],
+        allow: ({ state, range }) => {
+            const query = state.doc.textBetween(range.from + char.length, range.to, '\n', '\0')
+            return !queryEnded(query, editorLinks()?.targets() ?? [])
+        },
         command: ({ editor: ed, range, props }) => void insertChip(ed, range, props),
         // Our own outside-press handling is the Popover's; the list is not mounted by TipTap.
         dismissOnOutsideClick: false,

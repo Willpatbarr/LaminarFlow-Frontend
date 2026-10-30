@@ -216,7 +216,8 @@ describe('internal links as chips', () => {
         // A space does not end the query: titles have spaces.
         typeText(editor, ' chec')
         await waitFor(() => expect(options()).toEqual(['Launch checklistTicket']))
-        typeText(editor, 'zzz')
+        editor.commands.clearContent()
+        typeText(editor, '@zzz')
         await waitFor(() => expect(options()).toEqual(['No tickets, documents or projects match']))
         expect(screen.getByRole('option')).toHaveAttribute('aria-disabled', 'true')
         // With nothing to pick, Enter is the editor's own.
@@ -288,6 +289,60 @@ describe('internal links as chips', () => {
         press(editor, 'Enter')
         await waitFor(() => expect(screen.getByRole('link', { name: 'Atlas' })).toBeInTheDocument())
         expect(editor.getMarkdown().trim()).toBe('See[Atlas](lf://project/p-1)')
+        setEditorLinks(null)
+    })
+
+    it('closes when the text turns into prose and leaves it as plain text', async () => {
+        register()
+        const editor = await mount('')
+        editor.view.dom.focus()
+        // (a) a space with nothing matching
+        typeText(editor, '@zzz ')
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        typeText(editor, ' ')
+        // (a) the query starting with a space, (b) two spaces in a row
+        editor.commands.clearContent()
+        typeText(editor, '@launch  ')
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        // (b) a newline
+        editor.commands.clearContent()
+        typeText(editor, '@launch')
+        await screen.findByRole('listbox')
+        editor.commands.splitBlock()
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        // (c) past 40 characters
+        editor.commands.clearContent()
+        typeText(editor, `@${'a'.repeat(41)}`)
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        expect(editor.getMarkdown()).not.toContain('lf://')
+        setEditorLinks(null)
+    })
+
+    it('closes when the caret leaves the trigger', async () => {
+        register()
+        const editor = await mount('before ')
+        editor.view.dom.focus()
+        editor.commands.focus('end')
+        typeText(editor, '@lau')
+        await screen.findByRole('listbox')
+        editor.commands.setTextSelection(2)
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        expect(editor.getText()).toContain('@lau')
+        setEditorLinks(null)
+    })
+
+    it('"meet @ noon" then Enter is a newline, with no link', async () => {
+        register()
+        const editor = await mount('')
+        editor.view.dom.focus()
+        typeText(editor, 'meet @')
+        await screen.findByRole('listbox')
+        typeText(editor, ' noon')
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        press(editor, 'Enter')
+        expect(editor.state.doc.childCount).toBe(2)
+        expect(editor.getMarkdown()).not.toContain('lf://')
+        expect(editor.getText()).toContain('meet @ noon')
         setEditorLinks(null)
     })
 

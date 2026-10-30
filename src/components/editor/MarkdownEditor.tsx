@@ -108,8 +108,14 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         if (!open || !links()) return false
         const action = keyAction(event, active(), listed().length)
         if (action === 'none') return false
-        if (action === 'pick') open.pick(listed()[active()])
-        else setActive(action.move)
+        if (action === 'pick') {
+            // Only with a highlighted result: otherwise Enter and Tab are the editor's.
+            const target = listed()[active()]
+            if (!target) return false
+            open.pick(target)
+            return true
+        }
+        setActive(action.move)
         return true
     }
     // Images going up, and why the last one that failed did.

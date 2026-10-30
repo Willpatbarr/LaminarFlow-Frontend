@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { keyAction, matchTargets, SHOWN } from './linkSuggest'
+import { keyAction, matchTargets, MAX_QUERY, queryEnded, SHOWN } from './linkSuggest'
 
 const key = (k: string, extra: object = {}) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, isComposing: false, ...extra })
 
@@ -47,5 +47,33 @@ describe('matchTargets', () => {
     })
     it('is empty when nothing matches', () => {
         expect(matchTargets(all, 'zzz')).toEqual([])
+    })
+})
+
+describe('queryEnded', () => {
+    const all = [
+        { kind: 'ticket' as const, id: '1', title: 'Launch checklist' },
+        { kind: 'project' as const, id: '2', title: 'Atlas' },
+    ]
+    it('keeps going while the text is a search, spaces included', () => {
+        expect(queryEnded('', all)).toBe(false)
+        expect(queryEnded('launch', all)).toBe(false)
+        expect(queryEnded('launch chec', all)).toBe(false)
+        expect(queryEnded('zzz', all)).toBe(false)
+    })
+    it('(a) ends on a space once nothing matches', () => {
+        expect(queryEnded('zzz ', all)).toBe(true)
+        expect(queryEnded('launch zzz', all)).toBe(true)
+    })
+    it('(a) ends when the query starts with a space', () => {
+        expect(queryEnded(' noon', all)).toBe(true)
+    })
+    it('(b) ends on two spaces in a row or a newline', () => {
+        expect(queryEnded('launch  ', all)).toBe(true)
+        expect(queryEnded('launch\nx', all)).toBe(true)
+    })
+    it('(c) ends past the length limit', () => {
+        expect(queryEnded('a'.repeat(MAX_QUERY), all)).toBe(false)
+        expect(queryEnded('a'.repeat(MAX_QUERY + 1), all)).toBe(true)
     })
 })
