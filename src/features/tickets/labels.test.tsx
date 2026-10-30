@@ -23,8 +23,8 @@ const me = {
     permissions: ALL_PERMISSIONS,
 }
 const stamp = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
-const BUG = { id: 'l-1', team_id: 'team-1', name: 'bug', color: '#ef4444', ...stamp }
-const UI = { id: 'l-2', team_id: 'team-1', name: 'ui', color: '#3b82f6', ...stamp }
+const BUG = { id: 'l-1', team_id: 'team-1', name: 'bug', color: 'rust', ...stamp }
+const UI = { id: 'l-2', team_id: 'team-1', name: 'ui', color: 'blue', ...stamp }
 
 type Routes = Parameters<typeof stubFetch>[0]
 let disconnect = () => {}
@@ -76,7 +76,7 @@ describe('creating a label from the picker', () => {
             ...listRoutes([ticket({ id: 't-1', version: 3, title: 'Plain' })], [], [], { labels: [BUG] }),
             'POST /api/v1/labels': async (request) => {
                 posts.push(await bodyOf(request))
-                return ok({ id: 'l-new', team_id: 'team-1', name: 'feature', color: '#22c55e', ...stamp })
+                return ok({ id: 'l-new', team_id: 'team-1', name: 'feature', color: 'green', ...stamp })
             },
             'PUT /api/v1/tickets/t-1': async (request) => {
                 const body = await bodyOf(request)
@@ -92,7 +92,7 @@ describe('creating a label from the picker', () => {
         const box = await screen.findByRole('checkbox', { name: 'feature' })
         await vi.waitFor(() => expect(box).toBeChecked())
         await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ label_ids: ['l-new'] }))
-        expect(posts).toEqual([{ team_id: 'team-1', name: 'feature', color: '#22c55e' }])
+        expect(posts).toEqual([{ team_id: 'team-1', name: 'feature', color: 'green' }])
         expect(screen.getByRole('list', { name: 'Labels' })).toHaveTextContent('feature')
     })
 
@@ -150,14 +150,14 @@ describe('the label list in team settings', () => {
         await user.clear(name)
         await user.type(name, 'defect')
         await user.tab()
-        await vi.waitFor(() => expect(puts).toEqual([{ name: 'defect', color: '#ef4444' }]))
+        await vi.waitFor(() => expect(puts).toEqual([{ name: 'defect', color: 'rust' }]))
 
         await user.selectOptions(within(list).getByLabelText('Colour of defect'), 'Violet')
-        await vi.waitFor(() => expect(puts.at(-1)).toEqual({ name: 'defect', color: '#8b5cf6' }))
+        await vi.waitFor(() => expect(puts.at(-1)).toEqual({ name: 'defect', color: 'violet' }))
 
         await user.type(screen.getByLabelText('New label name'), 'docs')
         await user.click(screen.getByRole('button', { name: 'Add label' }))
-        await vi.waitFor(() => expect(posts).toEqual([{ team_id: 'team-1', name: 'docs', color: '#22c55e' }]))
+        await vi.waitFor(() => expect(posts).toEqual([{ team_id: 'team-1', name: 'docs', color: 'green' }]))
         expect(await within(list).findByLabelText('Name of docs')).toBeInTheDocument()
 
         await user.click(within(list).getByRole('button', { name: 'Delete ui' }))

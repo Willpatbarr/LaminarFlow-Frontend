@@ -23,8 +23,8 @@ test('every field set on the ticket page reaches the server and survives a reloa
     const epic = (await api.POST('/api/v1/epics', { body: { project_id: world.projectId, name: 'Checkout' } })).data!
     const sprint = (await api.POST('/api/v1/sprints', { body: { project_id: world.projectId, name: 'Sprint 1' } })).data!
     const milestone = (await api.POST('/api/v1/milestones', { body: { project_id: world.projectId, name: 'v1.0' } })).data!
-    const bug = (await api.POST('/api/v1/labels', { body: { team_id: world.teamId, name: 'bug', color: '#f00' } })).data!
-    const ui = (await api.POST('/api/v1/labels', { body: { team_id: world.teamId, name: 'ui', color: '#00f' } })).data!
+    const bug = (await api.POST('/api/v1/labels', { body: { team_id: world.teamId, name: 'bug', color: 'rust' } })).data!
+    const ui = (await api.POST('/api/v1/labels', { body: { team_id: world.teamId, name: 'ui', color: 'blue' } })).data!
     expect([epic, sprint, milestone, bug, ui].every(Boolean)).toBe(true)
 
     const ticket = await serverCreate(account, world.projectId, fields('Detail page'))
@@ -87,6 +87,21 @@ test('every field set on the ticket page reaches the server and survives a reloa
         await expect(page.getByLabel('Milestone', { exact: true })).toHaveValue(milestone.id)
         await expect(page.getByRole('checkbox', { name: 'bug' })).toBeChecked()
         await expect(page.getByRole('checkbox', { name: 'ui' })).toBeChecked()
+
+        // LAM-172: a label's dot is its hue token, not a raw colour.
+        for (const [name, hue] of [['bug', 'rust'], ['ui', 'blue']]) {
+            const dot = page.locator('label.ticket__label', { hasText: name }).locator('.ticket__label-dot')
+            const painted = await dot.evaluate((el) => getComputedStyle(el).backgroundColor)
+            const token = await page.evaluate((h) => {
+                const probe = document.createElement('i')
+                probe.style.background = `var(--${h})`
+                document.body.append(probe)
+                const colour = getComputedStyle(probe).backgroundColor
+                probe.remove()
+                return colour
+            }, hue)
+            expect(painted).toBe(token)
+        }
     }
     await shown()
 

@@ -54,6 +54,7 @@ import type { Viewer } from '../viewer'
 import { archiveWithUndo } from './ArchiveUndoToast'
 import { ConflictPanel } from './ConflictPanel'
 import { LabelChips } from './LabelChips'
+import { hueFor } from '../statusLook'
 import { NewLabel } from './LabelEditor'
 import { SyncMarker } from './SyncMarker'
 import './tickets.css'
@@ -735,7 +736,7 @@ function TicketEditor(props: TicketEditorProps) {
                                 <span
                                     class="ticket__label-dot"
                                     aria-hidden="true"
-                                    style={{ background: label.color || 'var(--text-3)' }}
+                                    style={{ background: `var(--${hueFor(label.color)})` }}
                                 />
                                 {label.name}
                             </label>

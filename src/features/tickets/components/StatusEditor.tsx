@@ -235,7 +235,7 @@ function StatusRow(props: StatusRowProps) {
 function NewStatus(props: { teamId: string; next: () => number }) {
     const [name, setName] = createSignal('')
     const [category, setCategory] = createSignal('not_started')
-    const [colour, setColour] = createSignal(COLOURS[0].value)
+    const [colour, setColour] = createSignal<string>(COLOURS[0].value)
     const tooLong = () => overMessage('Name', nameCount(name()))
 
     function add() {

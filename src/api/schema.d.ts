@@ -2114,7 +2114,7 @@ export interface components {
              * @example https://example.com/api/v1/schemas/CreateLabelInputBody.json
              */
             readonly $schema?: string;
-            /** @description Any string up to 32 characters; nothing reads it but the client. */
+            /** @description A hue name: slate, blue, teal, green, amber, clay, rust or violet. A #rrggbb hex is accepted and stored as the nearest hue name; anything else is a 422 at body.color. */
             color: string;
             /** @description 1 to 100 characters (not bytes), and not only whitespace. Unique within the team, or 409 label_name_taken. */
             name: string;
@@ -2248,7 +2248,7 @@ export interface components {
             readonly $schema?: string;
             /** @enum {string} */
             category: "not_started" | "in_progress" | "done";
-            /** @description Any string up to 32 characters; nothing reads it but the client. */
+            /** @description A hue name: slate, blue, teal, green, amber, clay, rust or violet. A #rrggbb hex is accepted and stored as the nearest hue name; anything else is a 422 at body.color. */
             color: string;
             /** @description 1 to 100 characters, and not only whitespace. */
             name: string;
@@ -2639,7 +2639,7 @@ export interface components {
              * @example https://example.com/api/v1/schemas/LabelBody.json
              */
             readonly $schema?: string;
-            /** @description Any string up to 32 characters; nothing reads it but the client. */
+            /** @description A hue name: slate, blue, teal, green, amber, clay, rust or violet. A #rrggbb hex is accepted and stored as the nearest hue name; anything else is a 422 at body.color. */
             color: string;
             /** Format: date-time */
             created_at: string;
@@ -3415,7 +3415,7 @@ export interface components {
              * @description How many results. Omitted means 20. Over the maximum is rejected, not clamped.
              */
             limit?: number;
-            /** @description What to look for: 1 to 200 characters (not bytes), and not only whitespace. Words are stemmed and all must match; "quoted phrases", or, and -minus work as in a web search. */
+            /** @description What to look for: 1 to 200 characters (not bytes), and not only whitespace. Words are stemmed and all must match, and the last word also matches as a prefix ("phrasin" finds "phrasing"); whole-word matches rank above prefix-only ones. "quoted phrases", or, and -minus work as in a web search, without prefix matching. */
             q: string;
             /**
              * @description Only results of this kind. Omit for all.

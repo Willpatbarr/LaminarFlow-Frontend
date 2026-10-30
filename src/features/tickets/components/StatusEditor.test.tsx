@@ -92,7 +92,7 @@ it('adds a status at the end', async () => {
         ...listRoutes(),
         [`POST ${BASE}`]: async (request) => {
             body = await bodyOf(request)
-            return ok({ id: 's-new', name: 'Review', color: '#94a3b8', position: 4, category: 'not_started' })
+            return ok({ id: 's-new', name: 'Review', color: 'slate', position: 4, category: 'not_started' })
         },
     })
     await screen.findByLabelText('Name of To Do')
@@ -101,7 +101,7 @@ it('adds a status at the end', async () => {
     await user.click(screen.getByRole('button', { name: 'Add status' }))
 
     await waitFor(() => expect(rows().map(nameOf)).toEqual(['To Do', 'In Progress', 'Done', 'Review']))
-    await waitFor(() => expect(body).toEqual({ name: 'Review', color: '#94a3b8', category: 'not_started', position: 4 }))
+    await waitFor(() => expect(body).toEqual({ name: 'Review', color: 'slate', category: 'not_started', position: 4 }))
 })
 
 describe('delete', () => {
