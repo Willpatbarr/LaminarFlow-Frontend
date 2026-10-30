@@ -26,12 +26,39 @@
   color: var(--text-2);
 }
 
+.settings__body {
+  display: grid;
+  gap: var(--s-8);
+  padding-top: var(--s-8);
+}
+
+.settings__body > .t-meta {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.settings__summary {
+  gap: var(--s-8);
+}
+
+.settings__summary > .t-section {
+  margin: 0;
+}
+
+.settings__count {
+  color: var(--text-2);
+}
+
 .settings__section > p.t-body {
   margin: 0;
 }
 
 /* Touch (LAM-186): a link that is a section's only content is a 44px target. */
 @media (pointer: coarse) {
+  .settings__summary {
+    min-height: var(--touch-target);
+  }
+
   .settings__section > p.t-body > a {
     display: inline-flex;
     align-items: center;

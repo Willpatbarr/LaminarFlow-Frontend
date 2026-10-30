@@ -4,7 +4,10 @@ import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { RowMenu, RowMenuItem } from '@/components/ui/RowMenu'
 import { Select } from '@/components/ui/Select'
+import { Icon } from '@/components/ui/icons/Icon'
+import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import {
     createLabel,
     deleteLabel,
@@ -87,6 +90,7 @@ export function LabelEditor(props: { teamId: string }) {
 function LabelRow(props: { label: Label; onDelete: () => void }) {
     // The text being typed, or null while the row shows the saved name.
     const [draft, setDraft] = createSignal<string | null>(null)
+    const narrow = useNarrowScreen()
     const head = () => labelHead(props.label.id)
     const name = () => draft() ?? props.label.name
     const tooLong = () => overMessage('Name', nameCount(name()))
@@ -102,7 +106,7 @@ function LabelRow(props: { label: Label; onDelete: () => void }) {
     }
 
     return (
-        <li class="status-editor__row label-editor__row">
+        <li class="status-editor__row label-editor__row" data-compact={narrow() ? 'true' : undefined}>
             <LabelChip label={props.label} />
             <form
                 class="status-editor__name"
@@ -121,18 +125,49 @@ function LabelRow(props: { label: Label; onDelete: () => void }) {
                     error={tooLong()}
                 />
             </form>
-            <Select
-                label={`Colour of ${props.label.name}`}
-                hideLabel
-                value={colour()}
-                options={COLOURS}
-                onChange={(value) => void updateLabel(props.label.id, { color: value })}
-            />
-            <span class="status-editor__actions">
-                <Button variant="ghost" size="sm" disabledReason={denial('ticket:write', 'delete labels')} aria-label={`Delete ${props.label.name}`} onClick={() => props.onDelete()}>
-                    Delete
-                </Button>
-            </span>
+            <Show
+                when={!narrow()}
+                fallback={
+                    <RowMenu label={`Actions for ${props.label.name}`}>
+                        <p class="t-overline row-menu__head" aria-hidden="true">
+                            Colour
+                        </p>
+                        <For each={COLOURS}>
+                            {(option) => (
+                                <RowMenuItem
+                                    checked={colour() === option.value}
+                                    label={`Colour ${option.label}`}
+                                    disabledReason={denial('ticket:write', 'recolour labels')}
+                                    onSelect={() => void updateLabel(props.label.id, { color: option.value })}
+                                >
+                                    <span class="row-menu__swatch" style={{ background: `var(--${option.value})` }} />
+                                    {option.label}
+                                    <Show when={colour() === option.value}>
+                                        <Icon name="check" size={16} class="row-menu__check" />
+                                    </Show>
+                                </RowMenuItem>
+                            )}
+                        </For>
+                        <hr class="row-menu__rule" />
+                        <RowMenuItem destructive onSelect={() => props.onDelete()} disabledReason={denial('ticket:write', 'delete labels')}>
+                            Delete
+                        </RowMenuItem>
+                    </RowMenu>
+                }
+            >
+                <Select
+                    label={`Colour of ${props.label.name}`}
+                    hideLabel
+                    value={colour()}
+                    options={COLOURS}
+                    onChange={(value) => void updateLabel(props.label.id, { color: value })}
+                />
+                <span class="status-editor__actions">
+                    <Button variant="ghost" size="sm" disabledReason={denial('ticket:write', 'delete labels')} aria-label={`Delete ${props.label.name}`} onClick={() => props.onDelete()}>
+                        Delete
+                    </Button>
+                </span>
+            </Show>
             <Show when={head()?.state === 'failed' && head()} keyed>
                 {(entry) => (
                     <p class="status-editor__problem t-meta" role="alert">
