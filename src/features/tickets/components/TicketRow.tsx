@@ -2,6 +2,7 @@ import { createSignal, For, Match, Show, Switch } from 'solid-js'
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { IconButton } from '@/components/ui/IconButton'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonCircle, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
@@ -100,6 +101,11 @@ export function TicketRow(props: TicketRowProps) {
 // the row.
 const DEFAULT_CELLS = ['status', 'assignee']
 
+// The row's buttons are icons, quiet until the row is hovered or focused (see
+// Table.css), with their words in a tooltip. The list binds no key for Edit or
+// Archive (E and S belong to the ticket page), so there is no shortcut to
+// show beside them yet.
+
 function LoadedTicketRow(props: LoadedRow) {
     const cells = () => props.columns ?? DEFAULT_CELLS
     const nameOf = (rows: { id: string; name: string }[], id: string | null) =>
@@ -188,26 +194,40 @@ function LoadedTicketRow(props: LoadedRow) {
                     below={panel()}
                     actions={
                         <>
-                            <Button
-                                variant="ghost"
-                                size="sm"
+                            <IconButton
+                                label={`Edit ${name()}`}
+                                tooltip={'Edit title and status'}
                                 disabled={locked()}
                                 disabledReason={denial('ticket:write', 'edit tickets')}
-                                aria-label={`Edit ${name()}`}
                                 onClick={startEditing}
                             >
-                                Edit
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
+                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path
+                                        d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"
+                                        stroke="currentColor"
+                                        stroke-width="1.8"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
+                                </svg>
+                            </IconButton>
+                            <IconButton
+                                label={`Archive ${name()}`}
+                                tooltip={'Archive ticket'}
                                 disabled={locked()}
                                 disabledReason={denial('ticket:write', 'archive tickets')}
-                                aria-label={`Archive ${name()}`}
                                 onClick={() => void archiveWithUndo(props.ticket)}
                             >
-                                Archive
-                            </Button>
+                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path
+                                        d="M4 5h16v4H4zM5.5 9v10h13V9M10 13h4"
+                                        stroke="currentColor"
+                                        stroke-width="1.8"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
+                                </svg>
+                            </IconButton>
                         </>
                     }
                 >

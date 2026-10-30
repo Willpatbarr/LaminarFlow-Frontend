@@ -37,7 +37,8 @@ test('rows stack: long titles are visible and wrap, nothing overlaps, no sideway
     expect(pillBox.y).toBeGreaterThanOrEqual(titleBox.y + titleBox.height - 1)
 
     // The column header row is gone, so its labels cannot print over each other.
-    await expect(group.locator('.table__header')).toBeHidden()
+    await expect(page.locator('.table__header')).toBeHidden()
+    await expect(page.locator('.table-head')).toBeHidden()
 
     // Sorting stays reachable from the toolbar.
     await expect(page.getByLabel('Sort by')).toBeVisible()
@@ -48,6 +49,10 @@ test('rows stack: long titles are visible and wrap, nothing overlaps, no sideway
     const archiveBox = (await archive.boundingBox())!
     expect(archiveBox.x + archiveBox.width).toBeLessThanOrEqual(375)
     expect(archiveBox.y).toBeGreaterThanOrEqual(titleBox.y + titleBox.height - 1)
+    // Touch has no hover, so the quiet row buttons are at full strength.
+    const strong = await archive.evaluate((el) => getComputedStyle(el).color)
+    const text = await page.getByRole('heading', { name: 'Tickets', exact: true }).evaluate((el) => getComputedStyle(el).color)
+    expect(strong).toBe(text)
     await archive.focus()
     await expect(archive).toBeFocused()
 

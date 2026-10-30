@@ -54,8 +54,8 @@ export function ScopedTickets(props: ScopedTicketsProps) {
     const tickets = () => props.tickets
     const statuses = () => statusesForProject(props.projectId)
     const columns = () => visibleColumns(props.config)
-    const template = () => [...columns().map((field) => FIELDS[field].width), '12px', '124px'].join(' ')
-    const headers = () => [...columns().map((field) => (field === 'assignee' ? '' : fieldLabel(field))), '', '']
+    const template = () => [...columns().map((field) => FIELDS[field].width), '12px', '64px'].join(' ')
+    const headers = () => [...columns().map((field) => fieldLabel(field)), '', '']
 
     return (
         <Show when={tickets().length > 0} fallback={<p class="t-body hierarchy__empty">{props.empty}</p>}>

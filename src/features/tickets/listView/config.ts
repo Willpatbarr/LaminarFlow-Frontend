@@ -54,7 +54,7 @@ export const FIELDS: Record<string, Field> = {
     description: { kind: 'text', label: 'Description', width: '160px' },
     project: { kind: 'uuid', label: 'Project', width: '120px' },
     status: { kind: 'uuid', label: 'Status', width: '132px' },
-    assignee: { kind: 'uuid', label: 'Assignee', width: '20px' },
+    assignee: { kind: 'uuid', label: 'Assignee', width: '72px' },
     epic: { kind: 'uuid', label: 'Epic', width: '120px' },
     milestone: { kind: 'uuid', label: 'Milestone', width: '110px' },
     created_at: { kind: 'time', label: 'Created', width: '96px' },
@@ -176,7 +176,12 @@ export function fromSearch(params: URLSearchParams): { config: ListViewConfig; c
             return { field, desc: direction === 'desc' }
         })
         .filter((key): key is SortKey => key !== null)
-    if (sort.length > 0) config.sort = sort
+    // LAM-155: "Recently updated" and "Updated" were one ordering listed twice.
+    // The list's own order (no sort) is newest change first, which is what
+    // `updated_at:desc` says, so an old link or saved view that names it means
+    // the default. (`updated_at` ascending stays: it is the same option with
+    // its direction flipped.)
+    if (sort.length > 0 && !isRecentlyUpdated(sort)) config.sort = sort
 
     const seen = new Set<string>()
     const columns = (params.get('columns') ?? '')
@@ -189,6 +194,8 @@ export function fromSearch(params: URLSearchParams): { config: ListViewConfig; c
     const collapsed = (params.get('collapsed') ?? '').split(',').filter((key) => key !== '')
     return { config, collapsed }
 }
+
+const isRecentlyUpdated = (sort: SortKey[]) => sort.length === 1 && sort[0].field === 'updated_at' && sort[0].desc
 
 function parseFilter(raw: string | null): FilterGroup | undefined {
     if (!raw || raw.length > MAX_FILTER_CHARS) return undefined

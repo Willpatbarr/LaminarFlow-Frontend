@@ -224,3 +224,51 @@ describe('groups and columns', () => {
         expect(screen.getByRole('checkbox', { name: 'Title' })).toBeDisabled()
     })
 })
+
+describe('list polish (LAM-155)', () => {
+    it('lists "Recently updated" once, and reads the old "updated_at" sort as it', async () => {
+        const history = await open('/?sort=updated_at:desc')
+        const user = userEvent.setup()
+        await screen.findByRole('region', { name: 'To Do' })
+
+        const sort = screen.getByLabelText('Sort by')
+        expect(within(sort).getAllByRole('option').map((o) => o.textContent)).not.toContain('Updated')
+        expect(within(sort).getAllByRole('option').filter((o) => o.textContent === 'Recently updated')).toHaveLength(1)
+        expect(sort).toHaveValue('')
+        // An old link's explicit key is the default now: nothing left to write.
+        expect(titles()[0]).toContain('Pay by card')
+
+        // The direction button works on the default ordering.
+        await user.click(screen.getByRole('button', { name: 'Sort direction: descending' }))
+        expect(new URLSearchParams(history.get().split('?')[1]).get('sort')).toBe('updated_at')
+        expect(screen.getByLabelText('Sort by')).toHaveValue('')
+        expect(screen.getByRole('button', { name: 'Sort direction: ascending' })).toBeInTheDocument()
+    })
+
+    it('draws one column header for every group, with an Assignee column', async () => {
+        await open('/')
+        await screen.findByRole('region', { name: 'To Do' })
+        expect(screen.getAllByRole('region').length).toBeGreaterThan(1)
+        const headers = document.querySelectorAll('.table__header')
+        expect(headers).toHaveLength(1)
+        expect(headers[0]).toHaveTextContent('Assignee')
+    })
+
+    it('keeps the room for "Clear filters" whether or not it shows', async () => {
+        await open('/')
+        await screen.findByRole('region', { name: 'To Do' })
+        expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+        expect(document.querySelector('.list-controls__clear')).toBeInTheDocument()
+    })
+
+    it('has quiet icon buttons on every row, named and in the tab order', async () => {
+        await open('/')
+        await screen.findByRole('region', { name: 'To Do' })
+        const edit = screen.getAllByRole('button', { name: /^Edit / })
+        expect(edit).toHaveLength(3)
+        expect(edit[0]).toHaveAccessibleDescription('Edit title and status')
+        expect(edit[0]).not.toHaveAttribute('tabindex')
+        expect(edit[0].textContent).toBe('')
+        expect(screen.getAllByRole('button', { name: /^Archive / })[0]).toHaveAccessibleDescription('Archive ticket')
+    })
+})

@@ -23,3 +23,8 @@
 .tooltip:focus-within .tooltip__text {
   visibility: visible;
 }
+
+.tooltip--above .tooltip__text {
+  top: auto;
+  bottom: calc(100% + var(--s-4));
+}

@@ -1,7 +1,7 @@
 import { render, screen } from '@solidjs/testing-library'
 import { describe, expect, it } from 'vitest'
 
-import { Table, TableRow } from './Table'
+import { Table, TableHeader, TableRow } from './Table'
 
 // The stacked narrow layout (LAM-140) is CSS only, so the markup it relies on
 // is what is worth pinning: the first cell is the title, the header is
@@ -22,5 +22,27 @@ describe('Table', () => {
         const archive = screen.getByRole('button', { name: 'Archive One' })
         expect(link.contains(archive)).toBe(false)
         expect(archive.closest('.table__item')).toBe(link.closest('.table__item'))
+    })
+
+    it('can leave its header to one TableHeader above several tables', () => {
+        const { container } = render(() => (
+            <>
+                <TableHeader columns={['Title', 'Assignee']} template="1fr 72px" />
+                <Table columns={['Title', 'Assignee']} template="1fr 72px" header={false}>
+                    <TableRow href="/t/1">
+                        <span>One</span>
+                        <span>—</span>
+                    </TableRow>
+                </Table>
+                <Table columns={['Title', 'Assignee']} template="1fr 72px" header={false}>
+                    <TableRow href="/t/2">
+                        <span>Two</span>
+                        <span>—</span>
+                    </TableRow>
+                </Table>
+            </>
+        ))
+        expect(container.querySelectorAll('.table__header')).toHaveLength(1)
+        expect(container.querySelector('.table__header')).toHaveTextContent('Assignee')
     })
 })

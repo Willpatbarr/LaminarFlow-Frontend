@@ -59,6 +59,14 @@ describe('the URL codec', () => {
         expect(config.columns).toEqual(['status', 'epic'])
     })
 
+    it('reads the old "updated_at:desc" sort as the default order (LAM-155)', () => {
+        const old = fromSearch(new URLSearchParams('sort=updated_at:desc')).config
+        expect(old.sort).toBeUndefined()
+        // Ascending is still a sort of its own, and so is a second key.
+        expect(fromSearch(new URLSearchParams('sort=updated_at')).config.sort).toEqual([{ field: 'updated_at', desc: false }])
+        expect(fromSearch(new URLSearchParams('sort=updated_at:desc,title')).config.sort).toHaveLength(2)
+    })
+
     it('ignores a filter that is not JSON, too deep or empty', () => {
         expect(fromSearch(new URLSearchParams({ filter: '{nope' })).config.filter).toBeUndefined()
         expect(fromSearch(new URLSearchParams({ filter: '{"op":"and"}' })).config.filter).toBeUndefined()
