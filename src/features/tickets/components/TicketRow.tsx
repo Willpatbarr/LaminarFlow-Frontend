@@ -184,22 +184,25 @@ function LoadedTicketRow(props: LoadedRow) {
         if (Object.keys(patch).length > 0) void updateTicket(id(), patch)
     }
 
-    const panel = () => (
-        <Show when={conflicted()}>
-            {(found) => (
-                <ConflictPanel
-                    kind={found().kind}
-                    conflict={found().conflict}
-                    mine={props.ticket}
-                    statuses={props.statuses}
-                    viewer={props.viewer}
-                    onKeepTheirs={() => discard(found().entryId)}
-                    onUseMine={() => retry(found().entryId)}
-                    onKeepAsNew={() => keepAsNew(found().entryId)}
-                />
-            )}
-        </Show>
-    )
+    // `undefined` when there is no conflict: the table renders the "below" box
+    // only for something truthy, and an empty `<Show>` is truthy, which left a
+    // 12px empty box under every row (LAM-176).
+    const panel = () => {
+        const found = conflicted()
+        if (!found) return undefined
+        return (
+            <ConflictPanel
+                kind={found.kind}
+                conflict={found.conflict}
+                mine={props.ticket}
+                statuses={props.statuses}
+                viewer={props.viewer}
+                onKeepTheirs={() => discard(found.entryId)}
+                onUseMine={() => retry(found.entryId)}
+                onKeepAsNew={() => keepAsNew(found.entryId)}
+            />
+        )
+    }
 
     return (
         <Show
