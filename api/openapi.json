@@ -873,7 +873,7 @@
             "type": "string"
           },
           "color": {
-            "description": "Any string up to 32 characters; nothing reads it but the client.",
+            "description": "A hue name: slate, blue, teal, green, amber, clay, rust or violet. A #rrggbb hex is accepted and stored as the nearest hue name; anything else is a 422 at body.color.",
             "maxLength": 32,
             "minLength": 1,
             "type": "string"
@@ -1149,7 +1149,7 @@
             "type": "string"
           },
           "color": {
-            "description": "Any string up to 32 characters; nothing reads it but the client.",
+            "description": "A hue name: slate, blue, teal, green, amber, clay, rust or violet. A #rrggbb hex is accepted and stored as the nearest hue name; anything else is a 422 at body.color.",
             "maxLength": 32,
             "minLength": 1,
             "type": "string"
@@ -1972,7 +1972,7 @@
             "type": "string"
           },
           "color": {
-            "description": "Any string up to 32 characters; nothing reads it but the client.",
+            "description": "A hue name: slate, blue, teal, green, amber, clay, rust or violet. A #rrggbb hex is accepted and stored as the nearest hue name; anything else is a 422 at body.color.",
             "type": "string"
           },
           "created_at": {
@@ -3923,7 +3923,7 @@
             "type": "integer"
           },
           "q": {
-            "description": "What to look for: 1 to 200 characters (not bytes), and not only whitespace. Words are stemmed and all must match; \"quoted phrases\", or, and -minus work as in a web search.",
+            "description": "What to look for: 1 to 200 characters (not bytes), and not only whitespace. Words are stemmed and all must match, and the last word also matches as a prefix (\"phrasin\" finds \"phrasing\"); whole-word matches rank above prefix-only ones. \"quoted phrases\", or, and -minus work as in a web search, without prefix matching.",
             "maxLength": 200,
             "minLength": 1,
             "type": "string"

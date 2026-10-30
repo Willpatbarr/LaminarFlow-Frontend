@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { hueFor, isStarted } from './statusLook'
 
 describe('hueFor', () => {
+    it('takes a stored hue name as it is, in any case', () => {
+        for (const name of ['slate', 'blue', 'teal', 'green', 'amber', 'clay', 'rust', 'violet']) {
+            expect(hueFor(name)).toBe(name)
+        }
+        expect(hueFor(' Violet ')).toBe('violet')
+    })
+
     it('maps the three seeded status colours to sheet hues', () => {
         expect(hueFor('#94a3b8')).toBe('slate')
         expect(hueFor('#3b82f6')).toBe('blue')

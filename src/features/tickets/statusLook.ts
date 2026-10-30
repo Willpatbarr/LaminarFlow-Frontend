@@ -5,27 +5,31 @@ import type { Status } from '@/sync'
 ┌─ tickets ───────────────────────────────────────
 │  how a status row from the server is drawn as a pill
 ├─ out ───────────────────────────────────────────
-│      hueFor       a stored colour → the nearest of the sheet's eight hues
+│      hueFor       a stored colour (a hue name, or an older hex) → one of the sheet's eight hues
 │      isStarted    filled dot or ring
-│      COLOURS      the colours a status or label may be given (one per hue)
+│      COLOURS      the colours a status or label may be given: the eight hue names
 ├─ example ───────────────────────────────────────
-│      "#3b82f6"  →  'blue'        "#94a3b8"  →  'slate'
+│      "blue"     →  'blue'        "#94a3b8"  →  'slate'
 */
-// A status carries whatever hex its team picked. The design system has eight
-// hues and a rule that nothing a user creates is drawn more saturated than the
-// accent, so the stored colour chooses a hue and is never painted itself.
+// The design system has eight hues and a rule that nothing a user creates is
+// drawn more saturated than the accent, so a stored colour chooses a hue and is
+// never painted itself. Since LAM-172 the server stores the hue NAME ("blue");
+// the hex branch of hueFor stays for a value written before the migration or by
+// an old client, and for the one the server has not seen yet (offline outbox).
 
-// One stored colour per sheet hue (statusLook.hueFor maps each back to it).
-export const COLOURS = [
-    { value: '#94a3b8', label: 'Slate' },
-    { value: '#3b82f6', label: 'Blue' },
-    { value: '#14b8a6', label: 'Teal' },
-    { value: '#22c55e', label: 'Green' },
-    { value: '#f59e0b', label: 'Amber' },
-    { value: '#c2410c', label: 'Clay' },
-    { value: '#ef4444', label: 'Rust' },
-    { value: '#8b5cf6', label: 'Violet' },
+// One stored colour per sheet hue: its name, which is what the server stores.
+export const COLOURS: { value: Hue; label: string }[] = [
+    { value: 'slate', label: 'Slate' },
+    { value: 'blue', label: 'Blue' },
+    { value: 'teal', label: 'Teal' },
+    { value: 'green', label: 'Green' },
+    { value: 'amber', label: 'Amber' },
+    { value: 'clay', label: 'Clay' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'violet', label: 'Violet' },
 ]
+
+const NAMES = new Set<string>(COLOURS.map((option) => option.value))
 
 // Where each hue sits on the colour wheel, in degrees.
 const WHEEL: [Hue, number][] = [
@@ -44,6 +48,8 @@ const WHEEL: [Hue, number][] = [
 const GREY_BELOW = 0.25
 
 export function hueFor(color: string): Hue {
+    const name = color.trim().toLowerCase()
+    if (NAMES.has(name)) return name as Hue
     const match = /^#?([0-9a-f]{6})$/i.exec(color.trim())
     if (!match) return 'slate'
     const value = parseInt(match[1], 16)

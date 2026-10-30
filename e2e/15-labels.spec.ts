@@ -59,7 +59,7 @@ test('a label created inline is applied, reaches the server and shows as a chip 
 test('team settings renames a label and deletes it, and the ticket loses its chip', async ({ page, context, baseURL }) => {
     const account = await newAccount('labelsettings')
     const world = await projectOf(account)
-    const bug = (await account.api.POST('/api/v1/labels', { body: { team_id: world.teamId, name: 'bug', color: '#ef4444' } })).data!
+    const bug = (await account.api.POST('/api/v1/labels', { body: { team_id: world.teamId, name: 'bug', color: 'rust' } })).data!
     const ticket = (
         await account.api.POST('/api/v1/tickets', {
             body: { project_id: world.projectId, ...fields('Has a label'), label_ids: [bug.id] },

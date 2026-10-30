@@ -17,7 +17,7 @@ import {
 } from '@/sync'
 
 import { nameCount, overMessage } from '../limits'
-import { COLOURS } from '../statusLook'
+import { COLOURS, hueFor } from '../statusLook'
 import { LabelChip } from './LabelChips'
 import './StatusEditor.css'
 
@@ -90,10 +90,8 @@ function LabelRow(props: { label: Label; onDelete: () => void }) {
     const head = () => labelHead(props.label.id)
     const name = () => draft() ?? props.label.name
     const tooLong = () => overMessage('Name', nameCount(name()))
-    // The colour of the row, or the nearest the list offers when the stored one
-    // is not on it (made elsewhere): the select must show something true.
-    const colour = () => (COLOURS.some((option) => option.value === props.label.color) ? props.label.color : '')
-    const colours = () => (colour() === '' ? [{ value: '', label: 'Custom' }, ...COLOURS] : COLOURS)
+    // The hue of the row; an older hex shows as the hue it is drawn in.
+    const colour = () => hueFor(props.label.color)
 
     function commit() {
         const text = draft()?.trim()
@@ -127,8 +125,8 @@ function LabelRow(props: { label: Label; onDelete: () => void }) {
                 label={`Colour of ${props.label.name}`}
                 hideLabel
                 value={colour()}
-                options={colours()}
-                onChange={(value) => value && void updateLabel(props.label.id, { color: value })}
+                options={COLOURS}
+                onChange={(value) => void updateLabel(props.label.id, { color: value })}
             />
             <span class="status-editor__actions">
                 <Button variant="ghost" size="sm" disabledReason={denial('ticket:write', 'delete labels')} aria-label={`Delete ${props.label.name}`} onClick={() => props.onDelete()}>
@@ -165,7 +163,7 @@ type NewLabelProps = {
 // nest. Enter in the name field adds, as it would in a form.
 export function NewLabel(props: NewLabelProps) {
     const [name, setName] = createSignal('')
-    const [colour, setColour] = createSignal(COLOURS[3].value)
+    const [colour, setColour] = createSignal<string>(COLOURS[3].value)
     const taken = () => (name().trim() ? labelNamed(props.teamId, name()) : undefined)
     const tooLong = () => overMessage('Name', nameCount(name()))
     const blocked = () => name().trim() === '' || tooLong() !== undefined
