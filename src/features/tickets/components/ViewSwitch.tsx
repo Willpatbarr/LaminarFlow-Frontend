@@ -1,6 +1,6 @@
 import { SegmentedNav } from '@/components/ui/Segmented'
 import { ShortcutHint } from '@/features/shortcuts/ShortcutHint'
-import { toSearch, type FilterGroup } from '../listView/config'
+import { DEFAULT_GROUP, toSearch, type FilterGroup } from '../listView/config'
 import { boardSearch } from '../savedViews/savedView'
 import './tickets.css'
 
@@ -11,7 +11,7 @@ import './tickets.css'
 // The key for the other view sits beside it (hidden on touch).
 export function ViewSwitch(props: { current: 'list' | 'board'; projectId: string; boardId: string; filter?: FilterGroup }) {
     const list = () => {
-        const search = toSearch({ filter: props.filter }).toString()
+        const search = toSearch({ filter: props.filter, group: DEFAULT_GROUP }).toString()
         return `/projects/${encodeURIComponent(props.projectId)}${search ? `?${search}` : ''}`
     }
     const board = () => {
