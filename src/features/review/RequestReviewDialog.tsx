@@ -5,6 +5,7 @@ import { TextArea } from '@/components/ui/TextArea'
 import { loadMembers, members } from '@/features/members/members'
 
 import { createReviewRequest, type ReviewRequest } from './api'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 /*
 ┌─ review ────────────────────────────────────────
@@ -96,9 +97,8 @@ export function RequestReviewDialog(props: Props) {
                             <For each={people()}>
                                 {(member) => (
                                     <label class="review-dialog__person t-body" title={member.email} for={`review-person-${member.account_id}`}>
-                                        <input
+                                        <Checkbox
                                             id={`review-person-${member.account_id}`}
-                                            type="checkbox"
                                             checked={chosen().includes(member.account_id)}
                                             onChange={() => toggle(member.account_id)}
                                         />

@@ -375,6 +375,46 @@ a.view-switch__item:hover {
   color: var(--text-2);
 }
 
+/* LAM-177: an Icon caret replaces the native <details> marker. The size is a
+ * variable so a touch layer can change it in one place. */
+.list-controls__summary {
+  --list-controls-caret: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  list-style: none;
+}
+
+.list-controls__summary::-webkit-details-marker {
+  display: none;
+}
+
+.list-controls__caret {
+  display: inline-grid;
+  flex: none;
+  width: var(--list-controls-caret);
+  height: var(--list-controls-caret);
+}
+
+.list-controls__caret > svg {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+
+.list-controls__caret-open,
+.list-controls__panel[open] > summary .list-controls__caret-closed {
+  display: none;
+}
+
+.list-controls__panel[open] > summary .list-controls__caret-open {
+  display: block;
+}
+
+.list-controls__summary:focus-visible {
+  border-radius: var(--r-chip);
+}
+
 .list-controls__fields {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

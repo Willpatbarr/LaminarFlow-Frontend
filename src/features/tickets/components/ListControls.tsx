@@ -16,6 +16,8 @@ import {
 import { COLUMN_FIELDS, fieldLabel, GROUP_FIELDS, visibleColumns, type ListViewConfig } from '../listView/config'
 import { fromGroup, PICK_FIELDS, toGroup, type FilterModel, type PickField } from '../listView/filterModel'
 import type { Viewer } from '../viewer'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { Icon } from '@/components/ui/icons/Icon'
 
 /*
 ┌─ tickets ───────────────────────────────────────
@@ -63,6 +65,17 @@ const LEGEND: Record<PickField, string> = {
     milestone: 'Milestone',
     label: 'Label',
     sprint: 'Sprint',
+}
+
+// The open/closed marker of a <details> panel, in place of the browser's own
+// triangle. Both carets are drawn; CSS shows the one that matches [open].
+function DisclosureCaret() {
+    return (
+        <span class="list-controls__caret" aria-hidden="true">
+            <Icon name="caret-right" size={16} class="list-controls__caret-closed" />
+            <Icon name="caret-down" size={16} class="list-controls__caret-open" />
+        </span>
+    )
 }
 
 export function ListControls(props: ListControlsProps) {
@@ -246,7 +259,10 @@ export function ListControls(props: ListControlsProps) {
                             class="list-controls__panel"
                             onToggle={(event) => setFilterOpen(event.currentTarget.open)}
                         >
-                            <summary class="t-body">Filter{activeCount() > 0 ? ` (${activeCount()})` : ''}</summary>
+                            <summary class="t-body list-controls__summary">
+                                <DisclosureCaret />
+                                Filter{activeCount() > 0 ? ` (${activeCount()})` : ''}
+                            </summary>
                             <Show when={filterOpen()}>
                                 <div class="list-controls__fields">
                                     <For each={PICK_FIELDS}>
@@ -256,9 +272,8 @@ export function ListControls(props: ListControlsProps) {
                                                 <For each={choices(field, current().picks[field].ids)}>
                                                     {(option) => (
                                                         <label class="list-controls__check t-body" for={`${uid}-${field}-${option.id}`}>
-                                                            <input
+                                                            <Checkbox
                                                                 id={`${uid}-${field}-${option.id}`}
-                                                                type="checkbox"
                                                                 checked={current().picks[field].ids.includes(option.id)}
                                                                 onChange={(event) =>
                                                                     toggle(
@@ -274,9 +289,8 @@ export function ListControls(props: ListControlsProps) {
                                                     )}
                                                 </For>
                                                 <label class="list-controls__check t-body" for={`${uid}-${field}-none`}>
-                                                    <input
+                                                    <Checkbox
                                                         id={`${uid}-${field}-none`}
-                                                        type="checkbox"
                                                         checked={current().picks[field].none}
                                                         onChange={(event) =>
                                                             toggle(current(), field, null, event.currentTarget.checked)
@@ -294,16 +308,18 @@ export function ListControls(props: ListControlsProps) {
                 </Show>
                 <Show when={!props.filterOnly}>
                     <details class="list-controls__panel" onToggle={(event) => setColumnsOpen(event.currentTarget.open)}>
-                        <summary class="t-body">Columns</summary>
+                        <summary class="t-body list-controls__summary">
+                            <DisclosureCaret />
+                            Columns
+                        </summary>
                         <Show when={columnsOpen()}>
                             <fieldset class="list-controls__fieldset">
                                 <legend class="visually-hidden">Visible columns</legend>
                                 <For each={COLUMN_FIELDS}>
                                     {(field) => (
                                         <label class="list-controls__check t-body" for={`${uid}-column-${field}`}>
-                                            <input
+                                            <Checkbox
                                                 id={`${uid}-column-${field}`}
-                                                type="checkbox"
                                                 checked={columns().includes(field)}
                                                 disabled={field === 'title'}
                                                 onChange={(event) => pickColumn(field, event.currentTarget.checked)}

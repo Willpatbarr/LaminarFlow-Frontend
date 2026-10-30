@@ -49,6 +49,7 @@ import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
 import { Icon } from '@/components/ui/icons/Icon'
 import './board.css'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 /*
 ┌─ tickets ───────────────────────────────────────
@@ -569,14 +570,13 @@ function ColumnMenu(props: ColumnMenuProps) {
                         <For each={statuses()} keyed={(status) => status.id}>
                             {(status) => (
                                 <label class="board__status t-body" for={`board-status-${props.column.id}-${status().id}`}>
-                                    <input
+                                    <Checkbox
                                         id={`board-status-${props.column.id}-${status().id}`}
-                                        type="checkbox"
                                         checked={props.column.status_ids.includes(status().id)}
                                         onChange={(event) =>
                                             save(withStatusIn(props.board.columns, props.column.id, status().id, event.currentTarget.checked))
                                         }
-                                    />{' '}
+                                    />
                                     {status().name}
                                     <Show
                                         when={

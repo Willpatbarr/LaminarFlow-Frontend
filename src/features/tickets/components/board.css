@@ -161,6 +161,12 @@
   gap: var(--s-8);
 }
 
+.board__status {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
 .board__statuses {
   display: grid;
   gap: var(--s-6);
