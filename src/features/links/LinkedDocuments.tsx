@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons/Icon'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { CONTENT_KEY, TITLE_MAX } from '@/features/documents/content'
@@ -140,6 +141,7 @@ export function LinkedDocuments(props: LinkedDocumentsProps) {
                     Link a document
                 </Button>
                 <Button variant="ghost" disabled={props.disabled} onClick={() => setMaking(true)}>
+                    <Icon name="file-add" size={16} />
                     New document
                 </Button>
             </div>

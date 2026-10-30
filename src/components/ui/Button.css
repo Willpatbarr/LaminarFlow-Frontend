@@ -98,3 +98,9 @@ a.button {
     justify-content: center;
   }
 }
+
+/* A coolicon beside the label (New ticket, New document): decorative, level with the text. */
+.button > svg {
+  vertical-align: -3px;
+  margin-inline-end: var(--s-8);
+}

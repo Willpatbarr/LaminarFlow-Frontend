@@ -129,7 +129,10 @@ function LoadingTickets(props: { heading?: 'h1' | 'h2' }) {
             <header class="tickets__header">
                 <ListTitle heading={props.heading} />
                 <div class="tickets__actions">
-                    <Button disabled>New ticket</Button>
+                    <Button disabled>
+                        <Icon name="new-ticket" size={16} />
+                        New ticket
+                    </Button>
                 </div>
             </header>
             {/* The one announcement. It is visually hidden: sighted users have
@@ -415,6 +418,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                         Edit statuses
                     </a>
                     <Button onClick={() => openDialog()} disabledReason={denial('ticket:write', 'create tickets')}>
+                        <Icon name="new-ticket" size={16} />
                         New ticket
                         <ShortcutHint id="ticket.new" />
                     </Button>

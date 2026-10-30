@@ -23,9 +23,22 @@
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
 }
 
+.palette__search {
+  position: relative;
+}
+
+.palette__search-icon {
+  position: absolute;
+  top: 50%;
+  left: var(--s-16);
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
 .palette__input {
   width: 100%;
-  padding: var(--s-12) var(--s-16);
+  padding: var(--s-12) var(--s-16) var(--s-12) 44px;
   border: 0;
   border-bottom: 1px solid var(--border);
   background: transparent;

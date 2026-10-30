@@ -97,3 +97,22 @@
     min-height: var(--touch-target);
   }
 }
+
+/* A coolicon inside the field, at the start. The field wrapper is the anchor so
+ * the message and count under the control do not move it. */
+.input__field {
+  position: relative;
+}
+
+.input__icon {
+  position: absolute;
+  top: 50%;
+  left: var(--s-12);
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.input__control--icon {
+  padding-left: var(--s-32);
+}

@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { DisclosureCaret } from '@/components/ui/DisclosureCaret'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Toast } from '@/components/ui/Toast'
@@ -148,7 +149,8 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                                 open={dangerOpen()}
                                 onToggle={(event) => setDangerOpen(event.currentTarget.open)}
                             >
-                                <summary class="t-body">
+                                <summary class="t-body disclosure-summary">
+                                    <DisclosureCaret />
                                     Dangerous permissions
                                     <Show when={dangerPicked()}>
                                         <span class="t-meta"> (1 chosen)</span>
