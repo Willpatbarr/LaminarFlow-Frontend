@@ -22,7 +22,7 @@ test('an image pasted into a document uploads, embeds, and is still there after 
     await expect(page).toHaveURL(UUID)
     const id = page.url().split('/').pop()!
 
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     await editor.click()
     await editor.evaluate((el, base64) => {
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
@@ -45,7 +45,7 @@ test('an image pasted into a document uploads, embeds, and is still there after 
     await expect(page.getByRole('region', { name: 'Attachments' }).getByRole('link', { name: 'screen shot.png' })).toBeVisible()
 
     await page.reload()
-    const again = page.getByRole('textbox', { name: 'Text' }).locator('img')
+    const again = page.getByRole('textbox', { name: 'Document text' }).locator('img')
     await expect(again).toHaveCount(1)
     await expect.poll(() => again.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1)
 })

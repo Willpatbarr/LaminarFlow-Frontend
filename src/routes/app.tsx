@@ -15,6 +15,7 @@ import { useEditorLinks } from '@/features/links/editorLinks'
 import { CommandPalette } from '@/features/search/CommandPalette'
 import { hintFor, installShortcutListener, ShortcutHelp, useShortcut } from '@/features/shortcuts'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
+import { ReviewRequestedToast } from '@/features/review/ReviewRequestedToast'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
@@ -268,6 +269,7 @@ export function AppLayout(props: RouteSectionProps) {
                     <Show when={sync.active}>
                         <SyncTroubleToast />
                         <ArchiveUndoToast />
+                        <ReviewRequestedToast />
                     </Show>
                 }
             >

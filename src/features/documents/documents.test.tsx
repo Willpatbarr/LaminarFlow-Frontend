@@ -23,7 +23,7 @@ afterEach(async () => {
     vi.unstubAllGlobals()
 })
 
-const editor = () => screen.findByRole('textbox', { name: 'Text' })
+const editor = () => screen.findByRole('textbox', { name: 'Document text' })
 
 async function openDocument(body: Record<string, string>, overrides: Parameters<typeof doc>[0] = {}) {
     const puts: { ifMatch: string | null; body: Record<string, unknown> }[] = []
@@ -42,10 +42,21 @@ async function openDocument(body: Record<string, string>, overrides: Parameters<
 describe('the document page', () => {
     it('shows the title and renders the stored Markdown', async () => {
         await openDocument({ content: '# Plan\n\n- one\n- two' })
-        expect(await screen.findByLabelText('Title')).toHaveValue('Notes')
+        expect(await screen.findByLabelText('Document title')).toHaveValue('Notes')
         const text = await editor()
         expect(await within(text).findByRole('heading', { level: 1, name: 'Plan' })).toBeInTheDocument()
         expect(within(text).getAllByRole('listitem')).toHaveLength(2)
+    })
+
+    it('has no Title/Text form boxes: named controls, and the actions in a labelled panel (LAM-150)', async () => {
+        await openDocument({ content: 'Hello' })
+        const title = await screen.findByRole('textbox', { name: 'Document title' })
+        expect(title).toHaveClass('document__title')
+        expect(screen.queryByText('Title')).not.toBeInTheDocument()
+        await editor()
+        const panel = screen.getByRole('complementary', { name: 'Document actions' })
+        expect(within(panel).getByRole('button', { name: 'Request review' })).toBeDisabled()
+        expect(within(panel).getByText('Select text to request a review on it.')).toBeInTheDocument()
     })
 
     it('draws an internal link as a chip to its route', async () => {
@@ -56,7 +67,7 @@ describe('the document page', () => {
 
     it('saves a title edit through the outbox with If-Match, and says Saved', async () => {
         const puts = await openDocument({ content: 'Hello' })
-        const title = await screen.findByLabelText('Title')
+        const title = await screen.findByLabelText('Document title')
         const user = userEvent.setup()
         await user.clear(title)
         await user.type(title, 'Renamed')
@@ -105,7 +116,7 @@ describe('an edit that lost to someone else\'s', () => {
                     { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
                 ),
         })
-        const title = await screen.findByLabelText('Title')
+        const title = await screen.findByLabelText('Document title')
         const user = userEvent.setup()
         await user.clear(title)
         await user.type(title, 'Mine')
@@ -149,7 +160,7 @@ describe('a document\'s project (LAM-138)', () => {
 
     it('a text edit does not send the project', async () => {
         const puts = await openDocument({ content: 'Hello' }, { project_id: 'p-1' })
-        const title = await screen.findByLabelText('Title')
+        const title = await screen.findByLabelText('Document title')
         const user = userEvent.setup()
         await user.type(title, '!')
         await user.tab()

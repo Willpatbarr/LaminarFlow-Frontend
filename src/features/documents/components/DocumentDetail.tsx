@@ -1,12 +1,15 @@
 import { useNavigate } from '@solidjs/router'
-import { createEffect, createMemo, createSignal, For, Match, Show, Switch, untrack } from 'solid-js'
+import type { JSX } from '@solidjs/web'
+import { createEffect, createMemo, createSignal, createUniqueId, For, Match, Show, Switch, untrack } from 'solid-js'
 
 import { can } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Banner } from '@/components/ui/Banner'
-import { Input } from '@/components/ui/Input'
+import { FieldFoot } from '@/components/ui/CharacterCount'
+import { Popover } from '@/components/ui/Popover'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox } from '@/components/ui/Skeleton'
+import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { getAspectType, listAspectTypes, type AspectField, type AspectType } from '@/features/aspects/api'
 import { bodyForConversion, createAspectTypeFeed, orderedFields } from '@/features/aspects/fields'
 import {
@@ -31,10 +34,12 @@ import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
 import { decidedRequestsFor, openRequestsFor } from '@/features/review/feed'
 import { OpenRequestsCount, ReviewPanel } from '@/features/review/ReviewPanel'
+import { notifyReviewRequested } from '@/features/review/ReviewRequestedToast'
 import { ReviewableField, type ReviewContext } from '@/features/review/ReviewableField'
 
 import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
+import { createReviewTarget } from '../reviewTarget'
 import { DocumentConflictPanel } from './DocumentConflictPanel'
 import './documents.css'
 
@@ -85,7 +90,7 @@ export function DocumentDetail(props: DocumentDetailProps) {
                         Loading document…
                     </p>
                     <div aria-hidden="true" class="document">
-                        <SkeletonBox shape="control" height="40px" />
+                        <SkeletonBox shape="control" height="44px" />
                         <SkeletonBox shape="control" height="260px" />
                     </div>
                 </Match>
@@ -188,6 +193,27 @@ function DocumentEditor(props: DocumentEditorProps) {
         }
     }
 
+    const tone = () => {
+        if (title.dirty() || content.dirty() || fieldDrafts() > 0) return 'saving'
+        switch (documentSyncState(id())) {
+            case 'synced':
+                return 'saved'
+            case 'pending':
+                return head() && head()!.attempts > 0 ? 'trouble' : 'saving'
+            default:
+                return 'trouble'
+        }
+    }
+
+    // Reviews are asked for from the actions panel, on the text selected in
+    // whichever field was last selected in (LAM-150).
+    const { target, selectionIn } = createReviewTarget()
+    const [reviewProblem, setReviewProblem] = createSignal('')
+    createEffect(target, () => {
+        setReviewProblem('')
+    })
+    const narrow = useNarrowScreen()
+
     // A range is measured against the text the server holds, so a review can be
     // asked for only once everything typed has been saved and sent.
     const synced = () =>
@@ -236,123 +262,20 @@ function DocumentEditor(props: DocumentEditorProps) {
         )
     }
 
-    return (
-        <div class="document">
-            <div class="document__status t-meta" role="status">
-                {status()}
-            </div>
+    const titleErrorId = createUniqueId()
+    // Lives here, not in the actions Popover, which is unmounted while closed.
+    const makeAspect = createMakeAspectState(() => props.doc)
 
-            <OpenRequestsCount documentId={props.routeId} />
-
-            <Show when={refused()}>
-                {(failure) => (
-                    <div class="document__failure" role="alert">
-                        <p class="t-body">{failure().message}</p>
-                        <div>
-                            <Button variant="secondary" onClick={() => void discard(failure().entryId)}>
-                                Discard my change
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </Show>
-
-            <Show when={conflicted()}>
-                {(found) => (
-                    <DocumentConflictPanel
-                        conflict={found().conflict}
-                        only={found().clashing?.some((f) => f === 'type' || f === 'aspect_type_id') ? undefined : found().clashing}
-                        mine={props.doc}
-                        fields={isAspect() ? fields() : undefined}
-                        onKeepTheirs={keepTheirs}
-                        onUseMine={useMine}
-                        onKeepAsNew={keepMineAsNew}
-                    />
-                )}
-            </Show>
-
-            <Input
-                label="Title"
-                readOnly={locked()}
-                placeholder="Untitled"
-                value={title.value()}
-                onInput={(value) => {
-                    if (!locked()) title.input(value)
-                }}
-                onBlur={() => {
-                    if (!titleError()) void title.flush()
-                }}
-                error={titleError()}
-            />
-            <Select
-                label="Project"
-                value={props.doc.project_id ?? ''}
-                disabled={locked()}
-                onChange={(value) => {
-                    const next = value === '' ? null : value
-                    if (next !== props.doc.project_id) {
-                        void updateDocument(id(), { project_id: next }, { base: props.doc.version, was: { project_id: props.doc.project_id } })
-                    }
-                }}
-                options={[
-                    { value: '', label: 'No project (team-wide)' },
-                    ...sync.projects
-                        .toSorted((a, b) => a.name.localeCompare(b.name))
-                        .map((project) => ({ value: project.id, label: project.name })),
-                ]}
-            />
-            <Show when={isAspect()}>
-                <p class="t-meta">
-                    Aspect: {feed.type()?.name ?? 'loading its fields…'}
-                </p>
-                <Show when={feed.missing()}>
-                    <Banner hue="rust">This document's aspect type no longer exists.</Banner>
-                </Show>
-                <Show when={feed.problem()}>
-                    {(message) => <Banner hue="rust">{message()}</Banner>}
-                </Show>
-                <For each={fields()} keyed={(field) => field.id}>
-                    {(field) => (
-                        <AspectFieldEditor
-                            docId={id()}
-                            field={field()}
-                            saved={() => props.doc.body[field().id] ?? ''}
-                            locked={locked()}
-                            onDirty={(dirty) => setFieldDrafts((n) => n + (dirty ? 1 : -1))}
-                            review={{
-                                documentId: props.routeId,
-                                accountId: props.accountId,
-                                canRequest: synced(),
-                                open: openOn(field().id),
-                                decided: decidedOn(field().id),
-                                onAsked: props.announce,
-                            }}
-                        />
-                    )}
-                </For>
-            </Show>
-
+    const actions = () => (
+        <DocumentActions
+            canRequest={synced()}
+            hasSelection={target() !== null}
+            problem={reviewProblem()}
+            onRequest={() => setReviewProblem(target()?.begin() ?? '')}
+        >
             <Show when={!isAspect()}>
-                <ReviewableField
-                    label="Text"
-                    images={imageUploader(() => ({ documentId: props.routeId }))}
-                    placeholder="Write, or type Markdown: # for a heading, - for a list…"
-                    value={content.value()}
-                    readOnly={locked()}
-                    onChange={(value) => {
-                        if (!locked()) content.input(value)
-                    }}
-                    onBlur={() => void content.flush()}
-                    documentId={props.routeId}
-                    fieldId={null}
-                    stored={() => storedText(null)}
-                    canRequest={synced()}
-                    accountId={props.accountId}
-                    open={openOn(null)}
-                    decided={decidedOn(null)}
-                    onAsked={props.announce}
-                />
                 <MakeAspect
+                    state={makeAspect}
                     doc={props.doc}
                     disabled={locked()}
                     text={content.value}
@@ -362,22 +285,218 @@ function DocumentEditor(props: DocumentEditorProps) {
                     }}
                 />
             </Show>
+        </DocumentActions>
+    )
 
-            <ReviewPanel
-                documentId={props.routeId}
-                accountId={props.accountId}
-                fieldText={storedText}
-                disabled={locked()}
-                onAnnounce={props.announce}
-            />
+    return (
+        <div class="document document--page">
+            <div class="document__main">
+                <input
+                    class="document__title"
+                    aria-label="Document title"
+                    readonly={locked()}
+                    placeholder="Untitled"
+                    value={title.value()}
+                    aria-invalid={titleError() ? 'true' : undefined}
+                    aria-describedby={titleError() ? titleErrorId : undefined}
+                    onInput={(event) => {
+                        if (!locked()) title.input(event.currentTarget.value)
+                    }}
+                    onBlur={() => {
+                        if (!titleError()) void title.flush()
+                    }}
+                />
+                <FieldFoot errorId={titleErrorId} countId={`${titleErrorId}-count`} error={titleError()} />
 
-            <LinkedTickets documentId={props.routeId} disabled={locked()} />
+                <div class="document__meta">
+                    <Select
+                        label="Project"
+                        value={props.doc.project_id ?? ''}
+                        disabled={locked()}
+                        onChange={(value) => {
+                            const next = value === '' ? null : value
+                            if (next !== props.doc.project_id) {
+                                void updateDocument(id(), { project_id: next }, { base: props.doc.version, was: { project_id: props.doc.project_id } })
+                            }
+                        }}
+                        options={[
+                            { value: '', label: 'No project (team-wide)' },
+                            ...sync.projects
+                                .toSorted((a, b) => a.name.localeCompare(b.name))
+                                .map((project) => ({ value: project.id, label: project.name })),
+                        ]}
+                    />
+                    <Show when={isAspect()}>
+                        <span class="document__aspect-name t-meta">Aspect: {feed.type()?.name ?? 'loading its fields…'}</span>
+                    </Show>
+                    {/* HOW IT SAVES: there is no Save button. Typing is saved to the local store a
+                        moment after it stops (and the moment focus leaves the field, and when the
+                        page is left), and the store sends it through the outbox. This says where
+                        it has got to. */}
+                    <div class="document__status t-meta" role="status" data-tone={tone()}>
+                        <span class="document__status-dot" aria-hidden="true" />
+                        {status()}
+                    </div>
+                    <Show when={narrow()}>
+                        <div class="document__more">
+                            <Popover
+                                label="Document actions"
+                                trigger={(trigger) => (
+                                    <button type="button" class="document__more-button button button--secondary button--sm" {...trigger}>
+                                        <span aria-hidden="true">⋯ </span>Actions
+                                    </button>
+                                )}
+                            >
+                                {actions()}
+                            </Popover>
+                        </div>
+                    </Show>
+                </div>
 
-            <AttachmentList parent={{ documentId: props.routeId }} disabled={locked()} />
+                <OpenRequestsCount documentId={props.routeId} />
 
-            <CommentThread parent={{ documentId: props.routeId }} accountId={props.accountId} disabled={locked()} />
+                <Show when={refused()}>
+                    {(failure) => (
+                        <div class="document__failure" role="alert">
+                            <p class="t-body">{failure().message}</p>
+                            <div>
+                                <Button variant="secondary" onClick={() => void discard(failure().entryId)}>
+                                    Discard my change
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </Show>
 
-            <ActivityFeed entityType="document" entityId={props.routeId} accountId={props.accountId} />
+                <Show when={conflicted()}>
+                    {(found) => (
+                        <DocumentConflictPanel
+                            conflict={found().conflict}
+                            only={found().clashing?.some((f) => f === 'type' || f === 'aspect_type_id') ? undefined : found().clashing}
+                            mine={props.doc}
+                            fields={isAspect() ? fields() : undefined}
+                            onKeepTheirs={keepTheirs}
+                            onUseMine={useMine}
+                            onKeepAsNew={keepMineAsNew}
+                        />
+                    )}
+                </Show>
+
+                <Show when={isAspect()}>
+                    <Show when={feed.missing()}>
+                        <Banner hue="rust">This document's aspect type no longer exists.</Banner>
+                    </Show>
+                    <Show when={feed.problem()}>
+                        {(message) => <Banner hue="rust">{message()}</Banner>}
+                    </Show>
+                    <For each={fields()} keyed={(field) => field.id}>
+                        {(field) => (
+                            <AspectFieldEditor
+                                docId={id()}
+                                field={field()}
+                                saved={() => props.doc.body[field().id] ?? ''}
+                                locked={locked()}
+                                onDirty={(dirty) => setFieldDrafts((n) => n + (dirty ? 1 : -1))}
+                                onSelection={selectionIn(field().id)}
+                                review={{
+                                    documentId: props.routeId,
+                                    accountId: props.accountId,
+                                    canRequest: synced(),
+                                    open: openOn(field().id),
+                                    decided: decidedOn(field().id),
+                                    onAsked: notifyReviewRequested,
+                                }}
+                            />
+                        )}
+                    </For>
+                </Show>
+
+                <Show when={!isAspect()}>
+                    <ReviewableField
+                        label="Document text"
+                        labelHidden
+                        images={imageUploader(() => ({ documentId: props.routeId }))}
+                        placeholder="Write, or type Markdown: # for a heading, - for a list…"
+                        value={content.value()}
+                        readOnly={locked()}
+                        onChange={(value) => {
+                            if (!locked()) content.input(value)
+                        }}
+                        onBlur={() => void content.flush()}
+                        documentId={props.routeId}
+                        fieldId={null}
+                        stored={() => storedText(null)}
+                        canRequest={synced()}
+                        accountId={props.accountId}
+                        open={openOn(null)}
+                        decided={decidedOn(null)}
+                        onAsked={notifyReviewRequested}
+                        onSelection={selectionIn(CONTENT_KEY)}
+                    />
+                </Show>
+
+                <ReviewPanel
+                    documentId={props.routeId}
+                    accountId={props.accountId}
+                    fieldText={storedText}
+                    disabled={locked()}
+                    onAnnounce={props.announce}
+                />
+
+                <LinkedTickets documentId={props.routeId} disabled={locked()} />
+
+                <AttachmentList parent={{ documentId: props.routeId }} disabled={locked()} />
+
+                <CommentThread parent={{ documentId: props.routeId }} accountId={props.accountId} disabled={locked()} />
+
+                <ActivityFeed entityType="document" entityId={props.routeId} accountId={props.accountId} />
+            </div>
+
+            <Show when={!narrow()}>
+                <aside class="document__side" aria-label="Document actions">
+                    {actions()}
+                </aside>
+            </Show>
+        </div>
+    )
+}
+
+type DocumentActionsProps = {
+    canRequest: boolean
+    hasSelection: boolean
+    problem: string
+    onRequest: () => void
+    /** The rest of the page's controls (making it an Aspect). */
+    children: JSX.Element
+}
+
+// The page's controls, together (LAM-150): in a panel beside the text on a wide
+// screen, behind a labelled "⋯ Actions" button on a narrow one. Either way they
+// are one click away and never hidden: collapse is fine, hide is not.
+function DocumentActions(props: DocumentActionsProps) {
+    const hintId = createUniqueId()
+    return (
+        <div class="document__actions">
+            <h2 class="t-meta document__actions-title">Actions</h2>
+            <div class="document__action">
+                <Button
+                    variant="secondary"
+                    disabled={!props.hasSelection || !props.canRequest}
+                    describedBy={hintId}
+                    onClick={props.onRequest}
+                >
+                    Request review
+                </Button>
+                <span id={hintId} class="t-meta">
+                    {props.problem ||
+                        (!props.hasSelection
+                            ? 'Select text to request a review on it.'
+                            : !props.canRequest
+                              ? 'Available once your latest changes are saved.'
+                              : 'Asks a teammate to review the selected text.')}
+                </span>
+            </div>
+            {props.children}
         </div>
     )
 }
@@ -388,6 +507,7 @@ type AspectFieldEditorProps = {
     saved: () => string
     locked: boolean
     onDirty: (dirty: boolean) => void
+    onSelection: (begin: (() => string) | null) => void
     review: ReviewContext
 }
 
@@ -434,33 +554,25 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
             onBlur={() => void value.flush()}
             fieldId={props.field.id}
             stored={props.saved}
+            onSelection={props.onSelection}
         />
     )
 }
 
-type MakeAspectProps = {
-    doc: Doc
-    disabled: boolean
-    /** What the editor holds now, including words not yet saved. */
-    text: () => string
-    onMade: () => Promise<void>
-}
+type MakeAspectState = ReturnType<typeof createMakeAspectState>
 
-// "Make this an Aspect": pick a type, and the document becomes one through the
-// outbox like any other edit. The server moves the text into the type's first
-// field, and so does the local copy (bodyForConversion), so they agree. Types
-// are asked for, not synced, so this needs a connection to list them.
-function MakeAspect(props: MakeAspectProps) {
+// What "Make this an Aspect" holds: the types on offer and the one picked but not
+// yet applied. Kept by the page so that the narrow-screen Popover (mounted only
+// while open) shows the choice again when it is reopened.
+function createMakeAspectState(doc: () => Doc) {
     const [types, setTypes] = createSignal<AspectType[]>([])
-    const teamName = (id: string) => sync.teams.find((team) => team.id === id)?.name ?? 'Team'
     const [chosen, setChosen] = createSignal('')
     const [error, setError] = createSignal<string | undefined>()
     const [unavailable, setUnavailable] = createSignal(false)
-    const [busy, setBusy] = createSignal(false)
 
     // The document's own team, else its project's, else every team's.
     const teamIds = () => {
-        const own = props.doc.team_id ?? sync.projects.find((p) => p.id === props.doc.project_id)?.team_id
+        const own = doc().team_id ?? sync.projects.find((p) => p.id === doc().project_id)?.team_id
         return own ? [own] : sync.teams.map((team) => team.id)
     }
 
@@ -480,6 +592,26 @@ function MakeAspect(props: MakeAspectProps) {
             })()
         },
     )
+    return { types, chosen, setChosen, error, setError, unavailable, teamIds }
+}
+
+type MakeAspectProps = {
+    state: MakeAspectState
+    doc: Doc
+    disabled: boolean
+    /** What the editor holds now, including words not yet saved. */
+    text: () => string
+    onMade: () => Promise<void>
+}
+
+// "Make this an Aspect": pick a type, and the document becomes one through the
+// outbox like any other edit. The server moves the text into the type's first
+// field, and so does the local copy (bodyForConversion), so they agree. Types
+// are asked for, not synced, so this needs a connection to list them.
+function MakeAspect(props: MakeAspectProps) {
+    const { types, chosen, setChosen, error, setError, unavailable, teamIds } = props.state
+    const teamName = (id: string) => sync.teams.find((team) => team.id === id)?.name ?? 'Team'
+    const [busy, setBusy] = createSignal(false)
 
     async function make() {
         const typeId = chosen()

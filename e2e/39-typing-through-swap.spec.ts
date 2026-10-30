@@ -41,17 +41,17 @@ test('a new document keeps its title and text typed through the id swap', async 
 
     await page.getByRole('button', { name: 'New document' }).click()
     await expect(page).toHaveURL(/\/documents\/tmp_/)
-    await typeThrough(page, 'Title', 'Quarterly planning notes for the whole team')
-    await typeIntoEditor(page, 'Text', 'Agenda and decisions')
+    await typeThrough(page, 'Document title', 'Quarterly planning notes for the whole team')
+    await typeIntoEditor(page, 'Document text', 'Agenda and decisions')
 
     await expect(page).toHaveURL(new RegExp(`/documents/${UUID}$`))
-    await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Quarterly planning notes for the whole team')
-    await expect(page.getByRole('textbox', { name: 'Text' })).toContainText('Agenda and decisions')
+    await expect(page.getByLabel('Document title', { exact: true })).toHaveValue('Quarterly planning notes for the whole team')
+    await expect(page.getByRole('textbox', { name: 'Document text' })).toContainText('Agenda and decisions')
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
 
     await page.reload()
-    await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Quarterly planning notes for the whole team')
-    await expect(page.getByRole('textbox', { name: 'Text' })).toContainText('Agenda and decisions')
+    await expect(page.getByLabel('Document title', { exact: true })).toHaveValue('Quarterly planning notes for the whole team')
+    await expect(page.getByRole('textbox', { name: 'Document text' })).toContainText('Agenda and decisions')
 })
 
 test('a new ticket keeps its description typed through the id swap', async ({ page, context, baseURL }) => {

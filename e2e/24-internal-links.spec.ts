@@ -26,10 +26,10 @@ test('link document A to document B with [[, click the chip, and land on B', asy
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${a}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Doc A')
+    await expect(page.getByLabel('Document title')).toHaveValue('Doc A')
     await connectionIs(page, 'Connected')
 
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     await editor.click()
     await editor.pressSequentially(`See [[${docB}`)
     const list = page.getByRole('listbox', { name: 'Link to a ticket, document or project' })
@@ -48,11 +48,11 @@ test('link document A to document B with [[, click the chip, and land on B', asy
 
     await editor.getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`/documents/${b}$`))
-    await expect(page.getByLabel('Title')).toHaveValue(docB)
+    await expect(page.getByLabel('Document title')).toHaveValue(docB)
 
     // After a reload the chip is still a chip.
     await page.goto(`/documents/${a}`)
-    await expect(page.getByRole('textbox', { name: 'Text' }).getByRole('link', { name: docB })).toHaveAttribute(
+    await expect(page.getByRole('textbox', { name: 'Document text' }).getByRole('link', { name: docB })).toHaveAttribute(
         'href',
         `/documents/${b}`,
     )
@@ -71,9 +71,9 @@ test('@ links a ticket and a pasted internal URL becomes a chip', async ({ page,
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${id}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Notes')
+    await expect(page.getByLabel('Document title')).toHaveValue('Notes')
     await connectionIs(page, 'Connected')
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     await editor.click()
     await editor.pressSequentially(`Blocked on @${shipped}`)
     const list = page.getByRole('listbox', { name: 'Link to a ticket, document or project' })
@@ -111,9 +111,9 @@ test('the @ list moves with the arrows, cancels with Escape, shows an empty row,
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${id}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Scratch')
+    await expect(page.getByLabel('Document title')).toHaveValue('Scratch')
     await connectionIs(page, 'Connected')
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     const list = page.getByRole('listbox', { name: 'Link to a ticket, document or project' })
     const stored = async () =>
         (await account.api.GET('/api/v1/documents/{id}', { params: { path: { id } } })).data?.body?.content

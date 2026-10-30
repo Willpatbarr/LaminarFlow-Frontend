@@ -8,7 +8,9 @@ type ToastProps = {
     title: string
     /** Say what happened to the *work*, not to the request: a queued change is
      *  not a lost change. */
-    detail: string
+    detail?: string
+    /** The glyph in the badge. Defaults to `!`; a good outcome wants something else. */
+    mark?: string
     /** Defaults to `amber`. `rust` is for something that is actually lost. */
     hue?: NoticeHue
     role?: 'status' | 'alert'
@@ -30,11 +32,13 @@ export function Toast(props: ToastProps) {
     return (
         <div class="toast" data-hue={props.hue ?? 'amber'} role={props.role ?? 'status'}>
             <span class="toast__mark" aria-hidden="true">
-                !
+                {props.mark ?? '!'}
             </span>
             <div class="toast__body">
                 <span class="toast__title t-body">{props.title}</span>
-                <span class="toast__detail t-meta">{props.detail}</span>
+                <Show when={props.detail}>
+                    <span class="toast__detail t-meta">{props.detail}</span>
+                </Show>
                 <Show when={props.action}>
                     <span class="toast__action">
                         <Button variant="secondary" size="sm" onClick={() => props.onAction?.()}>

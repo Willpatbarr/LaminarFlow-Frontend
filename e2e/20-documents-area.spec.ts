@@ -36,5 +36,5 @@ test('browse, filter and open documents by URL', async ({ page, context, baseURL
     await expect(page).toHaveURL(new RegExp(`/documents/${inProject}$`))
     const fresh = await context.newPage()
     await fresh.goto(`/documents/${inProject}`)
-    await expect(fresh.getByLabel('Title')).toHaveValue('Filed in project')
+    await expect(fresh.getByLabel('Document title')).toHaveValue('Filed in project')
 })

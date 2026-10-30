@@ -17,7 +17,7 @@ async function setup(page: Page, context: BrowserContext, baseURL: string) {
     const doc = made.data!
     await signedInAs(context, alice, baseURL)
     await page.goto(`/documents/${doc.id}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Shared doc')
+    await expect(page.getByLabel('Document title')).toHaveValue('Shared doc')
     await connectionIs(page, 'Connected')
     return { alice, bob, doc }
 }
@@ -35,7 +35,7 @@ async function bobSaves(bob: Account, id: string, version: number, title: string
 }
 
 const panelOf = (page: Page) => page.getByRole('region', { name: 'This document needs a decision' })
-const editorOf = (page: Page) => page.getByRole('textbox', { name: 'Text' })
+const editorOf = (page: Page) => page.getByRole('textbox', { name: 'Document text' })
 
 test('typing in the body while Bob saves the body shows the conflict, and neither text is lost', async ({ page, context, baseURL }) => {
     const { alice, bob, doc } = await setup(page, context, baseURL!)
@@ -59,7 +59,7 @@ test('typing in the body while Bob changes the title is no conflict, and both ar
     await page.keyboard.press('Control+End')
     await page.keyboard.type(' A edit')
     await bobSaves(bob, doc.id, doc.version, 'Bob title', 'Shared body')
-    await page.getByLabel('Title').click()
+    await page.getByLabel('Document title').click()
 
     await expect
         .poll(async () => {
@@ -80,7 +80,7 @@ test('a solo edit with several autosaves shows no conflict', async ({ page, cont
     await page.keyboard.type(' two')
     await page.waitForTimeout(1500)
     await page.keyboard.type(' three')
-    await page.getByLabel('Title').click()
+    await page.getByLabel('Document title').click()
 
     await expect.poll(async () => (await serverDoc(alice, doc.id)).body.content).toBe('Shared body one two three')
     await expect(panelOf(page)).toHaveCount(0)
