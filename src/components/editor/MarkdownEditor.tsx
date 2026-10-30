@@ -195,6 +195,9 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                     role: 'textbox',
                     'aria-multiline': 'true',
                     'aria-labelledby': labelId,
+                    // The same words again, for tools that do not follow
+                    // aria-labelledby (the label wins where both are read).
+                    'aria-label': props.label,
                     class: 'md-editor__content t-body',
                 },
             },

@@ -562,8 +562,9 @@ function ColumnMenu(props: ColumnMenuProps) {
                         <legend class="t-meta">Statuses shown in this column</legend>
                         <For each={statuses()} keyed={(status) => status.id}>
                             {(status) => (
-                                <label class="board__status t-body">
+                                <label class="board__status t-body" for={`board-status-${props.column.id}-${status().id}`}>
                                     <input
+                                        id={`board-status-${props.column.id}-${status().id}`}
                                         type="checkbox"
                                         checked={props.column.status_ids.includes(status().id)}
                                         onChange={(event) =>

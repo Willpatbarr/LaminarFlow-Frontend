@@ -48,11 +48,27 @@ export function SaveViewDialog(props: SaveViewDialogProps) {
             <Input label="Name" value={name()} onInput={setName} error={error()} count={nameCount(name())} />
             <fieldset class="save-view__who">
                 <legend class="t-body">Who can see it</legend>
-                <label class="t-body">
-                    <input type="radio" name="save-view-who" checked={!shared()} onChange={() => setShared(false)} /> Only me
+                <label class="t-body" for="save-view-only-me">
+                    <input
+                        id="save-view-only-me"
+                        type="radio"
+                        name="save-view-who"
+                        value="private"
+                        checked={!shared()}
+                        onChange={() => setShared(false)}
+                    />{' '}
+                    Only me
                 </label>
-                <label class="t-body">
-                    <input type="radio" name="save-view-who" checked={shared()} onChange={() => setShared(true)} /> The team
+                <label class="t-body" for="save-view-team">
+                    <input
+                        id="save-view-team"
+                        type="radio"
+                        name="save-view-who"
+                        value="shared"
+                        checked={shared()}
+                        onChange={() => setShared(true)}
+                    />{' '}
+                    The team
                 </label>
             </fieldset>
         </Modal>
