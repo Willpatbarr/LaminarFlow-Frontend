@@ -472,3 +472,20 @@ a.view-switch__item:hover {
 .list-controls__panel[open] {
   flex: 1 1 100%;
 }
+
+/* The rows and what belongs to them (the held-rows hint). Same rhythm as the
+ * stack around it. */
+.tickets__rows {
+  display: grid;
+  gap: var(--s-16);
+}
+
+.tickets__held-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent, inherit);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -42,6 +42,9 @@ type LoadedRow = {
     /** The columns to draw after the title, in order, as ticket field names
      *  (the saved view `columns`). Omit for status and assignee. */
     columns?: string[]
+    /** The ticket is no longer in the list's answer but the list is holding its
+     *  place (see listView/freezeOrder): drawn dimmed and inert. */
+    gone?: boolean
 }
 
 type LoadingRow = {
@@ -192,6 +195,7 @@ function LoadedTicketRow(props: LoadedRow) {
                 <TableRow
                     href={`/tickets/${props.ticket.id}`}
                     below={panel()}
+                    gone={props.gone}
                     actions={
                         <>
                             <IconButton

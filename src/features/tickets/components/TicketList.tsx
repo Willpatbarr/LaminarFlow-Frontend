@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@solidjs/router'
-import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch } from 'solid-js'
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
@@ -32,6 +32,7 @@ import {
     type ListViewConfig,
 } from '../listView/config'
 import { matches, sortTickets, type Lookups } from '../listView/evaluate'
+import { freezeOrder, type Placed } from '../listView/freezeOrder'
 import { buildGroups } from '../listView/group'
 import { serverMatches } from '../listView/serverRun'
 import { VIEW_PARAM, viewUrl } from '../savedViews/savedView'
@@ -63,11 +64,7 @@ const COLUMNS = 'minmax(0, 1fr) 132px 72px 12px 64px'
 // The chosen columns, then the unsynced marker and the room the row's buttons
 // take. Shared by every group so the columns line up down the page.
 const templateFor = (columns: string[]) => [...columns.map((field) => FIELDS[field].width), '12px', '64px'].join(' ')
-const headersFor = (columns: string[]) => [
-    ...columns.map((field) => fieldLabel(field)),
-    '',
-    '',
-]
+const headersFor = (columns: string[]) => [...columns.map((field) => fieldLabel(field)), '', '']
 
 // The tickets screen. Everything it shows is read from the local store; the
 // only thing it ever asks the network for directly is nothing at all.
@@ -172,6 +169,11 @@ function ProjectTickets(props: ProjectTicketsProps) {
         go(params, false)
     }
     const closePanel = () => showTicket(null)
+    // A new ticket should be in its place when the dialog closes.
+    const openDialog = () => {
+        thaw()
+        setCreating(true)
+    }
     // A view change is not a place to go back to, so it replaces the entry.
     function writeView(config: ListViewConfig, collapsed: string[]) {
         const params = toSearch(config, collapsed)
@@ -219,7 +221,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
     // fallback), `J` and `K` walk the rows. The listener has already ruled out
     // fields, open dialogs and Ctrl/Cmd/Alt.
     useScope('list')
-    useShortcut('ticket.new', () => setCreating(true))
+    useShortcut('ticket.new', () => openDialog())
     useShortcut('list.next', () => stepRow(1))
     useShortcut('list.previous', () => stepRow(-1))
 
@@ -253,7 +255,10 @@ function ProjectTickets(props: ProjectTicketsProps) {
     // its new values. If the server cannot be asked, the local answer stands.
     // Asked again when the project's tickets change, so a live edit that makes
     // a ticket match (or stop matching) is not judged by a stale answer.
-    const [answer, setAnswer] = createSignal<{ ask: string; ids: Set<string> } | null>(null)
+    const [answer, setAnswer] = createSignal<{
+        ask: string
+        ids: Set<string>
+    } | null>(null)
     const asked = () => (filter() ? JSON.stringify([props.project.id, filter()]) : null)
     createEffect(
         () => {
@@ -277,7 +282,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
         },
     )
 
-    const shown = createMemo(() => {
+    const sorted = createMemo(() => {
         const f = filter()
         const server = answer()?.ask === asked() ? answer()!.ids : null
         const rows = projectTickets().filter((ticket) => {
@@ -287,7 +292,80 @@ function ProjectTickets(props: ProjectTicketsProps) {
         })
         return sortTickets(rows, view().config.sort, lookups())
     })
-    const groups = createMemo(() => buildGroups(shown(), view().config.group, lookups(), props.viewer.accountId))
+
+    // The order stays put while the user is using the list (LAM-145). Using it
+    // means the pointer is over the rows, or focus is in them. The freeze ends
+    // when both are gone, and a sort, filter, grouping or project change ends it
+    // at once: those are the user asking for a new order.
+    const [pointerIn, setPointerIn] = createSignal(false)
+    const [focusIn, setFocusIn] = createSignal(false)
+    const frozen = () => pointerIn() || focusIn()
+    const thaw = () => {
+        setPointerIn(false)
+        setFocusIn(false)
+    }
+    // A touch has no pointer to leave, so only the mouse and pen freeze by
+    // position. Focus protects a touch user's tapped row.
+    const pointerOver = (event: PointerEvent) => {
+        if (event.pointerType !== 'touch') setPointerIn(true)
+    }
+    let rows: HTMLDivElement | undefined
+    const focusWithin = () => !!rows && rows.contains(document.activeElement)
+    // The signals above are set by events, and an event can be missed: the
+    // pointer leaves the window, a focused row is removed, the tab is hidden.
+    // While frozen, look at the real state every half second and let go when
+    // neither holds, so the list cannot stay frozen.
+    createEffect(frozen, (isFrozen) => {
+        if (!isFrozen) return
+        const timer = setInterval(() => {
+            if (document.hidden || !rows) return thaw()
+            const hovered = rows.matches(':hover')
+            const focused = focusWithin()
+            if (pointerIn() && !hovered) setPointerIn(false)
+            if (focusIn() && !focused) setFocusIn(false)
+        }, 500)
+        return () => clearInterval(timer)
+    })
+    // The pointer leaving the window sends no pointerleave to the rows in every
+    // browser: a mouseout with nowhere to go says it.
+    const onWindowOut = (event: MouseEvent) => {
+        if (event.relatedTarget === null) setPointerIn(false)
+    }
+    const onWindowBlur = () => setPointerIn(false)
+    document.addEventListener('mouseout', onWindowOut)
+    window.addEventListener('blur', onWindowBlur)
+    onCleanup(() => {
+        document.removeEventListener('mouseout', onWindowOut)
+        window.removeEventListener('blur', onWindowBlur)
+    })
+    createEffect(
+        () => JSON.stringify([props.project.id, view().config]),
+        () => thaw(),
+    )
+
+    // The last thing shown. Read when the list freezes, so it freezes on exactly
+    // what the user was looking at.
+    let lastShown: Placed[] = []
+    const display = createMemo(() => {
+        const result = freezeOrder(
+            lastShown,
+            sorted(),
+            (id) => projectTickets().find((ticket) => ticket.id === id),
+            frozen(),
+        )
+        lastShown = result.rows
+        return result
+    })
+    const placedRows = () => display().rows
+    const rowById = createMemo(() => new Map(placedRows().map((row) => [row.id, row])))
+    const groups = createMemo(() => {
+        return buildGroups(
+            placedRows().map((row) => row.placed),
+            view().config.group,
+            lookups(),
+            props.viewer.accountId,
+        )
+    })
     const columns = createMemo(() => visibleColumns(view().config))
     const statusOf = (statusId: string | null) => statuses().find((status) => status.id === statusId) ?? null
 
@@ -330,7 +408,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     <a class="button button--ghost" href={`/teams/${props.project.team_id}/settings`}>
                         Edit statuses
                     </a>
-                    <Button onClick={() => setCreating(true)} disabledReason={denial('ticket:write', 'create tickets')}>
+                    <Button onClick={() => openDialog()} disabledReason={denial('ticket:write', 'create tickets')}>
                         New ticket
                         <ShortcutHint id="ticket.new" />
                     </Button>
@@ -375,61 +453,96 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     {/* Keyed by group: the group objects are rebuilt on every
                         change, and keying by reference would rebuild every row's
                         DOM with them. */}
-                    <TableHeader columns={headersFor(columns())} template={templateFor(columns())} />
-                    <For each={groups()} keyed={(group) => group.key}>
-                        {(group) => (
-                            <section class="tickets__group" aria-label={group().title}>
-                                <Show when={view().config.group !== undefined}>
-                                    <h2 class="tickets__group-title">
-                                        <button
-                                            type="button"
-                                            class="tickets__group-toggle"
-                                            aria-expanded={view().collapsed.includes(group().key) ? 'false' : 'true'}
-                                            aria-label={`${group().title}, ${ticketCount(group().tickets.length)}`}
-                                            onClick={() => toggleGroup(group().key)}
-                                        >
-                                            <span class="tickets__chevron" aria-hidden="true">
-                                                {view().collapsed.includes(group().key) ? '▸' : '▾'}
-                                            </span>
-                                            <Show
-                                                when={view().config.group === 'status'}
-                                                fallback={<span class="t-body">{group().title}</span>}
+                    <div
+                        class="tickets__rows"
+                        ref={(el) => {
+                            rows = el
+                        }}
+                        onPointerEnter={pointerOver}
+                        onPointerMove={pointerOver}
+                        onPointerDown={pointerOver}
+                        onPointerLeave={() => setPointerIn(false)}
+                        onFocusIn={() => setFocusIn(true)}
+                        onFocusOut={(event) => {
+                            const to = event.relatedTarget
+                            if (!(to instanceof Node && rows?.contains(to))) setFocusIn(false)
+                        }}
+                    >
+                        <TableHeader columns={headersFor(columns())} template={templateFor(columns())} />
+                        <For each={groups()} keyed={(group) => group.key}>
+                            {(group) => (
+                                <section class="tickets__group" aria-label={group().title}>
+                                    <Show when={view().config.group !== undefined}>
+                                        <h2 class="tickets__group-title">
+                                            <button
+                                                type="button"
+                                                class="tickets__group-toggle"
+                                                aria-expanded={
+                                                    view().collapsed.includes(group().key) ? 'false' : 'true'
+                                                }
+                                                aria-label={`${group().title}, ${ticketCount(group().tickets.length)}`}
+                                                onClick={() => toggleGroup(group().key)}
                                             >
+                                                <span class="tickets__chevron" aria-hidden="true">
+                                                    {view().collapsed.includes(group().key) ? '▸' : '▾'}
+                                                </span>
                                                 <Show
-                                                    when={group().status}
-                                                    fallback={<StatusPill label={group().title} hue="slate" />}
+                                                    when={view().config.group === 'status'}
+                                                    fallback={<span class="t-body">{group().title}</span>}
                                                 >
-                                                    {(status) => (
-                                                        <StatusPill
-                                                            label={status().name}
-                                                            hue={hueFor(status().color)}
-                                                            active={isStarted(status())}
-                                                        />
-                                                    )}
+                                                    <Show
+                                                        when={group().status}
+                                                        fallback={<StatusPill label={group().title} hue="slate" />}
+                                                    >
+                                                        {(status) => (
+                                                            <StatusPill
+                                                                label={status().name}
+                                                                hue={hueFor(status().color)}
+                                                                active={isStarted(status())}
+                                                            />
+                                                        )}
+                                                    </Show>
                                                 </Show>
-                                            </Show>
-                                            <span class="tickets__count t-meta">{group().tickets.length}</span>
-                                        </button>
-                                    </h2>
-                                </Show>
-                                <Show when={!view().collapsed.includes(group().key)}>
-                                    <Table columns={headersFor(columns())} template={templateFor(columns())} header={false}>
-                                        <For each={group().tickets}>
-                                            {(ticket) => (
-                                                <TicketRow
-                                                    ticket={ticket}
-                                                    status={statusOf(ticket.status_id)}
-                                                    statuses={statuses()}
-                                                    viewer={props.viewer}
-                                                    columns={columns().filter((field) => field !== 'title')}
-                                                />
-                                            )}
-                                        </For>
-                                    </Table>
-                                </Show>
-                            </section>
-                        )}
-                    </For>
+                                                <span class="tickets__count t-meta">{group().tickets.length}</span>
+                                            </button>
+                                        </h2>
+                                    </Show>
+                                    <Show when={!view().collapsed.includes(group().key)}>
+                                        <Table
+                                            columns={headersFor(columns())}
+                                            template={templateFor(columns())}
+                                            header={false}
+                                        >
+                                            <For each={group().tickets} keyed={(ticket) => ticket.id}>
+                                                {(placed) => (
+                                                    <Show when={rowById().get(placed().id)}>
+                                                        {(row) => (
+                                                            <TicketRow
+                                                                ticket={row().ticket}
+                                                                gone={row().gone}
+                                                                status={statusOf(row().ticket.status_id)}
+                                                                statuses={statuses()}
+                                                                viewer={props.viewer}
+                                                                columns={columns().filter((field) => field !== 'title')}
+                                                            />
+                                                        )}
+                                                    </Show>
+                                                )}
+                                            </For>
+                                        </Table>
+                                    </Show>
+                                </section>
+                            )}
+                        </For>
+                        <Show when={display().held > 0}>
+                            <p class="tickets__held t-meta" role="status">
+                                {ticketCount(display().held)} new or changed —{' '}
+                                <button type="button" class="tickets__held-button" onClick={thaw}>
+                                    refresh order
+                                </button>
+                            </p>
+                        </Show>
+                    </div>
                 </Show>
             </Show>
 

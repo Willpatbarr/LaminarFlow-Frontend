@@ -1,5 +1,5 @@
 import { memoryHistory } from '@solidjs/router'
-import { render, screen, within } from '@solidjs/testing-library'
+import { fireEvent, render, screen, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -351,8 +351,12 @@ describe('editing in the list', () => {
         await user.selectOptions(screen.getByLabelText('Status'), 'Done')
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        // Optimistic: the row is under its new status before the server is heard.
-        const group = await screen.findByRole('region', { name: 'Done' })
+        // Optimistic: the row is under its new status before the server is
+        // heard. The list holds its order while the pointer or focus is in it
+        // (LAM-145): the pointer leaves, and the removed form's focus is let go
+        // by the list's half-second check.
+        fireEvent.pointerLeave((await screen.findByRole('link', { name: /Renamed/ })).closest('.tickets__rows')!)
+        const group = await screen.findByRole('region', { name: 'Done' }, { timeout: 3000 })
         expect(within(group).getByRole('link', { name: /Renamed/ })).toBeInTheDocument()
         await vi.waitFor(() =>
             expect(puts).toEqual([
