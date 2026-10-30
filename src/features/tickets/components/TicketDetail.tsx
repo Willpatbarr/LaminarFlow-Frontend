@@ -59,6 +59,7 @@ import { NewLabel } from './LabelEditor'
 import { SyncMarker } from './SyncMarker'
 import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 type TicketDetailProps = {
     /** Set when the page is drawn as the side panel beside the list: the way
@@ -731,9 +732,8 @@ function TicketEditor(props: TicketEditorProps) {
                     <For each={labelChoices()}>
                         {(label) => (
                             <label class="ticket__label t-body" for={`ticket-label-${id()}-${label.id}`}>
-                                <input
+                                <Checkbox
                                     id={`ticket-label-${id()}-${label.id}`}
-                                    type="checkbox"
                                     checked={labelIds().includes(label.id)}
                                     onChange={(event) => void toggleLabel(label.id, event.currentTarget.checked)}
                                 />

@@ -78,7 +78,8 @@
   min-width: 0;
 }
 
-.tokens__scope input {
+.tokens__scope .checkbox,
+.tokens__confirm .checkbox {
   margin-top: var(--s-4);
 }
 

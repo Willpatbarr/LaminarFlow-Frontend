@@ -10,6 +10,7 @@ import { describeFailure, type TokenFailure } from '../failures'
 import { DANGEROUS_SCOPES, DANGEROUS_WARNING, describeScope, layoutScopes } from '../scopes'
 import { createToken } from '../tokens'
 import './tokens.css'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 /*
 ┌─ tokens ────────────────────────────────────────
@@ -89,8 +90,7 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
         const name = () => [area(), action()].filter(Boolean).join(' ')
         return (
             <label class="tokens__scope">
-                <input
-                    type="checkbox"
+                <Checkbox
                     aria-label={name() && name() !== scope() ? `${name()} (${scope()})` : scope()}
                     checked={picked().includes(scope())}
                     onChange={(event) => toggle(scope(), event.currentTarget.checked)}
@@ -160,9 +160,8 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                                 </For>
                                 <Show when={dangerPicked()}>
                                     <label class="t-body tokens__confirm" for="token-understood">
-                                        <input
+                                        <Checkbox
                                             id="token-understood"
-                                            type="checkbox"
                                             checked={understood()}
                                             onChange={(event) => setUnderstood(event.currentTarget.checked)}
                                         />

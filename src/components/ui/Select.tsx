@@ -35,6 +35,7 @@ export function Select(props: SelectProps) {
             <label class={`input__label t-body${props.hideLabel ? ' visually-hidden' : ''}`} for={id}>
                 {props.label}
             </label>
+            <div class="select">
             <select
                 id={id}
                 ref={props.ref}
@@ -52,6 +53,7 @@ export function Select(props: SelectProps) {
                     )}
                 </For>
             </select>
+            </div>
             <Show when={props.error}>
                 <span id={errorId} class="input__error t-meta">
                     {props.error}

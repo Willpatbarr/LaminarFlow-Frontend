@@ -1,16 +1,36 @@
 /* The Input's box with the browser's own arrow replaced by the specimen's
- * caret: a 5px triangle in --text-3, drawn with gradients so it follows the
- * theme without an image. */
+ * caret: an 8x5 solid triangle in --text-3, built from borders so it follows
+ * the theme with no image. A <select> cannot hold a pseudo-element, so the
+ * caret sits on the wrapper. The sizes are variables for a touch layer. */
+.select {
+  --select-caret-width: 8px;
+  --select-caret-height: 5px;
+  position: relative;
+  display: block;
+}
+
 .select__control {
   appearance: none;
   padding-right: var(--s-32);
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
-    linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
-  background-position:
-    right 16px center,
-    right 11px center;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
   cursor: pointer;
+}
+
+.select::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: var(--s-12);
+  width: 0;
+  height: 0;
+  margin-top: calc(var(--select-caret-height) / -2);
+  border-left: calc(var(--select-caret-width) / 2) solid transparent;
+  border-right: calc(var(--select-caret-width) / 2) solid transparent;
+  border-top: var(--select-caret-height) solid var(--text-3);
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .select::after {
+    border-top-color: ButtonText;
+  }
 }

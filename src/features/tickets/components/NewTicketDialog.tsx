@@ -10,6 +10,7 @@ import { createTicket, type Status } from '@/sync'
 
 import { descriptionCount, overMessage, titleCount } from '../limits'
 import { announceCreated } from './CreatedTicketToast'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 type NewTicketDialogProps = {
     projectId: string
@@ -165,15 +166,14 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
                     onChange={setStatusId}
                 />
                 <label class="new-ticket__more t-body" for="new-ticket-more">
-                    <input
+                    <Checkbox
                         id="new-ticket-more"
-                        type="checkbox"
                         checked={more()}
                         onChange={(event) => {
                             setMore(event.currentTarget.checked)
                             saveCreateMore(event.currentTarget.checked)
                         }}
-                    />{' '}
+                    />
                     Create more
                 </label>
                 <p class="new-ticket__created t-meta" role="status">
