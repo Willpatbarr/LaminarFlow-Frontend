@@ -40,6 +40,9 @@ type ListControlsProps = {
     filterOnly?: boolean
 }
 
+// The list waits a beat after the last key before it rewrites the address; a
+// board filters the rows this device holds, which is cheap, so it does not
+// wait at all (LAM-148).
 const TEXT_DELAY_MS = 250
 
 type Option = { id: string; label: string }
@@ -94,6 +97,12 @@ export function ListControls(props: ListControlsProps) {
     function typeText(value: string) {
         setText(value)
         clearTimeout(timer)
+        if (props.filterOnly) {
+            timer = undefined
+            const current = model()
+            if (current) setModel({ ...current, text: value })
+            return
+        }
         timer = setTimeout(() => {
             timer = undefined
             const current = model()

@@ -28,7 +28,7 @@ const TICKETS = [
 
 async function open(extra: Parameters<typeof openApp>[1] = {}) {
     await openApp('/boards/b-1', { ...listRoutes(TICKETS, [], [BOARD]), ...extra })
-    return screen.findByRole('heading', { name: 'Launch board' })
+    return screen.findByRole('heading', { name: 'Launch · Launch board' })
 }
 
 const titles = (column: string) =>
@@ -40,6 +40,16 @@ describe('the board page', () => {
         await waitFor(() => expect(titles('To Do')).toEqual(['First', 'Second']))
         expect(titles('In Progress')).toEqual(['Third'])
         expect(titles('Done')).toEqual([])
+    })
+
+    it('filters on the keystroke: the cards narrow within a tick and the typed text stays', async () => {
+        const user = userEvent.setup()
+        await open()
+        await waitFor(() => expect(titles('To Do')).toEqual(['First', 'Second']))
+        await user.type(screen.getByPlaceholderText('Search'), 'Sec')
+        // No debounce: well under the old 250 ms wait.
+        await waitFor(() => expect(titles('To Do')).toEqual(['Second']), { timeout: 100 })
+        expect(screen.getByPlaceholderText('Search')).toHaveValue('Sec')
     })
 
     it('says so for a board the account does not have', async () => {

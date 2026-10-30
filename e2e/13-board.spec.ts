@@ -204,3 +204,28 @@ test('the column menu is not clipped, closes on Escape and outside click, and on
     await page.getByRole('heading', { name: board.name }).click()
     await expect(panel(doingName)).toHaveCount(0)
 })
+
+// LAM-148 (QA findings P10, P20): three columns fit at 1024 px with no sideways
+// scroll, the heading names the project, and the search filters as you type.
+test('three columns fit at 1024 px, the heading names the project, and search filters at once', async ({ page, context, baseURL }) => {
+    const alice = await newAccount('narrow')
+    const world = await projectOf(alice)
+    const [todo] = world.statusIds
+    await serverCreate(alice, world.projectId, fields('Findable card', { status_id: todo }))
+    await serverCreate(alice, world.projectId, fields('Other card', { status_id: todo }))
+    const board = await boardOf(alice, world)
+
+    await signedInAs(context, alice, baseURL!)
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await page.goto(`/boards/${board.id}`)
+    await expect(page.getByRole('heading', { level: 1, name: `${world.projectName} · ${board.name}` })).toBeVisible()
+    await expect(column(page, world.statusNames[0])).toBeVisible()
+
+    const overflow = () => page.locator('.board__columns').evaluate((el) => el.scrollWidth - el.clientWidth)
+    expect(await overflow()).toBeLessThanOrEqual(0)
+    const page0 = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(await page0()).toBeLessThanOrEqual(0)
+
+    await page.getByPlaceholder('Search').fill('Findable')
+    await expect.poll(() => cardsIn(page, world.statusNames[0]), { timeout: 500 }).toEqual(['Findable card'])
+})

@@ -166,7 +166,12 @@ export function AppLayout(props: RouteSectionProps) {
         if (link) return link.label
         const project = /^\/projects\/([^/]+)/.exec(path)
         if (project) return sync.projects.find((p) => p.id === decodeURIComponent(project[1]))?.name ?? 'Project'
-        if (path.startsWith('/boards/')) return 'Board'
+        const board = /^\/boards\/([^/]+)/.exec(path)
+        if (board) {
+            const found = boardById(decodeURIComponent(board[1]))
+            const owner = found && sync.projects.find((p) => p.id === found.project_id)
+            return owner ? `${owner.name} · Board` : 'Board'
+        }
         if (path.startsWith('/tickets/')) return 'Ticket'
         if (path.startsWith('/teams/')) return 'Team'
         return 'LaminarFlow'
