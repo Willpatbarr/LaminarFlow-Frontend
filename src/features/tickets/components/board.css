@@ -33,7 +33,11 @@
 
 .board__column {
   /* The colour of the top edge is set inline, from the column's first status. */
-  flex: 0 0 280px;
+  /* Columns share the row and shrink to 200px, so three fit beside an open
+     sidebar at 1024px; the row scrolls sideways only past that (LAM-148). */
+  flex: 1 1 200px;
+  min-width: 200px;
+  max-width: 360px;
   display: grid;
   gap: var(--s-8);
   padding: var(--s-8);

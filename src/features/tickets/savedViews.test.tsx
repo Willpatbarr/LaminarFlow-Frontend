@@ -117,7 +117,7 @@ describe('opening a view', () => {
     it('goes to the board with only its filter', async () => {
         const history = await open('/views/sv-board', [BOARD_VIEW])
 
-        await screen.findByRole('heading', { name: BOARD.name })
+        await screen.findByRole('heading', { name: `Launch · ${BOARD.name}` })
         expect(history.get().startsWith('/boards/b-1?')).toBe(true)
         expect(history.get()).toContain('view=sv-board')
         const todo = screen.getByRole('region', { name: 'To Do' })
@@ -246,7 +246,7 @@ describe('saving a view', () => {
             },
         })
         const user = userEvent.setup()
-        await screen.findByRole('heading', { name: BOARD.name })
+        await screen.findByRole('heading', { name: `Launch · ${BOARD.name}` })
 
         await user.click(screen.getByText(/^Filter/))
         const panel = screen.getByText(/^Filter/).closest('details')!

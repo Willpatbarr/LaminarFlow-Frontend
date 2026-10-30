@@ -273,7 +273,7 @@ export function Board(props: BoardProps) {
                 <p class="t-body">
                     <a href={`/projects/${props.board.project_id}`}>← {project()?.name ?? 'Tickets'}</a>
                 </p>
-                <h1 class="t-screen-title">{props.board.name}</h1>
+                <h1 class="t-screen-title">{project() ? `${project()!.name} · ${props.board.name}` : props.board.name}</h1>
             </header>
 
             <Show when={project()} keyed>
