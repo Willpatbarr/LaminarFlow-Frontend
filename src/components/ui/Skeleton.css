@@ -1,13 +1,16 @@
 /* One look for every primitive; they differ only in size and radius.
  *
- * Filled with --bg-overlay and pulsed in opacity, as the vault specimen
- * (Skeleton primitives) specifies. Note --bg-overlay is #fff in the light
- * theme, the same as cards, so on a white card the shape is invisible there. */
+ * Dark follows the vault specimen (Skeleton primitives): --bg-overlay, with an
+ * opacity pulse. Light departs from it: --bg-overlay is #fff there, the same
+ * as cards and nearly the page, so the shape would vanish. --border-strong is
+ * the nearest existing token that stays visible on both (about 1.5:1 on a
+ * white card, 1.4:1 on the page). light-dark() follows color-scheme, so the OS
+ * preference and the in-app data-theme switch both apply, as in index.css. */
 .skeleton {
   display: block;
   flex-shrink: 0;
   max-width: 100%;
-  background: var(--bg-overlay);
+  background: light-dark(var(--border-strong), var(--bg-overlay));
 }
 
 .skeleton--line,
