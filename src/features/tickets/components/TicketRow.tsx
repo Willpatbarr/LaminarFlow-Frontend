@@ -42,6 +42,9 @@ type LoadedRow = {
     /** The columns to draw after the title, in order, as ticket field names
      *  (the saved view `columns`). Omit for status and assignee. */
     columns?: string[]
+    /** The ticket is no longer in the list's answer but the list is holding its
+     *  place (see listView/freezeOrder): drawn dimmed and inert. */
+    gone?: boolean
 }
 
 type LoadingRow = {
@@ -146,6 +149,15 @@ function LoadedTicketRow(props: LoadedRow) {
         return [{ value: '', label: 'No status' }, ...options]
     }
 
+    // The form disappears on Save, Cancel and Escape, and the focus in it with
+    // it. Put it back on this row's Edit button, so a keyboard user is not
+    // dropped to the page (and the list stays frozen for them, LAM-145).
+    let editButton: HTMLButtonElement | undefined
+    function stopEditing() {
+        setEditing(false)
+        setTimeout(() => editButton?.focus())
+    }
+
     function startEditing() {
         setTitle(props.ticket.title)
         setStatusId(props.ticket.status_id ?? '')
@@ -163,7 +175,7 @@ function LoadedTicketRow(props: LoadedRow) {
         const patch: { title?: string; status_id?: string | null } = {}
         if (next !== props.ticket.title) patch.title = next
         if ((statusId() || null) !== props.ticket.status_id) patch.status_id = statusId() || null
-        setEditing(false)
+        stopEditing()
         // Nothing changed queues nothing.
         if (Object.keys(patch).length > 0) void updateTicket(id(), patch)
     }
@@ -192,6 +204,7 @@ function LoadedTicketRow(props: LoadedRow) {
                 <TableRow
                     href={`/tickets/${props.ticket.id}`}
                     below={panel()}
+                    gone={props.gone}
                     actions={
                         <>
                             <IconButton
@@ -199,6 +212,9 @@ function LoadedTicketRow(props: LoadedRow) {
                                 tooltip={'Edit title and status'}
                                 disabled={locked()}
                                 disabledReason={denial('ticket:write', 'edit tickets')}
+                                ref={(el) => {
+                                    editButton = el
+                                }}
                                 onClick={startEditing}
                             >
                                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -302,7 +318,7 @@ function LoadedTicketRow(props: LoadedRow) {
                 </TableRow>
             }
         >
-            <TableRow editing onSubmit={save} onCancel={() => setEditing(false)}>
+            <TableRow editing onSubmit={save} onCancel={stopEditing}>
                 <Input
                     label="Title"
                     hideLabel
@@ -329,7 +345,7 @@ function LoadedTicketRow(props: LoadedRow) {
                     <Button type="submit" size="sm">
                         Save
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                    <Button variant="ghost" size="sm" onClick={stopEditing}>
                         Cancel
                     </Button>
                 </span>

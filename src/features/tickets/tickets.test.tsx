@@ -1,5 +1,5 @@
 import { memoryHistory } from '@solidjs/router'
-import { render, screen, within } from '@solidjs/testing-library'
+import { fireEvent, render, screen, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -351,7 +351,11 @@ describe('editing in the list', () => {
         await user.selectOptions(screen.getByLabelText('Status'), 'Done')
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        // Optimistic: the row is under its new status before the server is heard.
+        // Optimistic: the row is under its new status before the server is
+        // heard. The list holds its order while the pointer or focus is in it
+        // (LAM-145): the pointer leaves and focus moves out of the list.
+        fireEvent.pointerLeave((await screen.findByRole('link', { name: /Renamed/ })).closest('.tickets__rows')!)
+        ;(document.activeElement as HTMLElement).blur()
         const group = await screen.findByRole('region', { name: 'Done' })
         expect(within(group).getByRole('link', { name: /Renamed/ })).toBeInTheDocument()
         await vi.waitFor(() =>
@@ -362,6 +366,29 @@ describe('editing in the list', () => {
                 },
             ]),
         )
+    })
+
+    it('after a keyboard save, focus is back on that row and the order holds', async () => {
+        const routes: Routes = {
+            ...listRoutes([
+                ticket({ id: 't-1', title: 'Newer one', version: 1, updated_at: '2026-10-29T10:00:09.000Z' }),
+                ticket({ id: 't-2', title: 'Older one', version: 1, updated_at: '2026-10-29T10:00:01.000Z' }),
+            ]),
+            'PUT /api/v1/tickets/t-2': async (request) => ok(ticket({ id: 't-2', ...(await bodyOf(request)), version: 2 })),
+        }
+        await open('/', routes)
+        const user = userEvent.setup()
+        const names = () => [...document.querySelectorAll('a.table__row .table__text')].map((el) => el.textContent)
+        await screen.findByRole('button', { name: 'Edit Older one' })
+        expect(names()).toEqual(['Newer one', 'Older one'])
+
+        screen.getByRole('button', { name: 'Edit Older one' }).focus()
+        await user.keyboard('{Enter}')
+        await user.type(screen.getByLabelText('Title'), ' edited{Enter}')
+
+        const edit = await screen.findByRole('button', { name: 'Edit Older one edited' })
+        await vi.waitFor(() => expect(edit).toHaveFocus())
+        expect(names()).toEqual(['Newer one', 'Older one edited'])
     })
 
     it('saves on Enter, cancels on Escape, and queues nothing when nothing changed', async () => {

@@ -69,6 +69,9 @@ type TableRowProps =
           actions?: JSX.Element
           /** Something that belongs under the row, inside its item. */
           below?: JSX.Element
+          /** Shown for a moment after the row stopped belonging (archived, edited
+           *  out of the filter): dimmed and inert, so it cannot be activated. */
+          gone?: boolean
           /** One element per column. */
           children: JSX.Element
       }
@@ -101,9 +104,16 @@ type TableRowProps =
 // caller's: only it knows which column holds a title and which a badge.
 const editingOf = (props: TableRowProps) => (props.editing === true ? props : undefined)
 
+const goneOf = (props: TableRowProps) => (props.loading || props.editing ? false : props.gone === true)
+
 export function TableRow(props: TableRowProps) {
     return (
-        <li class="table__item">
+        <li
+            class="table__item"
+            data-gone={goneOf(props) ? '' : undefined}
+            // `inert`: no click, no focus, and out of the accessibility tree.
+            inert={goneOf(props)}
+        >
             <Show
                 when={editingOf(props)}
                 fallback={

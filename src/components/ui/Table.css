@@ -202,3 +202,16 @@
     grid-column: 1;
   }
 }
+
+/* A row the list is holding in place after it stopped matching (archived, or
+ * edited out of the filter). Dimmed, not removed, so the rows around it stay
+ * where they are; it is inert, so it cannot be clicked. */
+.table__item[data-gone] {
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .table__item[data-gone] {
+    transition: opacity 120ms ease;
+  }
+}
