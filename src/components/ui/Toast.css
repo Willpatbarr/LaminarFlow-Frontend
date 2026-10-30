@@ -36,10 +36,9 @@
   border-radius: 50%;
   background: var(--hue);
   color: var(--bg-base);
-  font: 700 10px/1 var(--sans);
 }
 
-/* The check is 12px in a 14px badge; the 2px stroke sits inside it. */
+/* The check and the exclamation are 12px in a 14px badge; the 2px stroke sits inside it. */
 .toast__mark svg {
   display: block;
 }
@@ -105,9 +104,5 @@
     min-width: var(--touch-target);
     min-height: var(--touch-target);
     margin: calc((22px - var(--touch-target)) / 2) calc(-1 * var(--s-12)) calc((22px - var(--touch-target)) / 2) 0;
-  }
-
-  .toast__mark {
-    font-size: 12px;
   }
 }

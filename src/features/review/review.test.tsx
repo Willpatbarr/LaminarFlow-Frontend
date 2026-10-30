@@ -74,6 +74,10 @@ describe('open requests on a document', () => {
         // Nothing is "open", and nothing is hidden.
         expect(screen.queryByRole('button', { name: /open review request/ })).toBeNull()
         expect(screen.getByText('Hello', { selector: 'blockquote' })).toBeInTheDocument()
+        // The fold marker is the shared DisclosureCaret, not the browser's.
+        const summary = document.querySelector('.review__decided > summary')!
+        expect(summary).toHaveClass('disclosure-summary')
+        expect(summary.querySelector('.disclosure-caret')).not.toBeNull()
     })
 
     it('says "A reviewer" when the decider is not known, and "You" for the signed-in account', async () => {

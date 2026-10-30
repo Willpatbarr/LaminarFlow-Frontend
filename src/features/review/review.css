@@ -170,11 +170,8 @@
 }
 
 .review__summary {
-  display: flex;
   flex-wrap: wrap;
   gap: var(--s-8);
-  align-items: baseline;
-  cursor: pointer;
 }
 
 .review__outcome {

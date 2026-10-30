@@ -246,6 +246,11 @@
   cursor: pointer;
 }
 
+/* The select's own triangle would sit on the avatar; the avatar is the cue here. */
+.side-nav--collapsed .side-nav__teams .select::after {
+  display: none;
+}
+
 .side-nav--collapsed .side-nav__teams:has(:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

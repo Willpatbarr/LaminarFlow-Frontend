@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
+import { DisclosureCaret } from '@/components/ui/DisclosureCaret'
 import { TextArea } from '@/components/ui/TextArea'
 import { loadMembers, memberName } from '@/features/members/members'
 import { ShortcutHint, useScope } from '@/features/shortcuts'
@@ -29,7 +30,7 @@ import './review.css'
 //
 // A decided request stays on the page (LAM-132): its card keeps its place in the
 // list and folds to a one-line summary that says what was decided and by whom,
-// with the note under it. Folding is the reader's choice (a native <details>);
+// with the note under it. Folding is the reader's choice (a native <details> with the shared DisclosureCaret);
 // nothing is removed. Request changes asks for a short note first, which can be
 // left empty.
 
@@ -312,7 +313,8 @@ function RequestCard(props: PanelProps & { request: Comment }) {
                 }
             >
                 <details class="review__decided" open>
-                    <summary class="review__summary">
+                    <summary class="disclosure-summary review__summary">
+                        <DisclosureCaret />
                         <span class="review__outcome">
                             {summary()}
                         </span>
