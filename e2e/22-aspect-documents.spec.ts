@@ -33,15 +33,15 @@ test('convert a document to a Class aspect, fill two fields, and reload', async 
     })
     const id = made.data!.id
     await page.goto(`/documents/${id}`)
-    await page.getByLabel('Title').fill('Order')
-    await page.getByRole('textbox', { name: 'Text' }).click()
+    await page.getByLabel('Document title').fill('Order')
+    await page.getByRole('textbox', { name: 'Document text' }).click()
     await page.keyboard.type('Existing words')
     await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
 
     // Make it an Aspect: the text moves into the first field.
     await page.getByLabel('Aspect type').selectOption({ label: 'Class' })
     await page.getByRole('button', { name: 'Make this an Aspect' }).click()
-    await expect(page.getByRole('textbox', { name: 'Text' })).toHaveCount(0)
+    await expect(page.getByRole('textbox', { name: 'Document text' })).toHaveCount(0)
     const first = page.getByRole('textbox', { name: 'Purpose' })
     await expect(first).toContainText('Existing words')
     await expect(page.getByRole('textbox', { name: 'Invariants' })).toBeVisible()
@@ -65,7 +65,7 @@ test('convert a document to a Class aspect, fill two fields, and reload', async 
         })
 
     await page.reload()
-    await expect(page.getByLabel('Title')).toHaveValue('Order')
+    await expect(page.getByLabel('Document title')).toHaveValue('Order')
     await expect(page.getByRole('textbox', { name: 'Purpose' })).toContainText('Existing words and more')
     await expect(page.getByRole('textbox', { name: 'Invariants' })).toContainText('Total is never negative')
 })
@@ -90,7 +90,7 @@ test('a type with no fields is refused with its reason, and a new field appears 
     await page.getByLabel('Aspect type').selectOption({ label: name })
     await page.getByRole('button', { name: 'Make this an Aspect' }).click()
     await expect(page.getByText('has no fields yet')).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Text' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Document text' })).toBeVisible()
 
     // Once the type has a field the same action works, and a field added later
     // shows up in the open document, empty.

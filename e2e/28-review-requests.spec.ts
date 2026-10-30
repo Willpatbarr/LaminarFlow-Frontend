@@ -30,7 +30,7 @@ test('one user requests a review on a paragraph, a second user approves it, and 
     const bobPage = await bobContext.newPage()
     for (const p of [page, bobPage]) {
         await p.goto(`/documents/${documentId}`)
-        await expect(p.getByLabel('Title')).toHaveValue('Launch plan')
+        await expect(p.getByLabel('Document title')).toHaveValue('Launch plan')
         await connectionIs(p, 'Connected')
     }
 
@@ -39,7 +39,7 @@ test('one user requests a review on a paragraph, a second user approves it, and 
     await expect(ask).toBeDisabled()
 
     // Select the paragraph, then ask Bob.
-    await page.getByRole('textbox', { name: 'Text' }).click({ clickCount: 3 })
+    await page.getByRole('textbox', { name: 'Document text' }).click({ clickCount: 3 })
     await expect(ask).toBeEnabled()
     await ask.click()
     const dialog = page.getByRole('dialog')
@@ -47,6 +47,7 @@ test('one user requests a review on a paragraph, a second user approves it, and 
     await dialog.getByRole('textbox', { name: 'Note for the reviewers' }).fill('Is the tone right?')
     await dialog.getByRole('checkbox', { name: new RegExp(bob.displayName) }).check()
     await dialog.getByRole('button', { name: 'Request review' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Review requested.' })).toBeVisible()
 
     // The marker and the count appear for Alice, and live for Bob.
     await expect(page.getByRole('button', { name: /1 open review request/ })).toBeVisible()
@@ -100,7 +101,7 @@ test('Request changes asks for a note, confirms in place, and the requester sees
     const bobPage = await bobContext.newPage()
     for (const p of [page, bobPage]) {
         await p.goto(`/documents/${documentId}`)
-        await expect(p.getByLabel('Title')).toHaveValue('Launch plan')
+        await expect(p.getByLabel('Document title')).toHaveValue('Launch plan')
         await connectionIs(p, 'Connected')
     }
 
@@ -149,12 +150,12 @@ test('an approval that went stale says who had approved the earlier text; the re
 
     await signedInAs(context, alice, baseURL!)
     await page.goto(`/documents/${documentId}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Launch plan')
+    await expect(page.getByLabel('Document title')).toHaveValue('Launch plan')
     await expect(page.getByText('This is open again because the text it points at was edited.')).toBeVisible()
     await expect(page.getByText(`${bob.displayName} had approved the earlier text.`)).toBeVisible()
 
     // Asking for a review lists names; the email is not printed beside them.
-    await page.getByRole('textbox', { name: 'Text' }).click({ clickCount: 3 })
+    await page.getByRole('textbox', { name: 'Document text' }).click({ clickCount: 3 })
     await page.getByRole('button', { name: 'Request review', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByRole('checkbox', { name: new RegExp(bob.displayName) })).toBeVisible()
@@ -170,10 +171,10 @@ test('offsets count characters, not UTF-16 units: a selection after emoji lands 
 
     await signedInAs(context, alice, baseURL!)
     await page.goto(`/documents/${documentId}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Launch plan')
+    await expect(page.getByLabel('Document title')).toHaveValue('Launch plan')
     await connectionIs(page, 'Connected')
 
-    await page.getByRole('textbox', { name: 'Text' }).click({ clickCount: 3 })
+    await page.getByRole('textbox', { name: 'Document text' }).click({ clickCount: 3 })
     await page.getByRole('button', { name: 'Request review' }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('textbox', { name: 'Note for the reviewers' }).fill('Check the date')

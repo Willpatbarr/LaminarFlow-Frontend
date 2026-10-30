@@ -49,11 +49,11 @@ test('find a document by text in its body, from inside the editor', async ({ pag
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${start}`)
-    await expect(page.getByLabel('Title')).toHaveValue(/Start here/)
+    await expect(page.getByLabel('Document title')).toHaveValue(/Start here/)
     await connectionIs(page, 'Connected')
 
     // The chord works with the cursor in the editor, and typing there is untouched.
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     await editor.click()
     await page.keyboard.press('Control+k')
     const palette = page.getByRole('dialog', { name: 'Search' })
@@ -68,7 +68,7 @@ test('find a document by text in its body, from inside the editor', async ({ pag
     await page.keyboard.press('Enter')
 
     await expect(page).toHaveURL(new RegExp(`/documents/${target}$`))
-    await expect(page.getByLabel('Title')).toHaveValue(/Field notes/)
+    await expect(page.getByLabel('Document title')).toHaveValue(/Field notes/)
 })
 
 test('Escape closes it and the New ticket command opens the dialog', async ({ page, context, baseURL }) => {
@@ -101,5 +101,5 @@ test('the New document command makes a document and opens it', async ({ page, co
     await page.keyboard.type('new doc')
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/documents\/[^/]+$/)
-    await expect(page.getByRole('textbox', { name: 'Text' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Document text' })).toBeVisible()
 })

@@ -22,8 +22,8 @@ test('New document from a filtered list lands in that project; the picker makes 
     const id = page.url().split('/').pop()!
     await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
 
-    await page.getByLabel('Title').fill('Filed here')
-    await page.getByLabel('Title').blur()
+    await page.getByLabel('Document title').fill('Filed here')
+    await page.getByLabel('Document title').blur()
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
 
     const tab = page.getByRole('list', { name: 'Documents' })

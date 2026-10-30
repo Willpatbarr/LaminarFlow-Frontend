@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import { createSignal, For, Show } from 'solid-js'
+import { createSignal, For, onCleanup, Show } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import type { ImageUpload } from '@/components/editor/images'
@@ -51,6 +51,12 @@ type Props = ReviewContext & {
     fieldId: string | null
     /** The field's Markdown as the server holds it. */
     stored: () => string
+    /** Keeps the label for screen readers only (the page's own text, which has no heading above it). */
+    labelHidden?: boolean
+    /** The page asks for reviews from one place (LAM-150). Given this, the field has no
+     *  button of its own: it hands over `begin` while text is selected in it, and `null`
+     *  when that stops. `begin` returns why it cannot start, or '' once the dialog is open. */
+    onSelection?: (begin: (() => string) | null) => void
 }
 
 export function ReviewableField(props: Props) {
@@ -61,19 +67,25 @@ export function ReviewableField(props: Props) {
 
     function capture(found: Editor) {
         editor = found
-        const update = () => setSelecting(!found.state.selection.empty)
+        const update = () => {
+            const has = !found.state.selection.empty
+            setSelecting(has)
+            props.onSelection?.(has ? begin : null)
+        }
         found.on('selectionUpdate', update)
     }
+    onCleanup(() => props.onSelection?.(null))
 
-    function begin() {
-        if (!editor) return
+    function begin(): string {
+        if (!editor) return ''
         const anchor = anchorOfSelection(editor, props.stored())
         if (!anchor.ok) {
             setProblem(anchor.reason)
-            return
+            return anchor.reason
         }
         setProblem('')
         setAsking(anchor)
+        return ''
     }
 
     const count = () => props.open.length
@@ -107,6 +119,7 @@ export function ReviewableField(props: Props) {
             </For>
             <MarkdownEditor
                 label={props.label}
+                labelHidden={props.labelHidden}
                 placeholder={props.placeholder}
                 value={props.value}
                 readOnly={props.readOnly}
@@ -115,19 +128,21 @@ export function ReviewableField(props: Props) {
                 images={props.images}
                 ref={capture}
             />
-            <div class="reviewable__actions">
-                <Button variant="secondary" size="sm" disabled={!selecting() || !props.canRequest} onClick={begin}>
-                    Request review
-                </Button>
-                <Show when={selecting() && !props.canRequest}>
-                    <span class="t-meta">Available once your latest changes are saved.</span>
-                </Show>
-                <Show when={problem()}>
-                    <span class="t-meta" role="status">
-                        {problem()}
-                    </span>
-                </Show>
-            </div>
+            <Show when={!props.onSelection}>
+                <div class="reviewable__actions">
+                    <Button variant="secondary" size="sm" disabled={!selecting() || !props.canRequest} onClick={() => void begin()}>
+                        Request review
+                    </Button>
+                    <Show when={selecting() && !props.canRequest}>
+                        <span class="t-meta">Available once your latest changes are saved.</span>
+                    </Show>
+                    <Show when={problem()}>
+                        <span class="t-meta" role="status">
+                            {problem()}
+                        </span>
+                    </Show>
+                </div>
+            </Show>
             <Show when={asking()}>
                 {(range) => (
                     <RequestReviewDialog

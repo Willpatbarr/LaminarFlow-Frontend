@@ -4,9 +4,163 @@
   max-width: 54rem;
 }
 
-.document__status {
-  min-height: 17px;
+/* The page reads as a page, not a form (LAM-150): a heading you type into, the
+ * text growing under it, and the controls in a panel beside it. */
+.document--page {
+  max-width: 72rem;
+  grid-template-columns: minmax(0, 1fr) 16rem;
+  align-items: start;
+  gap: var(--s-24, 24px);
+}
+
+.document__main {
+  display: grid;
+  gap: var(--s-16);
+  min-width: 0;
+  max-width: 48rem;
+}
+
+.document__side {
+  position: sticky;
+  top: var(--s-16);
+}
+
+@media (max-width: 767px) {
+  .document--page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.document__title {
+  width: 100%;
+  padding: var(--s-4) 0;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: 600 30px/38px var(--sans);
+  letter-spacing: -0.02em;
+}
+
+.document__title::placeholder {
+  color: var(--text-3);
+}
+
+.document__title:focus-visible {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+.document__title[aria-invalid='true'] {
+  border-bottom-color: var(--rust);
+}
+
+.document__title[readonly] {
+  background: transparent;
+}
+
+.document__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8) var(--s-16);
+}
+
+/* The project picker is a small control in the row, not a field of its own. */
+.document__meta .input {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  width: auto;
+}
+
+.document__meta .input__label {
   color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.document__aspect-name {
+  color: var(--text-2);
+}
+
+.document__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 24px;
+  padding: 0 var(--s-8);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+}
+
+.document__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.document__status[data-tone='saved'] .document__status-dot {
+  background: var(--green);
+}
+
+.document__status[data-tone='saving'] .document__status-dot {
+  background: var(--amber);
+}
+
+.document__status[data-tone='trouble'] {
+  border-color: var(--rust);
+}
+
+.document__status[data-tone='trouble'] .document__status-dot {
+  background: var(--rust);
+}
+
+.document__more {
+  margin-left: auto;
+}
+
+.document__actions {
+  display: grid;
+  gap: var(--s-16);
+  padding: var(--s-12);
+  min-width: 15rem;
+}
+
+.document__actions-title {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.document__side .document__actions {
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+}
+
+.document__action {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-4);
+}
+
+.document__action > .t-meta {
+  color: var(--text-2);
+}
+
+/* The document's text is the page: no box around it, and it is as tall as what is in it. */
+.document--page .md-editor__box {
+  border-color: transparent;
+  background: transparent;
+}
+
+.document--page .md-editor__box:focus-within {
+  border-color: var(--border);
+}
+
+.document--page .md-editor__content {
+  min-height: 14em;
 }
 
 .document__failure {
@@ -18,10 +172,9 @@
 }
 
 .document__aspect {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--s-16);
+  display: grid;
+  justify-items: start;
+  gap: var(--s-8);
 }
 
 .document__notice:not(:empty) {

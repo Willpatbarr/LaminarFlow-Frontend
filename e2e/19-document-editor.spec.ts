@@ -18,8 +18,8 @@ test('Markdown typed and pasted renders, is stored as Markdown, and survives a r
     await expect(page).toHaveURL(UUID)
     const id = page.url().split('/').pop()!
 
-    await page.getByLabel('Title').fill('Meeting notes')
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    await page.getByLabel('Document title').fill('Meeting notes')
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     await editor.click()
     // Shortcuts as you type: "# " makes a heading, "- " a list, ** ** bold.
     await page.keyboard.type('# Agenda')
@@ -67,8 +67,8 @@ test('Markdown typed and pasted renders, is stored as Markdown, and survives a r
     expect(content).toContain('[a ticket](lf://ticket/abc-123)')
 
     await page.reload()
-    await expect(page.getByLabel('Title')).toHaveValue('Meeting notes')
-    const again = page.getByRole('textbox', { name: 'Text' })
+    await expect(page.getByLabel('Document title')).toHaveValue('Meeting notes')
+    const again = page.getByRole('textbox', { name: 'Document text' })
     await expect(again.getByRole('heading', { level: 1, name: 'Agenda' })).toBeVisible()
     await expect(again.locator('strong')).toHaveText('bold')
     await expect(again.getByRole('link', { name: 'a ticket' })).toHaveAttribute('href', '/tickets/abc-123')
@@ -93,7 +93,7 @@ test('a document written by an API client opens rendered, and its internal links
     await signedInAs(context, account, baseURL!)
 
     await page.goto(`/documents/${id}`)
-    const editor = page.getByRole('textbox', { name: 'Text' })
+    const editor = page.getByRole('textbox', { name: 'Document text' })
     await expect(editor.getByRole('link', { name: 'the doc' })).toHaveAttribute('href', '/documents/d-1')
 
     await editor.click()

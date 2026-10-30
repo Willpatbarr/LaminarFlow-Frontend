@@ -123,7 +123,7 @@ test('a document page has its own thread, for a normal document and an aspect on
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${documentId}`)
-    await expect(page.getByLabel('Title')).toHaveValue('Runbook')
+    await expect(page.getByLabel('Document title')).toHaveValue('Runbook')
     await connectionIs(page, 'Connected')
 
     const thread = page.getByRole('region', { name: /Comments/ })
