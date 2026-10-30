@@ -1,18 +1,16 @@
 /* One look for every primitive; they differ only in size and radius.
  *
- * The specimen paints --bg-overlay, which is the elevation scale's own step in
- * the dark theme but plain white in the light one - the same as the cards and
- * the rail it would sit on, so a skeleton would vanish. A wash of the text
- * colour reads as a darker (light) or lighter (dark) patch on any surface
- * without inventing a grey, and it inverts with the theme on its own. */
+ * Dark follows the vault specimen (Skeleton primitives): --bg-overlay, with an
+ * opacity pulse. Light departs from it: --bg-overlay is #fff there, the same
+ * as cards and nearly the page, so the shape would vanish. --border-strong is
+ * the nearest existing token that stays visible on both (about 1.5:1 on a
+ * white card, 1.4:1 on the page). light-dark() follows color-scheme, so the OS
+ * preference and the in-app data-theme switch both apply, as in index.css. */
 .skeleton {
-  --skeleton-base: color-mix(in srgb, var(--text-1) 9%, transparent);
-  --skeleton-glint: color-mix(in srgb, var(--text-1) 16%, transparent);
-
   display: block;
   flex-shrink: 0;
   max-width: 100%;
-  background: var(--skeleton-base);
+  background: light-dark(var(--border-strong), var(--bg-overlay));
 }
 
 .skeleton--line,
@@ -36,28 +34,20 @@
   border-radius: 50%;
 }
 
-/* The shimmer is motion, so it is opt-in: anyone who has asked for less (or
- * whose browser says nothing) gets the static tint above. */
+/* The pulse is motion, so it is opt-in: anyone who has asked for less (or
+ * whose browser says nothing) gets the static fill above. */
 @media (prefers-reduced-motion: no-preference) {
   .skeleton {
-    /* The shorthand, so the flat colour above is replaced rather than
-     * stacked under the gradient (both are translucent). */
-    background: linear-gradient(
-        90deg,
-        var(--skeleton-base) 0%,
-        var(--skeleton-glint) 50%,
-        var(--skeleton-base) 100%
-      )
-      0 0 / 200% 100%;
-    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
   }
 }
 
-@keyframes skeleton-shimmer {
-  from {
-    background-position: 100% 0;
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
   }
-  to {
-    background-position: -100% 0;
+  50% {
+    opacity: 0.55;
   }
 }
