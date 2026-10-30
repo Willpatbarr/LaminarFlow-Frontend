@@ -33,6 +33,13 @@ test('the page is on the first screen; the drawer opens, navigates and closes; E
     await expect(drawer.getByRole('link', { name: 'API tokens' })).toBeVisible()
     await expect(drawer.getByRole('button', { name: 'Log out' })).toBeVisible()
     await expect(drawer.locator(':focus')).toHaveCount(1)
+    // LAM-147: the drawer is the full rail, never the icon-only one: the theme
+    // group, the written Log out and the section headings are all there.
+    await expect(drawer.locator('.side-nav--collapsed')).toHaveCount(0)
+    await expect(drawer.getByRole('radiogroup', { name: 'Theme' })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: 'Log out' })).toContainText('Log out')
+    await expect(drawer.getByRole('heading', { name: 'Projects' })).toBeVisible()
+    await expect(drawer.locator('.side-nav__divider').first()).toBeHidden()
 
     // Navigating closes it, lands on the page and puts the page name in the bar.
     await drawer.getByRole('link', { name: 'Documents' }).click()

@@ -57,4 +57,16 @@ test('Light survives a reload with no flash; System follows the OS', async ({ pa
     await palette.getByRole('combobox').fill('theme light')
     await palette.getByRole('option', { name: /Theme: Light/ }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+
+    // LAM-147: the collapsed rail has one icon button in place of the group; it
+    // names the current choice and cycles Light -> Dark -> System.
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click()
+    await expect(page.getByRole('radiogroup', { name: 'Theme' })).toBeHidden()
+    await page.getByRole('button', { name: 'Theme: Light. Switch to Dark' }).click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    expect(await bg(page)).toBe(DARK)
+    await page.getByRole('button', { name: 'Theme: Dark. Switch to System' }).click()
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/)
+    await page.getByRole('button', { name: 'Expand sidebar' }).click()
+    await expect(page.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'true')
 })

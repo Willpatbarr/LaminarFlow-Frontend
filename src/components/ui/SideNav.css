@@ -10,6 +10,12 @@
   border-right: 1px solid var(--border);
 }
 
+/* A tall rail scrolls (the shell gives it that); it does not squash its own
+ * sections into each other. */
+.side-nav > * {
+  flex-shrink: 0;
+}
+
 .side-nav__profile {
   display: flex;
   align-items: center;
@@ -172,9 +178,76 @@
   margin-left: 0;
 }
 
-.side-nav__create .side-nav__icon {
+/* Collapsed rows are a column of centred icons. The label is out of the flow,
+ * so nothing wraps. */
+.side-nav--collapsed .side-nav__link,
+.side-nav--collapsed .side-nav__logout {
+  justify-content: center;
+  padding: 0;
+}
+
+.side-nav__logout {
+  white-space: nowrap;
+}
+
+/* Stands in for an icon that would be the same on every row: the row's
+ * initials in a small rounded box. */
+.side-nav__initials {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
   width: 20px;
-  text-align: center;
+  height: 20px;
+  border: 1px solid currentColor;
+  border-radius: var(--r-control);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Between sections, where the headings are when expanded. */
+.side-nav__divider {
+  display: none;
+  height: 0;
+  margin: var(--s-4) var(--s-8);
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.side-nav--collapsed .side-nav__divider {
+  display: block;
+}
+
+/* The team: its avatar shows, the real select lies invisibly over it. */
+.side-nav--collapsed .side-nav__teams {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: var(--s-32);
+}
+
+.side-nav--collapsed .side-nav__teams .avatar {
+  pointer-events: none;
+}
+
+.side-nav--collapsed .side-nav__teams .input {
+  position: absolute;
+  inset: 0;
+}
+
+.side-nav--collapsed .side-nav__teams .input__control {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.side-nav--collapsed .side-nav__teams:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-card);
 }
 
 .side-nav__hint {

@@ -1,6 +1,7 @@
 import type { JSX } from '@solidjs/web'
 import { createSignal, For, Show } from 'solid-js'
 
+import { Avatar } from './Avatar'
 import { Select, type SelectOption } from './Select'
 import { SkeletonCircle, SkeletonLine } from './Skeleton'
 import './SideNav.css'
@@ -21,7 +22,12 @@ export const ICONS = {
     key: 'M15 7a4 4 0 1 1-3.9 4.9L4 19v-3h3v-2h2l2.1-2.1A4 4 0 0 1 15 7zM16 10h.01',
     review: 'M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
     project: 'M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z',
+    logout: 'M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M16 8l4 4-4 4M20 12H9',
 } as const
+
+// A create action wears the icon of the thing it makes, shrunk, with a plus in
+// the corner: "New epic" is not mistaken for "New sprint" when only icons show.
+const PLUS_BADGE = 'M19 16v6M16 19h6'
 
 export type SideNavLink = {
     label: string
@@ -30,6 +36,9 @@ export type SideNavLink = {
     icon?: string
     /** A word after the label, such as "Private". Quiet, and read out with it. */
     note?: string
+    /** Two letters that stand in for the icon while the rail is collapsed, for
+     *  rows whose icon is the same on every row (projects, saved views). */
+    initials?: string
     /** The keys that go here, as text beside the label ("G then T"). Hidden
      *  from screen readers, who get it as `aria-keyshortcuts` instead. */
     hint?: string
@@ -53,7 +62,7 @@ type SideNavProps = {
     views?: SideNavLink[]
     /** Things that can be made from anywhere, one button each (LAM-105). Absent
      *  until there is a project to make them in. */
-    create?: { label: string; onClick: () => void }[]
+    create?: { label: string; onClick: () => void; /** The icon of the thing made. */ icon?: string }[]
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
@@ -76,6 +85,15 @@ export function monogram(name: string): string {
     const first = words[0]
     const last = words.length > 1 ? words[words.length - 1] : ''
     return (Array.from(first)[0] + (Array.from(last)[0] ?? '')).toUpperCase()
+}
+
+/** Up to two letters for a row's stand-in icon: the first letters of the first
+ *  two words, or the first two letters of a single word. */
+export function initialsOf(name: string): string {
+    const words = name.trim().split(/\s+/).filter(Boolean)
+    if (words.length === 0) return ''
+    const letters = words.length > 1 ? [Array.from(words[0])[0], Array.from(words[1])[0]] : Array.from(words[0]).slice(0, 2)
+    return letters.join('').toUpperCase()
 }
 
 // The rail from the Side Nav specimen, reduced to what exists: the profile slot
@@ -122,7 +140,22 @@ export function SideNav(props: SideNavProps) {
                         </div>
                         <Show when={props.teams}>
                             {(teams) => (
-                                <div class="side-nav__teams">
+                                <div
+                                    class="side-nav__teams"
+                                    title={collapsed() ? `Team: ${teamName(teams())}` : undefined}
+                                >
+                                    {/* Collapsed: the team's avatar is what shows, and the
+                                        real select sits invisibly on top of it, so it still
+                                        opens, still has its keyboard and its name. */}
+                                    <Show when={collapsed()}>
+                                        <span class="side-nav__team-avatar" aria-hidden="true">
+                                            <Avatar
+                                                initials={initialsOf(teamName(teams()))}
+                                                label={`Team: ${teamName(teams())}`}
+                                                size={32}
+                                            />
+                                        </span>
+                                    </Show>
                                     <Select
                                         label="Team"
                                         value={teams().value}
@@ -133,12 +166,14 @@ export function SideNav(props: SideNavProps) {
                             )}
                         </Show>
                         <nav aria-label="Main">
+                            <hr class="side-nav__divider" aria-hidden="true" />
                             <ul class="side-nav__list">
                                 <For each={props.links}>
                                     {(link) => <NavLink link={link} collapsed={collapsed()} />}
                                 </For>
                             </ul>
                             <Show when={props.projects !== undefined}>
+                                <hr class="side-nav__divider" aria-hidden="true" />
                                 <h2 class="side-nav__heading t-meta">Projects</h2>
                                 <ul class="side-nav__list">
                                     <For
@@ -149,7 +184,7 @@ export function SideNav(props: SideNavProps) {
                                     >
                                         {(link) => (
                                             <NavLink
-                                                link={{ ...link, icon: link.icon ?? ICONS.project }}
+                                                link={{ ...link, icon: link.icon ?? ICONS.project, initials: initialsOf(link.label) }}
                                                 collapsed={collapsed()}
                                             />
                                         )}
@@ -157,6 +192,7 @@ export function SideNav(props: SideNavProps) {
                                 </ul>
                             </Show>
                             <Show when={props.create && props.create.length > 0}>
+                                <hr class="side-nav__divider" aria-hidden="true" />
                                 <h2 class="side-nav__heading t-meta">Create</h2>
                                 <ul class="side-nav__list" aria-label="Create">
                                     <For each={props.create}>
@@ -168,7 +204,26 @@ export function SideNav(props: SideNavProps) {
                                                     title={collapsed() ? item.label : undefined}
                                                     onClick={() => item.onClick()}
                                                 >
-                                                    <span class="side-nav__icon" aria-hidden="true">+</span>
+                                                    <svg
+                                                        class="side-nav__icon"
+                                                        width="20"
+                                                        height="20"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <Show when={item.icon}>
+                                                            {(icon) => (
+                                                                <g transform="scale(0.75)" stroke-width="2.6">
+                                                                    <path d={icon()} />
+                                                                </g>
+                                                            )}
+                                                        </Show>
+                                                        <path d={PLUS_BADGE} stroke-width="2" />
+                                                    </svg>
                                                     <span class="side-nav__label">{item.label}</span>
                                                 </button>
                                             </li>
@@ -177,6 +232,7 @@ export function SideNav(props: SideNavProps) {
                                 </ul>
                             </Show>
                             <Show when={props.views !== undefined}>
+                                <hr class="side-nav__divider" aria-hidden="true" />
                                 <h2 class="side-nav__heading t-meta">Saved views</h2>
                                 <ul class="side-nav__list" aria-label="Saved views">
                                     <For
@@ -185,7 +241,7 @@ export function SideNav(props: SideNavProps) {
                                     >
                                         {(link) => (
                                             <NavLink
-                                                link={{ ...link, icon: link.icon ?? ICONS.views }}
+                                                link={{ ...link, icon: link.icon ?? ICONS.views, initials: initialsOf(link.label) }}
                                                 collapsed={collapsed()}
                                             />
                                         )}
@@ -194,15 +250,33 @@ export function SideNav(props: SideNavProps) {
                             </Show>
                         </nav>
                         <div class="side-nav__foot">
+                            <hr class="side-nav__divider" aria-hidden="true" />
                             {props.account}
                             {props.status}
                             <Show when={props.userName}>
                                 <button
                                     type="button"
                                     class="side-nav__logout t-body"
+                                    title={collapsed() ? 'Log out' : undefined}
                                     onClick={props.onLogout}
                                 >
-                                    Log out
+                                    <svg
+                                        class="side-nav__icon"
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            d={ICONS.logout}
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                    </svg>
+                                    <span class="side-nav__label">Log out</span>
                                 </button>
                             </Show>
                         </div>
@@ -242,6 +316,8 @@ export function SideNav(props: SideNavProps) {
     )
 }
 
+const teamName = (teams: SideNavTeams) => teams.options.find((o) => o.value === teams.value)?.label ?? ''
+
 function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
     return (
         <li>
@@ -251,22 +327,33 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
                 aria-keyshortcuts={props.link.hint?.replace(' then ', ' ')}
                 title={props.collapsed ? props.link.label : undefined}
             >
-                <svg
-                    class="side-nav__icon"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
+                <Show
+                    when={props.collapsed && props.link.initials}
+                    fallback={
+                        <svg
+                            class="side-nav__icon"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d={props.link.icon ?? HOME_PATH}
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
+                        </svg>
+                    }
                 >
-                    <path
-                        d={props.link.icon ?? HOME_PATH}
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                </svg>
+                    {(initials) => (
+                        <span class="side-nav__icon side-nav__initials" aria-hidden="true">
+                            {initials()}
+                        </span>
+                    )}
+                </Show>
                 <span class="side-nav__label">{props.link.label}</span>
                 <Show when={props.link.hint}>
                     {(hint) => (
