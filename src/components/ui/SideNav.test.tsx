@@ -2,7 +2,7 @@ import { render, screen } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
-import { monogram, SideNav } from './SideNav'
+import { ICONS, initialsOf, monogram, SideNav } from './SideNav'
 
 describe('monogram', () => {
     it.each([
@@ -14,6 +14,18 @@ describe('monogram', () => {
         ['', ''],
     ])('%j is %j', (name, expected) => {
         expect(monogram(name)).toBe(expected)
+    })
+})
+
+describe('initialsOf', () => {
+    it.each([
+        ['Bugs', 'BU'],
+        ['Q', 'Q'],
+        ['Release blockers', 'RB'],
+        ['  my  open items ', 'MO'],
+        ['', ''],
+    ])('%j is %j', (name, expected) => {
+        expect(initialsOf(name)).toBe(expected)
     })
 })
 
@@ -153,5 +165,77 @@ describe('SideNav', () => {
         render(() => <SideNav links={[]} userName="Ada" onLogout={() => {}} />)
 
         expect(screen.queryByRole('heading', { name: 'Saved views' })).not.toBeInTheDocument()
+    })
+    describe('collapsed', () => {
+        const rail = () => (
+            <SideNav
+                links={[{ label: 'Tickets', href: '/' }]}
+                teams={{ options: [{ value: 't1', label: 'Quality' }, { value: 't2', label: 'Ops' }], value: 't1', onChange: () => {} }}
+                projects={[{ label: 'Alpha', href: '/projects/p1' }]}
+                views={[
+                    { label: 'Bugs', href: '/views/v1' },
+                    { label: 'Mine', href: '/views/v2' },
+                ]}
+                create={[
+                    { label: 'New epic', onClick: () => {}, icon: ICONS.epic },
+                    { label: 'New sprint', onClick: () => {}, icon: ICONS.sprint },
+                    { label: 'New milestone', onClick: () => {}, icon: ICONS.milestone },
+                ]}
+                userName="Ada Lovelace"
+                onLogout={() => {}}
+            />
+        )
+
+        it('gives each create action its own icon, and keeps its name', async () => {
+            const { container } = render(rail)
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+
+            const create = screen.getByRole('list', { name: 'Create' })
+            const paths = Array.from(create.querySelectorAll('svg g path')).map((p) => p.getAttribute('d'))
+            expect(paths).toEqual([ICONS.epic, ICONS.sprint, ICONS.milestone])
+            for (const name of ['New epic', 'New sprint', 'New milestone']) {
+                expect(screen.getByRole('button', { name })).toHaveAttribute('title', name)
+            }
+            expect(container.textContent).not.toContain('+')
+        })
+
+        it('shows initials for projects and saved views only while collapsed', async () => {
+            const { container } = render(rail)
+            const user = userEvent.setup()
+            expect(container.querySelector('.side-nav__initials')).toBeNull()
+
+            await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+            const initials = Array.from(container.querySelectorAll('.side-nav__initials')).map((e) => e.textContent)
+            expect(initials).toEqual(['AL', 'BU', 'MI'])
+            expect(screen.getByRole('link', { name: 'Bugs' })).toHaveAttribute('title', 'Bugs')
+
+            await user.click(screen.getByRole('button', { name: 'Expand sidebar' }))
+            expect(container.querySelector('.side-nav__initials')).toBeNull()
+        })
+
+        it('replaces "Q ▾" with the team avatar, over a select that still works', async () => {
+            render(rail)
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+
+            expect(document.querySelector('.side-nav__team-avatar')).toHaveTextContent('QU')
+            expect(screen.getByLabelText('Team')).toHaveValue('t1')
+        })
+
+        it('turns Log out into an icon button that keeps its name and a tooltip', async () => {
+            render(rail)
+            const logout = screen.getByRole('button', { name: 'Log out' })
+            expect(logout).not.toHaveAttribute('title')
+
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+            expect(logout).toHaveAccessibleName('Log out')
+            expect(logout).toHaveAttribute('title', 'Log out')
+            expect(logout.querySelector('svg')).not.toBeNull()
+        })
+
+        it('has a divider before each section', () => {
+            const { container } = render(rail)
+            // Projects, Create, Saved views, the foot, and the one under the team picker.
+            expect(container.querySelectorAll('hr.side-nav__divider')).toHaveLength(5)
+        })
     })
 })

@@ -28,7 +28,31 @@
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
-/* The collapsed rail is narrow: the three stack, none is hidden. */
+/* The collapsed rail is narrow: one icon button that cycles replaces the group
+ * (the radios and their names are still one press away, not gone). */
+.theme-switch__cycle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--s-32);
+  padding: 0;
+  border: none;
+  border-radius: var(--r-card);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.theme-switch__cycle:hover {
+  background: color-mix(in srgb, var(--text-1) 10%, transparent);
+  color: var(--accent);
+}
+
 .side-nav--collapsed .theme-switch {
-  flex-direction: column;
+  display: none;
+}
+
+.side-nav--collapsed .theme-switch__cycle {
+  display: flex;
 }

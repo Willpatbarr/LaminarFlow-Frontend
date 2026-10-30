@@ -220,6 +220,7 @@ export function AppLayout(props: RouteSectionProps) {
                             homeProject() && can('ticket:write')
                                 ? (['epic', 'sprint', 'milestone'] as const).map((kind) => ({
                                       label: `New ${KINDS[kind].singular}`,
+                                      icon: ICONS[kind],
                                       onClick: () => setMaking(kind),
                                   }))
                                 : undefined
