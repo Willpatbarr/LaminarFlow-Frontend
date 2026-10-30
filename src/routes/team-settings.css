@@ -29,3 +29,12 @@
 .settings__section > p.t-body {
   margin: 0;
 }
+
+/* Touch (LAM-186): a link that is a section's only content is a 44px target. */
+@media (pointer: coarse) {
+  .settings__section > p.t-body > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+  }
+}

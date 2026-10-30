@@ -174,3 +174,23 @@
   padding: 0;
   border: 0;
 }
+
+/* Touch (LAM-186): the column menu button and each card's title are 44px tall;
+ * the card grows to hold the title, it is not bloated elsewhere. */
+@media (pointer: coarse) {
+  .board__menu-button {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    justify-content: center;
+  }
+
+  .board__card-title {
+    display: flex;
+    align-items: center;
+    min-height: var(--touch-target);
+  }
+
+  .board__card {
+    padding-block: 0;
+  }
+}

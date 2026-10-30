@@ -284,3 +284,34 @@
     transition: opacity 120ms ease;
   }
 }
+
+/* Touch (LAM-186). Rows are 44px (--row-h, set in src/index.css). The row's
+ * Edit and Archive are 44px buttons 8px apart, so the room the row keeps for
+ * them grows from 64px to 104px, in both layouts. Keep the stacked rules in
+ * step with the two blocks above. */
+@media (pointer: coarse) {
+  .table__actions {
+    gap: var(--s-8);
+  }
+
+  .table__item:has(> .table__actions) > .table__row::after {
+    flex-basis: 104px;
+    min-height: var(--touch-target);
+  }
+
+  .table__actions {
+    min-height: var(--touch-target);
+  }
+
+  /* Wide layout: the last column (64px, set by the list's template) is too
+   * narrow for two 44px buttons, so the row and its header pad 40px more at the
+   * end. */
+  @media (min-width: 768px) {
+    @container table (min-width: 660px) {
+      .table__header,
+      .table__row {
+        padding-inline-end: calc(var(--s-12) + 40px);
+      }
+    }
+  }
+}

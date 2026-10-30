@@ -204,3 +204,11 @@
 .md-editor__content .suggestion {
   color: var(--accent);
 }
+
+/* Touch (LAM-186): the editor is a contenteditable; under 16px iOS zooms into it
+ * on focus. */
+@media (pointer: coarse) {
+  .md-editor__content {
+    font-size: 16px;
+  }
+}

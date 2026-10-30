@@ -27,7 +27,7 @@ export function Avatar(props: AvatarProps) {
             style={{
                 width: `${size()}px`,
                 height: `${size()}px`,
-                'font-size': `${Math.round(size() * 0.45)}px`,
+                '--avatar-fs': `${Math.round(size() * 0.45)}px`,
             }}
         >
             {props.initials}

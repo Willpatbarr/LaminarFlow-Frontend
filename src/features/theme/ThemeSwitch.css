@@ -56,3 +56,14 @@
 .side-nav--collapsed .theme-switch__cycle {
   display: flex;
 }
+
+/* Touch (LAM-186). */
+@media (pointer: coarse) {
+  .theme-switch__option {
+    height: var(--touch-target);
+  }
+
+  .theme-switch__cycle {
+    height: var(--touch-target);
+  }
+}

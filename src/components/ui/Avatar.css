@@ -5,6 +5,8 @@
   border-radius: 50%;
   background: var(--accent-tint);
   color: var(--accent);
+  /* Set inline (--avatar-fs) from the avatar's size. */
+  font-size: var(--avatar-fs);
   font-family: var(--sans);
   font-weight: 600;
   line-height: 1;
@@ -15,4 +17,12 @@
 .avatar--empty {
   background: transparent;
   border: 1px dashed var(--border-strong);
+}
+
+/* Touch (LAM-186): initials are the only assignee cue in a row; never under
+ * 11px. */
+@media (pointer: coarse) {
+  .avatar {
+    font-size: max(var(--avatar-fs), 11px);
+  }
 }

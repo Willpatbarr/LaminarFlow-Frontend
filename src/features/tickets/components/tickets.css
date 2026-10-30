@@ -561,3 +561,23 @@ a.view-switch__item:hover {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Touch (LAM-186): the List | Board switch, group folds, the list-controls
+ * disclosures and the "Open ticket" link are 44px tap targets. */
+@media (pointer: coarse) {
+  .view-switch__item {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+    padding-block: 0;
+  }
+
+  .tickets__group-toggle,
+  .list-controls__summary {
+    min-height: var(--touch-target);
+  }
+
+  .new-ticket__open {
+    min-height: var(--touch-target);
+  }
+}
