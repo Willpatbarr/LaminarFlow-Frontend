@@ -8,3 +8,10 @@
 .icon-text > svg {
   flex: none;
 }
+
+/* Touch (LAM-186): the "← Tickets" back links are 44px tall. */
+@media (pointer: coarse) {
+  .icon-text {
+    min-height: var(--touch-target);
+  }
+}

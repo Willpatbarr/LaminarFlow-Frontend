@@ -264,3 +264,41 @@
 .side-nav--collapsed .side-nav__hint {
     display: none;
 }
+
+/* Touch (LAM-186): 44px rows, 12px initials. The collapsed team switcher keeps
+ * its invisible select over a 44px cell. */
+@media (pointer: coarse) {
+  .side-nav__link,
+  .side-nav__logout {
+    height: var(--touch-target);
+  }
+
+  .side-nav__profile {
+    min-height: var(--touch-target);
+  }
+
+  .side-nav__collapse {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    justify-content: center;
+  }
+
+  .side-nav--collapsed .side-nav__teams {
+    height: var(--touch-target);
+  }
+
+  .side-nav__initials {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+
+  .side-nav__monogram {
+    width: 30px;
+    height: 30px;
+  }
+
+  .side-nav__list {
+    gap: 0;
+  }
+}

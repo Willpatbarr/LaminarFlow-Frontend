@@ -87,3 +87,13 @@
 .input__count--over {
   color: var(--rust-fg);
 }
+
+/* Touch (LAM-186): 16px so iOS does not zoom on focus (this file loads after
+ * src/index.css, so it beats the 13.5px shorthand above), and a 44px height. A
+ * multiline field is already taller. */
+@media (pointer: coarse) {
+  .input__control {
+    font-size: 16px;
+    min-height: var(--touch-target);
+  }
+}

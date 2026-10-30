@@ -87,3 +87,19 @@
     transform: translateY(6px);
   }
 }
+
+/* Touch (LAM-186): Dismiss is a 44px target; the mark's glyph is 12px. The
+ * negative margin gives the target's extra size back, so the toast does not
+ * grow around it. */
+@media (pointer: coarse) {
+  .toast__dismiss {
+    justify-content: center;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    margin: calc((22px - var(--touch-target)) / 2) calc(-1 * var(--s-12)) calc((22px - var(--touch-target)) / 2) 0;
+  }
+
+  .toast__mark {
+    font-size: 12px;
+  }
+}

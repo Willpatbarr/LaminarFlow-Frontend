@@ -117,3 +117,18 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Touch (LAM-186): the row's buttons (Button, IconButton) are 44px from their
+ * own blocks; keep 8px between them so a mis-tap does not delete. */
+@media (pointer: coarse) {
+  .status-editor__actions {
+    gap: var(--s-8);
+    flex-wrap: wrap;
+  }
+
+  .status-editor__handle {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    justify-content: center;
+  }
+}

@@ -104,3 +104,17 @@
 .palette__status:empty {
   display: none;
 }
+
+/* Touch (LAM-186/LAM-183): 16px stops iOS zooming when the palette opens; the
+ * options are 44px rows. */
+@media (pointer: coarse) {
+  .palette__input {
+    font-size: 16px;
+    min-height: var(--touch-target);
+  }
+
+  .palette__option {
+    min-height: var(--touch-target);
+    align-content: center;
+  }
+}

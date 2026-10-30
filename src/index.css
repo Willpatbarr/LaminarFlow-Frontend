@@ -241,3 +241,60 @@ code {
   color: var(--text-2);
   white-space: nowrap;
 }
+
+/* Touch layer (LAM-186). The one place the coarse-pointer sizes are decided:
+ * tap targets of 44px, fields at 16px so iOS Safari does not zoom on focus, and
+ * no text under 12px. It follows the pointer, not the viewport width, so a
+ * desktop window narrowed to a phone width and a tablet with a mouse stay as
+ * they are. Components that hard-code a size add their own small block at the
+ * foot of their CSS file (Button, IconButton, Input, SideNav, Table, Avatar,
+ * board, StatusEditor, ...); everything they share is a variable set here.
+ * Where a control must stay small to look right, grow its hit area instead. */
+@media (pointer: coarse) {
+  :root {
+    --touch-target: 44px;
+    /* A table row is a link, so it is a tap target (Table.css reads this). */
+    --row-h: 44px;
+  }
+
+  .t-meta,
+  .chip {
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .t-overline {
+    font-size: 12px;
+  }
+
+  /* A field below 16px makes iOS Safari zoom the page on focus. The attribute
+   * selector is deliberately more specific than the component classes' own font
+   * shorthands. */
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+  select,
+  textarea,
+  [contenteditable='true'] {
+    font-size: 16px;
+  }
+
+  /* The label of a checkbox is the tap target; the box itself stays a box. */
+  label:has(> .checkbox) {
+    display: flex;
+    align-items: center;
+    gap: var(--s-8);
+    min-height: var(--touch-target);
+  }
+
+  .checkbox {
+    --checkbox-size: 22px;
+    --checkbox-tick: 20px;
+  }
+
+  .select {
+    --select-caret-width: 10px;
+    --select-caret-height: 6px;
+  }
+
+  summary {
+    min-height: var(--touch-target);
+  }
+}

@@ -83,3 +83,18 @@ a.button {
   display: inline-block;
   text-decoration: none;
 }
+
+/* Touch (LAM-186): every button is a 44px tap target. */
+@media (pointer: coarse) {
+  .button {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+
+  /* An a.button is inline-block: centre its text in the taller box. */
+  a.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

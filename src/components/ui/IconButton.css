@@ -30,3 +30,11 @@
   width: 16px;
   height: 16px;
 }
+
+/* Touch (LAM-186): the glyph stays 16px; the button around it is the target. */
+@media (pointer: coarse) {
+  .icon-button {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
+}

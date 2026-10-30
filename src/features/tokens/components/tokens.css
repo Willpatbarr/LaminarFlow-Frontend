@@ -130,3 +130,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Touch (LAM-186): no text under 12px. */
+@media (pointer: coarse) {
+  .tokens__code {
+    font-size: 12px;
+  }
+}
