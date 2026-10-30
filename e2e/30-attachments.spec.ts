@@ -101,13 +101,16 @@ test('a file over the limit is refused and the field says what the limit is; a r
     await openTicket(page, ticket.id, 'Too big')
 
     const section = page.getByRole('region', { name: 'Attachments' })
+    // A fresh upload clears the last "Attached ..." line.
+    await section.getByLabel('Attach files').setInputFiles({ name: 'ok.txt', mimeType: 'text/plain', buffer: Buffer.from('fine') })
+    await expect(section.getByText('Attached ok.txt.')).toBeVisible()
     await section.getByLabel('Attach files').setInputFiles({
         name: 'huge.bin',
         mimeType: 'application/octet-stream',
         buffer: Buffer.alloc(26 * 1024 * 1024),
     })
-    await expect(section.getByRole('alert')).toContainText('huge.bin is too large. Files can be at most 25 MB.')
-    await expect(section.getByText('No attachments.')).toBeVisible()
+    await expect(section.getByRole('alert')).toContainText('huge.bin is 26 MB; the limit is 25 MB.')
+    await expect(section.getByText('Attached ok.txt.')).toHaveCount(0)
 
     await section.getByRole('button', { name: 'Dismiss' }).click()
     await section.getByLabel('Attach files').setInputFiles({

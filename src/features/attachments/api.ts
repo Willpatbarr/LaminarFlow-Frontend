@@ -2,6 +2,8 @@ import { api } from '@/api/client'
 import type { components } from '@/api/schema'
 import type { Result } from '@/features/aspects/api'
 
+import { MAX_ATTACHMENT_BYTES, oversizeMessage } from './limits'
+
 /*
 ┌─ attachments ───────────────────────────────────────
 │  the attachment calls (LAM-116), each answering a Result instead of throwing
@@ -40,9 +42,10 @@ export function humanSize(bytes: number): string {
     return `${mb >= 10 ? Math.round(mb) : Math.round(mb * 10) / 10} MB`
 }
 
+// The server's 413 does not say how big the file was, so this form has no size.
 export function attachmentTooLargeMessage(name: string, limitBytes: number | undefined): string {
     return limitBytes !== undefined
-        ? `${name} is too large. Files can be at most ${humanSize(limitBytes)}.`
+        ? `${name} is over the limit of ${humanSize(limitBytes)}.`
         : `${name} is too large.`
 }
 
@@ -82,6 +85,12 @@ type UploadOptions = {
 
 export function uploadAttachment(parent: AttachmentParent, file: File, options: UploadOptions = {}): Promise<UploadResult> {
     return new Promise((resolve) => {
+        // Over the limit: say so now, before a byte is sent.
+        const tooBig = oversizeMessage(file)
+        if (tooBig) {
+            resolve({ ok: false, code: 'attachment_too_large', limitBytes: MAX_ATTACHMENT_BYTES, message: tooBig })
+            return
+        }
         const form = new FormData()
         // The owner first, then the file: the server reads the form as a stream.
         if (parent.ticketId !== undefined) form.append('ticket_id', parent.ticketId)

@@ -7,6 +7,7 @@ import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { isTempId, resolveId } from '@/sync'
 
 import { deleteAttachment, humanSize, listAttachments, uploadAttachment, type Attachment, type AttachmentParent } from './api'
+import { oversizeMessage } from './limits'
 import { attachmentsVersion, settledParent } from './upload'
 import './attachments.css'
 
@@ -31,6 +32,8 @@ type Props = {
     disabled?: boolean
 }
 
+const ANNOUNCEMENT_MS = 6000
+
 type Sending = { id: number; name: string; fraction: number; waiting: boolean }
 
 const idOf = (parent: AttachmentParent) => parent.ticketId ?? parent.documentId
@@ -45,7 +48,10 @@ export function AttachmentList(props: Props) {
     const [sending, setSending] = createSignal<Sending[]>([])
     const [problems, setProblems] = createSignal<string[]>([])
     const [removing, setRemoving] = createSignal<Attachment | null>(null)
+    // The last thing that went well ("Attached x."), shown and announced until it
+    // is dismissed, replaced, or a few seconds pass. Errors stay until dismissed.
     const [announcement, setAnnouncement] = createSignal('')
+    let announcementTimer: ReturnType<typeof setTimeout> | undefined
     let input: HTMLInputElement | undefined
     let latest = 0
     let seq = 0
@@ -91,8 +97,24 @@ export function AttachmentList(props: Props) {
         () => void reload(),
     )
 
+    function announce(text: string) {
+        clearTimeout(announcementTimer)
+        setAnnouncement(text)
+        if (text) announcementTimer = setTimeout(() => setAnnouncement(''), ANNOUNCEMENT_MS)
+    }
+    onCleanup(() => clearTimeout(announcementTimer))
+
     async function send(files: File[]) {
+        // A new upload replaces whatever the last one said.
+        setProblems([])
+        announce('')
         for (const file of files) {
+            // Over the limit: refuse before it waits or uploads anything.
+            const tooBig = oversizeMessage(file)
+            if (tooBig) {
+                setProblems((all) => [...all, tooBig])
+                continue
+            }
             const id = ++seq
             const entry: Sending = { id, name: file.name, fraction: 0, waiting: isTempId(resolveId(idOf(props.parent))) }
             setSending((all) => [...all, entry])
@@ -108,7 +130,7 @@ export function AttachmentList(props: Props) {
             })
             setSending((all) => all.filter((s) => s.id !== id))
             if (result.ok) {
-                setAnnouncement(`Attached ${file.name}.`)
+                announce(`Attached ${file.name}.`)
                 await reload()
             } else {
                 setProblems((all) => [...all, result.message])
@@ -118,10 +140,11 @@ export function AttachmentList(props: Props) {
 
     async function remove(item: Attachment) {
         setRemoving(null)
+        setProblems([])
         const result = await deleteAttachment(item.id)
         if (result.ok) {
             setItems((all) => all?.filter((a) => a.id !== item.id) ?? null)
-            setAnnouncement(`Deleted ${item.filename}.`)
+            announce(`Deleted ${item.filename}.`)
         } else {
             setProblems((all) => [...all, `Could not delete ${item.filename}: ${result.message}`])
         }
@@ -213,10 +236,7 @@ export function AttachmentList(props: Props) {
                     onChange={(event) => {
                         const files = [...(event.currentTarget.files ?? [])]
                         event.currentTarget.value = ''
-                        if (files.length > 0) {
-                            setProblems([])
-                            void send(files)
-                        }
+                        if (files.length > 0) void send(files)
                     }}
                 />
                 <Button variant="secondary" disabled={props.disabled} onClick={() => input?.click()}>
@@ -225,8 +245,13 @@ export function AttachmentList(props: Props) {
                 <span class="t-meta">Needs a connection: files are uploaded right away, not queued.</span>
             </div>
 
-            <div class="visually-hidden" aria-live="polite" aria-atomic="true">
-                {announcement()}
+            <div class="attachments__status t-meta" aria-live="polite" aria-atomic="true">
+                <Show when={announcement()}>
+                    <span>{announcement()}</span>
+                    <Button variant="ghost" size="sm" aria-label="Dismiss message" onClick={() => announce('')}>
+                        Dismiss
+                    </Button>
+                </Show>
             </div>
 
             <Show when={removing()}>
