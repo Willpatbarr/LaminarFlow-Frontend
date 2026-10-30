@@ -4,7 +4,7 @@ import { createEffect, createMemo, createSignal, onSettled, Show } from 'solid-j
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
-import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
+import { SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { can, logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { ThemeSwitch } from '@/features/theme'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
@@ -28,14 +28,14 @@ import { useRekeyRoute } from './rekey'
 
 // Only destinations that exist. Each new screen adds its line here.
 const LINKS: SideNavLink[] = [
-    { label: 'Tickets', href: '/', icon: ICONS.list },
-    { label: 'Epics', href: '/epics', icon: ICONS.epic },
-    { label: 'Sprints', href: '/sprints', icon: ICONS.sprint },
-    { label: 'Milestones', href: '/milestones', icon: ICONS.milestone },
-    { label: 'Documents', href: '/documents', icon: ICONS.document },
-    { label: 'Needs my review', href: '/reviews', icon: ICONS.review },
-    { label: 'Views', href: '/views', icon: ICONS.views },
-    { label: 'API tokens', href: '/settings/tokens', icon: ICONS.key },
+    { label: 'Tickets', href: '/', icon: 'list' },
+    { label: 'Epics', href: '/epics', icon: 'epic' },
+    { label: 'Sprints', href: '/sprints', icon: 'sprint' },
+    { label: 'Milestones', href: '/milestones', icon: 'milestone' },
+    { label: 'Documents', href: '/documents', icon: 'document' },
+    { label: 'Needs my review', href: '/reviews', icon: 'review' },
+    { label: 'Views', href: '/views', icon: 'views' },
+    { label: 'API tokens', href: '/settings/tokens', icon: 'key' },
 ]
 
 // The layout every signed-in route renders inside; login and sign-up are
@@ -251,7 +251,7 @@ export function AppLayout(props: RouteSectionProps) {
                             homeProject() && can('ticket:write')
                                 ? (['epic', 'sprint', 'milestone'] as const).map((kind) => ({
                                       label: `New ${KINDS[kind].singular}`,
-                                      icon: ICONS[kind],
+                                      icon: kind,
                                       onClick: () => setMaking(kind),
                                   }))
                                 : undefined

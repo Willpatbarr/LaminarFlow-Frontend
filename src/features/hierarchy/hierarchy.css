@@ -17,6 +17,9 @@
 }
 
 .hierarchy__group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
   justify-self: start;
   background: none;
   border: 0;

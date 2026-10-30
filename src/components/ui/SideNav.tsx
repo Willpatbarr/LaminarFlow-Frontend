@@ -2,28 +2,10 @@ import type { JSX } from '@solidjs/web'
 import { createSignal, For, Show } from 'solid-js'
 
 import { Avatar } from './Avatar'
+import { Icon, ICON_PATHS, type IconName } from './icons/Icon'
 import { Select, type SelectOption } from './Select'
 import { SkeletonCircle, SkeletonLine } from './Skeleton'
 import './SideNav.css'
-
-// Interface/House_02.svg, the Home icon from the Nav Links specimen. The default
-// for a link that names no icon of its own.
-const HOME_PATH =
-    'M4 11.4522V16.8002C4 17.9203 4 18.4807 4.21799 18.9086C4.40973 19.2849 4.71547 19.5906 5.0918 19.7823C5.5192 20.0001 6.07899 20.0001 7.19691 20.0001H16.8031C17.921 20.0001 18.48 20.0001 18.9074 19.7823C19.2837 19.5906 19.5905 19.2849 19.7822 18.9086C20 18.4811 20 17.9216 20 16.8037V11.4522C20 10.9179 19.9995 10.6506 19.9346 10.4019C19.877 10.1816 19.7825 9.97307 19.6546 9.78464C19.5102 9.57201 19.3096 9.39569 18.9074 9.04383L14.1074 4.84383C13.3608 4.19054 12.9875 3.86406 12.5674 3.73982C12.1972 3.63035 11.8026 3.63035 11.4324 3.73982C11.0126 3.86397 10.6398 4.19014 9.89436 4.84244L5.09277 9.04383C4.69064 9.39569 4.49004 9.57201 4.3457 9.78464C4.21779 9.97307 4.12255 10.1816 4.06497 10.4019C4 10.6506 4 10.9179 4 11.4522Z'
-
-/** Simple 24px stroke paths for the destinations that are not Home. */
-export const ICONS = {
-    list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
-    document: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
-    views: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
-    epic: 'M13 3 5 13h6l-1 8 8-10h-6z',
-    sprint: 'M12 8v4l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
-    milestone: 'M6 21V4M6 5h12l-2 4 2 4H6',
-    key: 'M15 7a4 4 0 1 1-3.9 4.9L4 19v-3h3v-2h2l2.1-2.1A4 4 0 0 1 15 7zM16 10h.01',
-    review: 'M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
-    project: 'M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z',
-    logout: 'M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M16 8l4 4-4 4M20 12H9',
-} as const
 
 // A create action wears the icon of the thing it makes, shrunk, with a plus in
 // the corner: "New epic" is not mistaken for "New sprint" when only icons show.
@@ -32,8 +14,8 @@ const PLUS_BADGE = 'M19 16v6M16 19h6'
 export type SideNavLink = {
     label: string
     href: string
-    /** An SVG path (24px grid). Home when absent. */
-    icon?: string
+    /** A coolicons name (see icons/paths.ts). Home when absent. */
+    icon?: IconName
     /** A word after the label, such as "Private". Quiet, and read out with it. */
     note?: string
     /** Two letters that stand in for the icon while the rail is collapsed, for
@@ -62,7 +44,7 @@ type SideNavProps = {
     views?: SideNavLink[]
     /** Things that can be made from anywhere, one button each (LAM-105). Absent
      *  until there is a project to make them in. */
-    create?: { label: string; onClick: () => void; /** The icon of the thing made. */ icon?: string }[]
+    create?: { label: string; onClick: () => void; /** The icon of the thing made. */ icon?: IconName }[]
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
@@ -135,7 +117,7 @@ export function SideNav(props: SideNavProps) {
                                 aria-label={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
                                 onClick={() => setCollapsed(!collapsed())}
                             >
-                                {collapsed() ? '»' : '«'}
+                                <Icon name={collapsed() ? 'chevron-right-duo' : 'chevron-left-duo'} size={16} />
                             </button>
                         </div>
                         <Show when={props.teams}>
@@ -184,7 +166,7 @@ export function SideNav(props: SideNavProps) {
                                     >
                                         {(link) => (
                                             <NavLink
-                                                link={{ ...link, icon: link.icon ?? ICONS.project, initials: initialsOf(link.label) }}
+                                                link={{ ...link, icon: link.icon ?? 'project', initials: initialsOf(link.label) }}
                                                 collapsed={collapsed()}
                                             />
                                         )}
@@ -218,7 +200,7 @@ export function SideNav(props: SideNavProps) {
                                                         <Show when={item.icon}>
                                                             {(icon) => (
                                                                 <g transform="scale(0.75)" stroke-width="2.6">
-                                                                    <path d={icon()} />
+                                                                    <path d={ICON_PATHS[icon()]} />
                                                                 </g>
                                                             )}
                                                         </Show>
@@ -241,7 +223,7 @@ export function SideNav(props: SideNavProps) {
                                     >
                                         {(link) => (
                                             <NavLink
-                                                link={{ ...link, icon: link.icon ?? ICONS.views, initials: initialsOf(link.label) }}
+                                                link={{ ...link, icon: link.icon ?? 'views', initials: initialsOf(link.label) }}
                                                 collapsed={collapsed()}
                                             />
                                         )}
@@ -260,22 +242,7 @@ export function SideNav(props: SideNavProps) {
                                     title={collapsed() ? 'Log out' : undefined}
                                     onClick={props.onLogout}
                                 >
-                                    <svg
-                                        class="side-nav__icon"
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        aria-hidden="true"
-                                    >
-                                        <path
-                                            d={ICONS.logout}
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        />
-                                    </svg>
+                                    <Icon class="side-nav__icon" name="logout" />
                                     <span class="side-nav__label">Log out</span>
                                 </button>
                             </Show>
@@ -329,24 +296,7 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
             >
                 <Show
                     when={props.collapsed && props.link.initials}
-                    fallback={
-                        <svg
-                            class="side-nav__icon"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            aria-hidden="true"
-                        >
-                            <path
-                                d={props.link.icon ?? HOME_PATH}
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    }
+                    fallback={<Icon class="side-nav__icon" name={props.link.icon ?? 'home'} />}
                 >
                     {(initials) => (
                         <span class="side-nav__icon side-nav__initials" aria-hidden="true">

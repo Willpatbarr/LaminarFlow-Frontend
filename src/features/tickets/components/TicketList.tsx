@@ -47,6 +47,7 @@ import { NewTicketDialog } from './NewTicketDialog'
 import { SavedViewBar } from './SavedViewBar'
 import { TicketDetail } from './TicketDetail'
 import { TicketRow } from './TicketRow'
+import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
 
 type TicketListProps = {
@@ -496,7 +497,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                                                 onClick={() => toggleGroup(group().key)}
                                             >
                                                 <span class="tickets__chevron" aria-hidden="true">
-                                                    {view().collapsed.includes(group().key) ? '▸' : '▾'}
+                                                    <Icon name={view().collapsed.includes(group().key) ? 'caret-right' : 'caret-down'} size={16} />
                                                 </span>
                                                 <Show
                                                     when={view().config.group === 'status'}

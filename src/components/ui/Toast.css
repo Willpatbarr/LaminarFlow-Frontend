@@ -58,6 +58,8 @@
 }
 
 .toast__dismiss {
+  display: inline-flex;
+  align-items: center;
   flex: none;
   align-self: flex-start;
   padding: 0 var(--s-6);

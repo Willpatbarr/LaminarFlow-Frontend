@@ -1,14 +1,11 @@
 import { For } from 'solid-js'
 
 import { setTheme, theme, THEMES, type Theme } from './theme'
+import { Icon, type IconName } from '@/components/ui/icons/Icon'
 import './ThemeSwitch.css'
 
-// 24px stroke paths for the icon button the collapsed rail shows instead.
-const ICON: Record<Theme, string> = {
-    light: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
-    dark: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
-    system: 'M4 5h16v11H4zM8 20h8M12 16v4',
-}
+// The icon button the collapsed rail shows instead.
+const ICON: Record<Theme, IconName> = { light: 'sun', dark: 'moon', system: 'monitor' }
 
 // Light / Dark / System as one segmented radio group, in the account area of the
 // rail and the drawer. Arrow keys move between the three, as in any radio group.
@@ -29,15 +26,7 @@ export function ThemeSwitch() {
                 title={words()}
                 onClick={() => setTheme(next().value)}
             >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                        d={ICON[theme()]}
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                </svg>
+                <Icon name={ICON[theme()]} />
             </button>
             <div class="theme-switch" role="radiogroup" aria-label="Theme">
                 <For each={THEMES}>

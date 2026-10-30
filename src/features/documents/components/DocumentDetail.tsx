@@ -41,6 +41,7 @@ import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
 import { createReviewTarget } from '../reviewTarget'
 import { DocumentConflictPanel } from './DocumentConflictPanel'
+import { Icon } from '@/components/ui/icons/Icon'
 import './documents.css'
 
 type DocumentDetailProps = {
@@ -72,7 +73,10 @@ export function DocumentDetail(props: DocumentDetailProps) {
     return (
         <section class="document" aria-busy={busy() ? 'true' : undefined}>
             <p class="t-meta">
-                <a href="/documents">← Documents</a>
+                <a class="icon-text" href="/documents" aria-label="← Documents">
+                    <Icon name="chevron-left" size={16} />
+                    Documents
+                </a>
             </p>
             <div class="document__notice t-body" aria-live="polite" aria-atomic="true">
                 {notice()}
@@ -343,7 +347,8 @@ function DocumentEditor(props: DocumentEditorProps) {
                                 label="Document actions"
                                 trigger={(trigger) => (
                                     <button type="button" class="document__more-button button button--secondary button--sm" {...trigger}>
-                                        <span aria-hidden="true">⋯ </span>Actions
+                                        <Icon name="more" size={16} />
+                                        Actions
                                     </button>
                                 )}
                             >

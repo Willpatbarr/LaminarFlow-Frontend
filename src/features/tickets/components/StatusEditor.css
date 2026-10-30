@@ -28,6 +28,8 @@
 }
 
 .status-editor__handle {
+  display: inline-flex;
+  align-items: center;
   color: var(--text-3);
   cursor: grab;
   user-select: none;

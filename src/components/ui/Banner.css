@@ -65,6 +65,8 @@
 }
 
 .banner__dismiss {
+  display: inline-flex;
+  align-items: center;
   flex: none;
   padding: 0 var(--s-6);
   border: none;

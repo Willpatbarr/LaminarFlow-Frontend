@@ -9,6 +9,7 @@ import { isLoading, sync } from '@/sync'
 
 import './team-settings.css'
 import { usePageTitle } from './pageTitle'
+import { Icon } from '@/components/ui/icons/Icon'
 
 // /teams/:teamId/settings. The team's statuses (LAM-95) and labels (LAM-104); the board's
 // column menu opens the same editor (LAM-107).
@@ -41,7 +42,10 @@ export function TeamSettingsPage() {
                     {(found) => (
                         <div class="settings">
                             <p class="t-body">
-                                <a href={`/teams/${found().id}`}>← {found().name}</a>
+                                <a class="icon-text" href={`/teams/${found().id}`} aria-label={`← ${found().name}`}>
+                                    <Icon name="chevron-left" size={16} />
+                                    {found().name}
+                                </a>
                             </p>
                             <h1 class="t-screen-title settings__title">Team settings</h1>
                             <section class="settings__section">

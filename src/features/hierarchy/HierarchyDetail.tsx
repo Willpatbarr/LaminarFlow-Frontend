@@ -35,6 +35,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { AddTicketsToSprint } from './AddTicketsToSprint'
 import { KINDS, scopeConfig, type Kind } from './kinds'
 import { progressFor, scopedTickets, ScopedTickets } from './ScopedTickets'
+import { Icon } from '@/components/ui/icons/Icon'
 import './hierarchy.css'
 import '../tickets/components/tickets.css'
 
@@ -56,7 +57,10 @@ export function HierarchyDetail(props: { kind: Kind; id: string; viewer: Viewer 
     return (
         <section class="tickets" aria-busy={busy() ? 'true' : undefined}>
             <p class="t-meta">
-                <a href={KINDS[props.kind].path}>← {KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}</a>
+                <a class="icon-text" href={KINDS[props.kind].path} aria-label={`← ${KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}`}>
+                    <Icon name="chevron-left" size={16} />
+                    {KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}
+                </a>
             </p>
             <Show
                 when={row()}

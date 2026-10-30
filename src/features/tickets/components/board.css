@@ -128,6 +128,8 @@
 }
 
 .board__menu-button {
+  display: inline-flex;
+  align-items: center;
   margin-left: auto;
   padding: 0 var(--s-8);
   border: 0;

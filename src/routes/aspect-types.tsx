@@ -6,6 +6,7 @@ import { AspectTypeList } from '@/features/aspects/components/AspectTypeList'
 import { session } from '@/features/auth'
 import { isLoading, sync } from '@/sync'
 import { usePageTitle } from './pageTitle'
+import { Icon } from '@/components/ui/icons/Icon'
 
 // /teams/:teamId/aspect-types and /teams/:teamId/aspect-types/:id (LAM-98). Which
 // teams exist comes from the local store; the aspect types themselves are asked
@@ -39,7 +40,10 @@ export function AspectTypesPage() {
                     {(found) => (
                         <>
                             <p class="t-body">
-                                <a href={`/teams/${found().id}/settings`}>← Team settings</a>
+                                <a class="icon-text" href={`/teams/${found().id}/settings`} aria-label="← Team settings">
+                                    <Icon name="chevron-left" size={16} />
+                                    Team settings
+                                </a>
                             </p>
                             <h1 class="t-screen-title">Aspect types</h1>
                             <p class="t-meta">
@@ -66,7 +70,10 @@ export function AspectTypePage() {
                     {(found) => (
                         <>
                             <p class="t-body">
-                                <a href={`/teams/${found().id}/aspect-types`}>← Aspect types</a>
+                                <a class="icon-text" href={`/teams/${found().id}/aspect-types`} aria-label="← Aspect types">
+                                    <Icon name="chevron-left" size={16} />
+                                    Aspect types
+                                </a>
                             </p>
                             <h1 class="t-screen-title">Edit aspect type</h1>
                             <AspectTypeEditor typeId={params.id!} />

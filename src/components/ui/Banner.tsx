@@ -1,5 +1,6 @@
 import type { JSX } from '@solidjs/web'
 import { Show } from 'solid-js'
+import { Icon } from './icons/Icon'
 
 import './Banner.css'
 
@@ -70,7 +71,7 @@ export function Banner(props: BannerProps) {
                         aria-label="Dismiss"
                         onClick={() => props.onDismiss?.()}
                     >
-                        <span aria-hidden="true">×</span>
+                        <Icon name="close" size={16} />
                     </button>
                 </Show>
             </div>

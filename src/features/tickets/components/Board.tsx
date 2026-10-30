@@ -47,6 +47,7 @@ import { ListControls } from './ListControls'
 import { SavedViewBar } from './SavedViewBar'
 import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
+import { Icon } from '@/components/ui/icons/Icon'
 import './board.css'
 
 /*
@@ -271,7 +272,10 @@ export function Board(props: BoardProps) {
         <section class="board" ref={(el) => (root = el)}>
             <header class="board__header">
                 <p class="t-body">
-                    <a href={`/projects/${props.board.project_id}`}>← {project()?.name ?? 'Tickets'}</a>
+                    <a class="icon-text" href={`/projects/${props.board.project_id}`} aria-label={`← ${project()?.name ?? 'Tickets'}`}>
+                        <Icon name="chevron-left" size={16} />
+                        {project()?.name ?? 'Tickets'}
+                    </a>
                 </p>
                 <h1 class="t-screen-title">{project() ? `${project()!.name} · ${props.board.name}` : props.board.name}</h1>
             </header>
@@ -390,7 +394,7 @@ export function Board(props: BoardProps) {
                                 </For>
                             </ul>
                             <Show when={!accepts(column())}>
-                                <p class="board__empty t-meta">No status in this column yet. Add one from the column menu (⋯).</p>
+                                <p class="board__empty t-meta">No status in this column yet. Add one from the column menu.</p>
                             </Show>
                         </section>
                     )}
@@ -498,7 +502,7 @@ function ColumnMenu(props: ColumnMenuProps) {
             label={`Column ${props.column.name}`}
             trigger={(trigger) => (
                 <button type="button" class="board__menu-button" aria-label={`Column options for ${props.column.name}`} {...trigger}>
-                    ⋯
+                    <Icon name="more" />
                 </button>
             )}
         >
@@ -530,7 +534,8 @@ function ColumnMenu(props: ColumnMenuProps) {
                                 save(moveColumn(props.board.columns, props.column.id, -1))
                             }}
                         >
-                            ← Left
+                            <Icon name="chevron-left" size={16} />
+                            Left
                         </Button>
                         <Button
                             variant="secondary"
@@ -543,7 +548,8 @@ function ColumnMenu(props: ColumnMenuProps) {
                                 save(moveColumn(props.board.columns, props.column.id, 1))
                             }}
                         >
-                            Right →
+                            Right
+                            <Icon name="chevron-right" size={16} />
                         </Button>
                         <Button
                             variant="secondary"

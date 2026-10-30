@@ -57,6 +57,7 @@ import { LabelChips } from './LabelChips'
 import { hueFor } from '../statusLook'
 import { NewLabel } from './LabelEditor'
 import { SyncMarker } from './SyncMarker'
+import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
 
 type TicketDetailProps = {
@@ -105,7 +106,10 @@ export function TicketDetail(props: TicketDetailProps) {
                 when={props.onClose}
                 fallback={
                     <p class="t-meta">
-                        <a href="/">← Tickets</a>
+                        <a class="icon-text" href="/" aria-label="← Tickets">
+                            <Icon name="chevron-left" size={16} />
+                            Tickets
+                        </a>
                     </p>
                 }
             >

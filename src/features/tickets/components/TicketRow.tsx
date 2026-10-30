@@ -2,6 +2,7 @@ import { createSignal, For, Match, Show, Switch } from 'solid-js'
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons/Icon'
 import { IconButton } from '@/components/ui/IconButton'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -222,15 +223,7 @@ function LoadedTicketRow(props: LoadedRow) {
                                 }}
                                 onClick={startEditing}
                             >
-                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path
-                                        d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"
-                                        stroke="currentColor"
-                                        stroke-width="1.8"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                </svg>
+                                <Icon name="edit" size={16} />
                             </IconButton>
                             <IconButton
                                 label={`Archive ${name()}`}
@@ -239,15 +232,7 @@ function LoadedTicketRow(props: LoadedRow) {
                                 disabledReason={denial('ticket:write', 'archive tickets')}
                                 onClick={() => void archiveWithUndo(props.ticket)}
                             >
-                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path
-                                        d="M4 5h16v4H4zM5.5 9v10h13V9M10 13h4"
-                                        stroke="currentColor"
-                                        stroke-width="1.8"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                </svg>
+                                <Icon name="archive" size={16} />
                             </IconButton>
                         </>
                     }
