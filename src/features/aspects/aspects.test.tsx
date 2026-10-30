@@ -199,3 +199,39 @@ describe('importing and exporting a type (LAM-119)', () => {
         click.mockRestore()
     })
 })
+
+// LAM-195: on a phone each field is one line, and its actions live in a ⋯ menu.
+describe('the aspect type editor on a phone', () => {
+    it('folds move and remove into a menu per field, and moving from it reorders', async () => {
+        vi.stubGlobal(
+            'matchMedia',
+            vi.fn().mockImplementation((query: string) => ({
+                matches: true,
+                media: query,
+                addEventListener: () => {},
+                removeEventListener: () => {},
+            })),
+        )
+        let order: unknown
+        await openApp(`/teams/${TEAM.id}/aspect-types/a-1`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types/a-1': () => ok(aType()),
+            'POST /api/v1/aspect-types/a-1/reorder': async (request) => {
+                const body = await bodyOf(request)
+                order = body.field_ids
+                return ok(aType([field('f2', 'Risks', 1), field('f1', 'Goal', 2), field('f3', 'Owner', 3)]))
+            },
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Fields' })
+        expect(screen.queryByRole('button', { name: 'Move Goal down' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Remove Goal' })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Actions for Goal' }))
+        const menu = await screen.findByRole('menu')
+        expect(within(menu).getByRole('menuitem', { name: /Move up/ })).toHaveAttribute('aria-disabled', 'true')
+        expect(within(menu).getByRole('menuitem', { name: 'Remove' })).toBeInTheDocument()
+        await user.click(within(menu).getByRole('menuitem', { name: 'Move down' }))
+        await waitFor(() => expect(order).toEqual(['f2', 'f1', 'f3']))
+    })
+})

@@ -4,7 +4,10 @@ import { Banner } from '@/components/ui/Banner'
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { MoveButtons } from '@/components/ui/MoveButtons'
+import { Icon } from '@/components/ui/icons/Icon'
 import { Input } from '@/components/ui/Input'
+import { RowMenu, RowMenuItem } from '@/components/ui/RowMenu'
+import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { Modal } from '@/components/ui/Modal'
 import { nameCount, overMessage } from '@/features/tickets/limits'
 import '@/features/tickets/components/StatusEditor.css'
@@ -237,6 +240,7 @@ export function AspectTypeEditor(props: { typeId: string }) {
                                                 if (moved && moved !== field().id) void place(moved, index())
                                             }}
                                             onMove={(by) => void place(field().id, index() + by)}
+                                            onMoveTo={(to) => void place(field().id, Math.min(to, fields().length - 1))}
                                             onLabel={(label) => void relabel(field(), label)}
                                             onRemove={() => void askToRemove(field())}
                                         />
@@ -301,13 +305,16 @@ type FieldRowProps = {
     onDragEnd: () => void
     onDrop: () => void
     onMove: (by: number) => void
+    onMoveTo: (index: number) => void
     onLabel: (label: string) => void
     onRemove: () => void
 }
 
 function FieldRow(props: FieldRowProps) {
     const [draft, setDraft] = createSignal<string | null>(null)
+    const narrow = useNarrowScreen()
     const label = () => draft() ?? props.field.label
+    const moveDenied = () => denial('aspect:write', 'change fields')
 
     function commit() {
         const text = draft()
@@ -318,6 +325,7 @@ function FieldRow(props: FieldRowProps) {
     return (
         <li
             class="status-editor__row aspect-editor__row"
+            data-compact={narrow() ? 'true' : undefined}
             data-dragging={props.dragging ? 'true' : undefined}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
@@ -325,6 +333,7 @@ function FieldRow(props: FieldRowProps) {
                 props.onDrop()
             }}
         >
+            <Show when={!narrow()}>
             <span
                 class="status-editor__handle"
                 draggable="true"
@@ -336,8 +345,9 @@ function FieldRow(props: FieldRowProps) {
                 }}
                 onDragEnd={() => props.onDragEnd()}
             >
-                ⠿
+                <Icon name="drag" size={16} />
             </span>
+            </Show>
             <form
                 class="status-editor__name"
                 onSubmit={(event) => {
@@ -354,12 +364,36 @@ function FieldRow(props: FieldRowProps) {
                     readOnly={!can('aspect:write')}
                 />
             </form>
-            <span class="status-editor__actions">
-                <MoveButtons name={props.field.label} first={props.first} last={props.last} disabledReason={denial('aspect:write', 'change fields')} onMove={props.onMove} />
-                <Button variant="ghost" size="sm" disabledReason={denial('aspect:write', 'remove fields')} aria-label={`Remove ${props.field.label}`} onClick={() => props.onRemove()}>
-                    Remove
-                </Button>
-            </span>
+            <Show
+                when={!narrow()}
+                fallback={
+                    <RowMenu label={`Actions for ${props.field.label}`}>
+                        <RowMenuItem onSelect={() => props.onMoveTo(0)} disabledReason={moveDenied() ?? (props.first ? 'Already first' : undefined)}>
+                            Move to top
+                        </RowMenuItem>
+                        <RowMenuItem onSelect={() => props.onMove(-1)} disabledReason={moveDenied() ?? (props.first ? 'Already first' : undefined)}>
+                            Move up
+                        </RowMenuItem>
+                        <RowMenuItem onSelect={() => props.onMove(1)} disabledReason={moveDenied() ?? (props.last ? 'Already last' : undefined)}>
+                            Move down
+                        </RowMenuItem>
+                        <RowMenuItem onSelect={() => props.onMoveTo(Number.MAX_SAFE_INTEGER)} disabledReason={moveDenied() ?? (props.last ? 'Already last' : undefined)}>
+                            Move to bottom
+                        </RowMenuItem>
+                        <hr class="row-menu__rule" />
+                        <RowMenuItem destructive onSelect={() => props.onRemove()} disabledReason={denial('aspect:write', 'remove fields')}>
+                            Remove
+                        </RowMenuItem>
+                    </RowMenu>
+                }
+            >
+                <span class="status-editor__actions">
+                    <MoveButtons name={props.field.label} first={props.first} last={props.last} disabledReason={moveDenied()} onMove={props.onMove} />
+                    <Button variant="ghost" size="sm" disabledReason={denial('aspect:write', 'remove fields')} aria-label={`Remove ${props.field.label}`} onClick={() => props.onRemove()}>
+                        Remove
+                    </Button>
+                </span>
+            </Show>
         </li>
     )
 }
