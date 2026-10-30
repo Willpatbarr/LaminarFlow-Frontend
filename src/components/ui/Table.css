@@ -137,6 +137,11 @@
   padding: 0 var(--s-12) var(--s-12);
 }
 
+/* Backstop: a box with nothing in it must not add height (LAM-176). */
+.table__below:empty {
+  display: none;
+}
+
 /* Save and Cancel, after the sync-marker column. */
 .table__edit-actions {
   display: flex;
