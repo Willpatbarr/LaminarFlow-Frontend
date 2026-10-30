@@ -16,8 +16,11 @@ test('link document A to document B with [[, click the chip, and land on B', asy
         expect(made.response.ok).toBe(true)
         return made.data!.id
     }
+    // The workspace is shared with other specs: titles carry a tag no other title has.
+    const tag = crypto.randomUUID().slice(0, 8)
+    const docB = `Doc B ${tag}`
     const a = await make('Doc A', '')
-    const b = await make('Doc B', 'The target')
+    const b = await make(docB, 'The target')
     const storedA = async () =>
         (await account.api.GET('/api/v1/documents/{id}', { params: { path: { id: a } } })).data?.body?.content
 
@@ -28,28 +31,28 @@ test('link document A to document B with [[, click the chip, and land on B', asy
 
     const editor = page.getByRole('textbox', { name: 'Text' })
     await editor.click()
-    await editor.pressSequentially('See [[Doc B')
+    await editor.pressSequentially(`See [[${docB}`)
     const list = page.getByRole('listbox', { name: 'Link to a ticket, document or project' })
     await expect(list.getByRole('option')).toHaveCount(1)
-    await expect(list.getByRole('option', { name: /Doc B/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(list.getByRole('option', { name: docB })).toHaveAttribute('aria-selected', 'true')
     // The editor keeps focus while the list is open.
     await expect(editor).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(list).toBeHidden()
 
-    const chip = editor.getByRole('link', { name: 'Doc B' })
+    const chip = editor.getByRole('link', { name: docB })
     await expect(chip).toBeVisible()
     await expect(chip).toHaveAttribute('href', `/documents/${b}`)
     // Stored as Markdown with the internal scheme.
-    await expect.poll(storedA).toBe(`See [Doc B](lf://document/${b})`)
+    await expect.poll(storedA).toBe(`See [${docB}](lf://document/${b})`)
 
     await editor.getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`/documents/${b}$`))
-    await expect(page.getByLabel('Title')).toHaveValue('Doc B')
+    await expect(page.getByLabel('Title')).toHaveValue(docB)
 
     // After a reload the chip is still a chip.
     await page.goto(`/documents/${a}`)
-    await expect(page.getByRole('textbox', { name: 'Text' }).getByRole('link', { name: 'Doc B' })).toHaveAttribute(
+    await expect(page.getByRole('textbox', { name: 'Text' }).getByRole('link', { name: docB })).toHaveAttribute(
         'href',
         `/documents/${b}`,
     )
@@ -63,7 +66,8 @@ test('@ links a ticket and a pasted internal URL becomes a chip', async ({ page,
         body: { title: 'Notes', type: 'normal', project_id: world.projectId, body: { content: '' } },
     })
     const id = made.data!.id
-    const ticket = await serverCreate(account, world.projectId, fields('Ship the chips'))
+    const shipped = `Ship the chips ${crypto.randomUUID().slice(0, 8)}`
+    const ticket = await serverCreate(account, world.projectId, fields(shipped))
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${id}`)
@@ -71,12 +75,12 @@ test('@ links a ticket and a pasted internal URL becomes a chip', async ({ page,
     await connectionIs(page, 'Connected')
     const editor = page.getByRole('textbox', { name: 'Text' })
     await editor.click()
-    await editor.pressSequentially('Blocked on @Ship the')
+    await editor.pressSequentially(`Blocked on @${shipped}`)
     const list = page.getByRole('listbox', { name: 'Link to a ticket, document or project' })
     await expect(list.getByRole('option')).toHaveCount(1)
-    await expect(list.getByRole('option', { name: /Ship the chips/ })).toBeVisible()
+    await expect(list.getByRole('option', { name: shipped })).toBeVisible()
     await page.keyboard.press('Tab')
-    await expect(editor.getByRole('link', { name: 'Ship the chips' })).toHaveAttribute('href', `/tickets/${ticket.id}`)
+    await expect(editor.getByRole('link', { name: shipped })).toHaveAttribute('href', `/tickets/${ticket.id}`)
     await expect(list).toBeHidden()
 
     // A pasted address of this app, and one of another site.
@@ -99,8 +103,11 @@ test('the @ list moves with the arrows, cancels with Escape, shows an empty row,
         body: { title: 'Scratch', type: 'normal', project_id: world.projectId, body: { content: '' } },
     })
     const id = made.data!.id
-    const first = await serverCreate(account, world.projectId, fields('Alpha chip task'))
-    await serverCreate(account, world.projectId, fields('Beta chip task'))
+    const tag = crypto.randomUUID().slice(0, 8)
+    const alpha = `Alpha ${tag} task`
+    const beta = `Beta ${tag} task`
+    const first = await serverCreate(account, world.projectId, fields(alpha))
+    await serverCreate(account, world.projectId, fields(beta))
 
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${id}`)
@@ -113,7 +120,7 @@ test('the @ list moves with the arrows, cancels with Escape, shows an empty row,
 
     // The top result is highlighted; the arrows move it; Enter picks it.
     await editor.click()
-    await editor.pressSequentially('@chip task')
+    await editor.pressSequentially(`@${tag} task`)
     await expect(list.getByRole('option')).toHaveCount(2)
     const options = list.getByRole('option')
     await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true')
@@ -126,7 +133,7 @@ test('the @ list moves with the arrows, cancels with Escape, shows an empty row,
     await page.keyboard.press('Enter')
     await expect(editor.getByRole('link')).toHaveCount(1)
     await expect(list).toBeHidden()
-    await expect.poll(stored).toMatch(/^\[(Alpha|Beta) chip task\]\(lf:\/\/ticket\/[^)]+\)$/)
+    await expect.poll(stored).toMatch(new RegExp(`^\\[(${alpha}|${beta})\\]\\(lf://ticket/[^)]+\\)$`))
 
     // Nothing matches: a row says so, and Escape closes the list and leaves the text.
     await editor.pressSequentially('@zzzz')
@@ -139,9 +146,9 @@ test('the @ list moves with the arrows, cancels with Escape, shows an empty row,
     // A click picks that option.
     await editor.press('ControlOrMeta+a')
     await page.keyboard.press('Backspace')
-    await editor.pressSequentially('@Alpha')
-    await list.getByRole('option', { name: /Alpha chip task/ }).click()
-    await expect(editor.getByRole('link', { name: 'Alpha chip task' })).toHaveAttribute('href', `/tickets/${first.id}`)
+    await editor.pressSequentially(`@${alpha}`)
+    await list.getByRole('option', { name: new RegExp(alpha) }).click()
+    await expect(editor.getByRole('link', { name: alpha })).toHaveAttribute('href', `/tickets/${first.id}`)
     await expect(editor).toBeFocused()
-    await expect.poll(stored).toBe(`[Alpha chip task](lf://ticket/${first.id})`)
+    await expect.poll(stored).toBe(`[${alpha}](lf://ticket/${first.id})`)
 })
