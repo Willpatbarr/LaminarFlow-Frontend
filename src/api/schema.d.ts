@@ -1066,7 +1066,11 @@ export interface paths {
         };
         /** Fetch one project */
         get: operations["get-project"];
-        put?: never;
+        /**
+         * Rename a project
+         * @description Last write wins: a project has no version, so there is no `If-Match`. Project names are not unique. Announced as `project.updated`.
+         */
+        put: operations["update-project"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1491,7 +1495,11 @@ export interface paths {
         };
         /** Fetch one team with its statuses */
         get: operations["get-team"];
-        put?: never;
+        /**
+         * Rename a team
+         * @description Last write wins: a team has no version, so there is no `If-Match`. 409 `team_name_taken` when another team of the workspace has the name. Announced as `team.updated`.
+         */
+        put: operations["update-team"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3254,6 +3262,26 @@ export interface components {
              */
             readonly $schema?: string;
             label: string;
+        };
+        RenameProjectInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/RenameProjectInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description 1 to 100 characters (not bytes), and not only whitespace. */
+            name: string;
+        };
+        RenameTeamInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/RenameTeamInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description 1 to 100 characters (not bytes), and not only whitespace. Unique within the workspace. */
+            name: string;
         };
         ReorderColumnsInputBody: {
             /**
@@ -6077,6 +6105,41 @@ export interface operations {
             };
         };
     };
+    "update-project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameProjectInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "create-board": {
         parameters: {
             query?: never;
@@ -6875,6 +6938,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTeamInputBody"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

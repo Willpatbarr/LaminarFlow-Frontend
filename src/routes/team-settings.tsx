@@ -2,6 +2,7 @@ import { useParams } from '@solidjs/router'
 import { Show } from 'solid-js'
 
 import { session } from '@/features/auth'
+import { TeamNameField } from '@/features/tickets/components/NameEditor'
 import { LabelEditor } from '@/features/tickets/components/LabelEditor'
 import { StatusEditor } from '@/features/tickets/components/StatusEditor'
 import { isLoading, sync } from '@/sync'
@@ -39,6 +40,8 @@ export function TeamSettingsPage() {
                                 <a href={`/teams/${found().id}`}>← {found().name}</a>
                             </p>
                             <h1 class="t-screen-title">Team settings</h1>
+                            <h2 class="t-section">Name</h2>
+                            <TeamNameField teamId={found().id} name={found().name} />
                             <h2 class="t-section">Statuses</h2>
                             <p class="t-meta">
                                 Rename, reorder, add or delete. No status is special: even the first three can go.

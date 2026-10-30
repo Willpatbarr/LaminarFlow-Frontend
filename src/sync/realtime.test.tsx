@@ -289,3 +289,31 @@ describe('stopping', () => {
         expect(FakeWebSocket.last.closedByClient).not.toBeNull()
     })
 })
+
+describe('a team or project renamed elsewhere (LAM-149)', () => {
+    it('takes only the name, and keeps the rest of the project', async () => {
+        await open()
+        await settled(() => expect(sync.hydrated).toBe(true))
+        FakeWebSocket.last.hello()
+
+        FakeWebSocket.last.receive({
+            type: 'team.updated',
+            team_id: 'team-1',
+            actor_id: 'acc-other',
+            at: '2026-01-01T00:00:00Z',
+            team: { id: 'team-1', workspace_id: 'ws-1', name: 'Platform', statuses: [], aspect_types: [] },
+        })
+        await settled(() => expect(sync.teams[0]?.name).toBe('Platform'))
+        expect(sync.statuses.length).toBeGreaterThan(0)
+
+        FakeWebSocket.last.receive({
+            type: 'project.updated',
+            project_id: 'p-1',
+            team_id: 'team-1',
+            actor_id: 'acc-other',
+            at: '2026-01-01T00:00:00Z',
+            project: { id: 'p-1', team_id: 'team-1', name: 'Renamed', board_id: null, columns: [] },
+        })
+        await settled(() => expect(sync.projects[0]).toMatchObject({ id: 'p-1', team_id: 'team-1', name: 'Renamed' }))
+    })
+})

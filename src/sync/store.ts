@@ -1010,6 +1010,31 @@ export async function createTeam(workspaceId: string, name: string): Promise<Tea
     return { id: data.id, workspace_id: data.workspace_id, name: data.name }
 }
 
+/** Renames a team (LAM-149). A direct call like the creates above: throws an `ApiProblem`
+ *  (409 `team_name_taken`, 422, 403...), and on success the store shows the new name. */
+export async function renameTeam(teamId: string, name: string): Promise<void> {
+    const active = running()
+    const { data, error, response } = await active.api.PUT('/api/v1/teams/{id}', {
+        params: { path: { id: teamId } },
+        body: { name },
+    })
+    if (!data) directFailure(response, error)
+    await active.engine.setContextName('team', teamId, data.name)
+    await caughtUp()
+}
+
+/** Renames a project (LAM-149); see renameTeam. */
+export async function renameProject(projectId: string, name: string): Promise<void> {
+    const active = running()
+    const { data, error, response } = await active.api.PUT('/api/v1/projects/{id}', {
+        params: { path: { id: projectId } },
+        body: { name },
+    })
+    if (!data) directFailure(response, error)
+    await active.engine.setContextName('project', projectId, data.name)
+    await caughtUp()
+}
+
 export async function createProject(teamId: string, name: string): Promise<Project> {
     const active = running()
     const { data, error, response } = await active.api.POST('/api/v1/projects', {

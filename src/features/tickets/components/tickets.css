@@ -489,3 +489,11 @@ a.view-switch__item:hover {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* LAM-149: a name and the control that changes it, on one line. */
+.name-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-2, 0.5rem);
+}
