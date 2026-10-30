@@ -496,6 +496,20 @@ a.view-switch__item:hover {
   }
 }
 
+/* The same when the table itself is narrow (LAM-185; Table.css has the width). */
+@container table (max-width: 659px) {
+  .ticket__title-cell {
+    display: contents;
+  }
+
+  .ticket__title-cell > .table__text {
+    flex: 1 0 100%;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* An open filter panel takes the row, so its columns have the page's width. */
 .list-controls__panel[open] {
   flex: 1 1 100%;
