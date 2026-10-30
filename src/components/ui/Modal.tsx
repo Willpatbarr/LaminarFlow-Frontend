@@ -21,6 +21,8 @@ type ModalProps = {
      *  backdrop do nothing and there is no Cancel, so the confirm is the only
      *  way out. */
     persistent?: boolean
+    /** Room for a form with a lot in it: wider, and the body scrolls on a short screen. */
+    wide?: boolean
     /** Something to read rather than to answer (a help sheet): no Cancel, only
      *  the confirm; Escape and a click outside still close it. */
     informational?: boolean
@@ -104,6 +106,7 @@ export function Modal(props: ModalProps) {
                         panel = el
                     }}
                     class="modal"
+                    data-wide={props.wide ? '' : undefined}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby={titleId}

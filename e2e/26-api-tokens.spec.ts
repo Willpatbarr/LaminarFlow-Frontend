@@ -19,7 +19,18 @@ test('create a token, use it, revoke it', async ({ page, context, baseURL }) => 
     const create = dialog.getByRole('button', { name: 'Create token' })
     await expect(create).toBeDisabled()
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(0)
-    await dialog.getByLabel('ticket:read').check()
+    await dialog.getByLabel('Tickets and content Read (ticket:read)').check()
+    await expect(create).toBeEnabled()
+
+    // Descriptions and the code sit together; account:delete is set apart and needs a second yes.
+    await expect(dialog.getByText('Create, edit and archive the same things.')).toBeVisible()
+    await dialog.getByText('Dangerous permissions').click()
+    await expect(dialog.getByText(/can delete your account, without signing in/)).toBeVisible()
+    await dialog.getByLabel('Delete account (account:delete)').check()
+    await expect(create).toBeDisabled()
+    await dialog.getByLabel('I understand this token could delete my account.').check()
+    await expect(create).toBeEnabled()
+    await dialog.getByLabel('Delete account (account:delete)').uncheck()
     await expect(create).toBeEnabled()
     await create.click()
 
