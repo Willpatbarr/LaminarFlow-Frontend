@@ -1,4 +1,4 @@
-import { listAll, PAGE_SIZE, type Outcome, type RemoteEvent, type SyncApi } from './http'
+import { listAll, oncePerPass, PAGE_SIZE, type Outcome, type RemoteEvent, type SyncApi } from './http'
 import { ENTITIES, entityFor } from './entities'
 import type { SendContext } from './entities/entity'
 import type { EntityConflicts, EntityName, EntityRows, OutboxEntry, Project, Team } from './types'
@@ -36,14 +36,16 @@ export function createRemote(api: SyncApi) {
          *  `ListFailure` if any page fails: half a list must never be mistaken
          *  for the whole one, because rows missing from it get removed. */
         async listEverything(): Promise<ServerState> {
+            // One client for the whole pass, so each shared list is read once.
+            const pass = oncePerPass(api)
             const teams = await listAll((cursor) =>
-                api.POST('/api/v1/teams/list', { body: { limit: PAGE_SIZE, cursor } }),
+                pass.POST('/api/v1/teams/list', { body: { limit: PAGE_SIZE, cursor } }),
             )
             const projects = await listAll((cursor) =>
-                api.POST('/api/v1/projects/list', { body: { limit: PAGE_SIZE, cursor } }),
+                pass.POST('/api/v1/projects/list', { body: { limit: PAGE_SIZE, cursor } }),
             )
             const rows: Record<string, unknown[]> = {}
-            for (const entity of ENTITIES) rows[entity.name] = await entity.remote.list(api)
+            for (const entity of ENTITIES) rows[entity.name] = await entity.remote.list(pass)
             return {
                 teams: teams.map((team) => ({
                     id: team.id,

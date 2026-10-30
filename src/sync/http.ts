@@ -17,6 +17,25 @@ import type { EntryError, EntryKind } from './types'
 
 export type SyncApi = Client<paths>
 
+/** The client for ONE hydration pass: a list asked twice in the pass (teams,
+ *  projects and each project's sprints are read by several entities) goes to the
+ *  server once and every asker gets the same answer. Nothing outlives the pass:
+ *  the next pass asks again, so a rename or a removal still comes through
+ *  (LAM-164, LAM-149). */
+export function oncePerPass(api: SyncApi): SyncApi {
+    const answers = new Map<string, Promise<unknown>>()
+    const post = (path: string, init?: { body?: unknown }) => {
+        const key = `${path} ${JSON.stringify(init?.body ?? null)}`
+        let answer = answers.get(key)
+        if (!answer) {
+            answer = (api.POST as (path: string, init?: unknown) => Promise<unknown>)(path, init)
+            answers.set(key, answer)
+        }
+        return answer
+    }
+    return new Proxy(api, { get: (target, name) => (name === 'POST' ? post : Reflect.get(target, name)) })
+}
+
 export type Outcome<Row, Conflict> =
     /** `row` is the server's copy; null after an archive, which has no body. */
     | { type: 'ok'; row: Row | null }

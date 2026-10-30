@@ -92,9 +92,15 @@ export function AttachmentList(props: Props) {
     )
 
     // An image pasted into one of the page's editors.
+    // (Not on mount: the effect above has just loaded the list, LAM-164.)
+    let loadedVersion = untrack(attachmentsVersion)
     createEffect(
         () => attachmentsVersion(),
-        () => void reload(),
+        (version) => {
+            if (version === loadedVersion) return
+            loadedVersion = version
+            void reload()
+        },
     )
 
     function announce(text: string) {
