@@ -286,3 +286,48 @@ test('three columns fit at 1024 px, the heading names the project, and search fi
     await page.getByPlaceholder('Search').fill('Findable')
     await expect.poll(() => cardsIn(page, world.statusNames[0]), { timeout: 500 }).toEqual(['Findable card'])
 })
+
+// LAM-184: a tap/keyboard alternative to dragging.
+test('the card menu moves a card to another column and up/down within one, by keyboard, and it survives a reload', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const alice = await newAccount('cardmenu')
+    const world = await projectOf(alice)
+    const [todo, , done] = world.statusIds
+    const [todoName, , doneName] = world.statusNames
+    const a = await serverCreate(alice, world.projectId, fields('Menu one', { status_id: todo }))
+    await serverCreate(alice, world.projectId, fields('Menu two', { status_id: todo }))
+    const c = await serverCreate(alice, world.projectId, fields('Menu three', { status_id: todo }))
+    const board = await boardOf(alice, world)
+
+    await signedInAs(context, alice, baseURL!)
+    await page.goto(`/boards/${board.id}`)
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Menu one', 'Menu two', 'Menu three'])
+
+    // Move down, keyboard only: focus the card's button, open, choose.
+    await page.getByRole('button', { name: 'Card actions for Menu one' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('menuitem', { name: 'Move up' })).toHaveAttribute('aria-disabled', 'true')
+    await page.getByRole('menuitem', { name: 'Move down' }).focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Menu two', 'Menu one', 'Menu three'])
+    await expect(page.getByRole('button', { name: 'Card actions for Menu one' })).toBeFocused()
+
+    // Move up.
+    await page.getByRole('button', { name: 'Card actions for Menu three' }).click()
+    await page.getByRole('menuitem', { name: 'Move up' }).click()
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Menu two', 'Menu three', 'Menu one'])
+
+    // Move to Done.
+    await page.getByRole('button', { name: 'Card actions for Menu one' }).click()
+    await page.getByRole('menuitem', { name: `Move to ${doneName}` }).click()
+    await expect.poll(() => cardsIn(page, doneName)).toEqual(['Menu one'])
+    await expect.poll(async () => (await serverTicket(alice, a.id))?.status_id).toBe(done)
+    expect((await serverTicket(alice, c.id))?.status_id).toBe(todo)
+
+    await page.reload()
+    await expect.poll(() => cardsIn(page, doneName)).toEqual(['Menu one'])
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Menu two', 'Menu three'])
+})

@@ -127,6 +127,49 @@ describe('moving a card', () => {
     })
 })
 
+describe('the card menu (LAM-184)', () => {
+    const cardOf = (column: string, title: string) =>
+        within(screen.getByRole('region', { name: column })).getByRole('listitem', { name: title })
+
+    it('Move to another column is the same single move a drop writes', async () => {
+        const user = userEvent.setup()
+        const moves: unknown[] = []
+        await open({
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                moves.push(await bodyOf(request))
+                return ok(ticket({ id: 't-1', title: 'First', status_id: 's-doing', position: 2048, version: 2 }))
+            },
+        })
+        await waitFor(() => expect(titles('To Do')).toEqual(['First', 'Second']))
+
+        await user.click(within(cardOf('To Do', 'First')).getByRole('button', { name: 'Card actions for First' }))
+        await user.click(await screen.findByRole('menuitem', { name: 'Move to In Progress' }))
+
+        await waitFor(() => expect(titles('In Progress')).toEqual(['Third', 'First']))
+        expect(titles('To Do')).toEqual(['Second'])
+        await waitFor(() => expect(moves).toEqual([{ status_id: 's-doing', position: 2048 }]))
+    })
+
+    it('Move down and Move up reorder within the column; the ends are disabled', async () => {
+        const user = userEvent.setup()
+        const moves: unknown[] = []
+        await open({
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                moves.push(await bodyOf(request))
+                return ok(ticket({ id: 't-1', title: 'First', status_id: 's-todo', position: 3072, version: 2 }))
+            },
+        })
+        await waitFor(() => expect(titles('To Do')).toEqual(['First', 'Second']))
+
+        await user.click(within(cardOf('To Do', 'First')).getByRole('button', { name: 'Card actions for First' }))
+        expect(await screen.findByRole('menuitem', { name: 'Move up' })).toHaveAttribute('aria-disabled', 'true')
+        await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+
+        await waitFor(() => expect(titles('To Do')).toEqual(['Second', 'First']))
+        await waitFor(() => expect(moves).toEqual([{ status_id: 's-todo', position: 3072 }]))
+    })
+})
+
 describe('the column menu', () => {
     it('renames a column, and hides one and shows it again', async () => {
         const user = userEvent.setup()

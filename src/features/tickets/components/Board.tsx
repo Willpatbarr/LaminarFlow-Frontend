@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@solidjs/router'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show, untrack } from 'solid-js'
 
 import { can, denial } from '@/features/auth'
 import { useScope } from '@/features/shortcuts/registry'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Popover } from '@/components/ui/Popover'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { Tooltip } from '@/components/ui/Tooltip'
 import {
     archiveOnHold,
     boardHead,
@@ -161,9 +162,7 @@ export function Board(props: BoardProps) {
         const before = cards(column).findIndex((card) => card.id === ticket.id)
         if (before === l.index && statusId === ticket.status_id) return
 
-        const rest = cards(column).filter((card) => card.id !== ticket.id)
-        const moved = updateTicket(ticket.id, { status_id: statusId, position: positionAt(rest, l.index) })
-        say(`Dropped in ${column.name}, position ${l.index + 1} of ${rest.length + 1}.`)
+        const moved = moveCard(ticket, column, statusId, l.index)
         if (l.by === 'keyboard') {
             // The card is rebuilt in its new column; keep the keyboard where it was.
             void moved.then(() =>
@@ -172,6 +171,26 @@ export function Board(props: BoardProps) {
                 ),
             )
         }
+    }
+
+    // The one write behind every move: a drag's drop, a lifted card's drop and
+    // the card menu. `index` is the place among the column's other cards.
+    function moveCard(ticket: Ticket, column: BoardColumn, statusId: string, index: number) {
+        const rest = cards(column).filter((card) => card.id !== ticket.id)
+        const moved = updateTicket(ticket.id, { status_id: statusId, position: positionAt(rest, index) })
+        say(`Dropped in ${column.name}, position ${index + 1} of ${rest.length + 1}.`)
+        return moved
+    }
+
+    // The card menu (LAM-184): the same move as a drop, chosen instead of dragged.
+    function menuMove(ticket: Ticket, column: BoardColumn, index?: number) {
+        const statusId = statusFor(column, ticket)
+        if (!statusId) return
+        void moveCard(ticket, column, statusId, index ?? cards(column).filter((card) => card.id !== ticket.id).length).then(() =>
+            requestAnimationFrame(() =>
+                root?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(ticket.id)}"] .board__card-menu`)?.focus(),
+            ),
+        )
     }
 
     function cancel() {
@@ -379,15 +398,22 @@ export function Board(props: BoardProps) {
                                                     ticket={ticket()}
                                                     viewer={props.viewer}
                                                     showStatus={column().status_ids.length > 1}
+                                                    column={column()}
+                                                    destinations={shown().filter(accepts)}
+                                                    siblings={cards(column())}
+                                                    onMenuMove={(target, index) => menuMove(ticket(), target, index)}
                                                     lifted={lift()?.ticketId === ticket().id}
                                                     onDragStart={() => lifted(ticket(), 'mouse')}
                                                     onDragEnd={() => {
                                                         if (lift()?.by === 'mouse') setLift(null)
                                                     }}
                                                     onKey={(event) => onCardKey(event, ticket())}
-                                                    onBlur={() => {
-                                                        if (lift()?.ticketId === ticket().id && lift()?.by === 'keyboard') cancel()
-                                                    }}
+                                                    onBlur={() =>
+                                                        // Focus moves inside effects (a popover opening): read the lift untracked.
+                                                        untrack(() => {
+                                                            if (lift()?.ticketId === ticket().id && lift()?.by === 'keyboard') cancel()
+                                                        })
+                                                    }
                                                 />
                                             )}
                                         </Show>
@@ -423,6 +449,12 @@ type CardProps = {
     /** The column holds several statuses: say which one this card is in. */
     showStatus: boolean
     lifted: boolean
+    /** The column the card is in, the columns that take cards, and this column's cards in order. */
+    column: BoardColumn
+    destinations: BoardColumn[]
+    siblings: Ticket[]
+    /** Move to `column` at `index` among its other cards (the end of it, or one step up or down). */
+    onMenuMove: (column: BoardColumn, index?: number) => void
     onDragStart: () => void
     onDragEnd: () => void
     onKey: (event: KeyboardEvent) => void
@@ -434,6 +466,71 @@ function Card(props: CardProps) {
     // A parked conflict or archive is decided on the ticket's page first.
     const locked = () => ticketHead(id())?.state === 'conflict' || archiveOnHold(id()) || !can('ticket:write')
     const status = () => sync.statuses.find((candidate) => candidate.id === props.ticket.status_id)
+    const title = () => props.ticket.title || 'Untitled'
+    const at = () => props.siblings.findIndex((card) => card.id === id())
+    const reason = () =>
+        denial('ticket:write', 'move tickets') ?? (locked() ? 'This ticket has a change waiting to be resolved on its page.' : undefined)
+    const menu = (describedBy?: string) => (
+        <Popover
+            label={`Card actions for ${title()}`}
+            role="menu"
+            presentation="auto"
+            trigger={(trigger) => (
+                <button
+                    type="button"
+                    class="board__card-menu"
+                    aria-label={`Card actions for ${title()}`}
+                    aria-describedby={describedBy}
+                    disabled={reason() !== undefined}
+                    {...trigger}
+                >
+                    <Icon name="more" />
+                </button>
+            )}
+        >
+            <div class="board__card-actions">
+                <p class="board__card-actions-head t-overline" aria-hidden="true">
+                    Move to
+                </p>
+                <For each={props.destinations} keyed={(column) => column.id}>
+                    {(column) => (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            class="board__card-action"
+                            aria-disabled={column().id === props.column.id ? 'true' : undefined}
+                            aria-label={`Move to ${column().name}`}
+                            onClick={() => column().id !== props.column.id && props.onMenuMove(column(), undefined)}
+                        >
+                            {column().name}
+                            <Show when={column().id === props.column.id}>
+                                <span class="t-meta"> (here)</span>
+                            </Show>
+                        </button>
+                    )}
+                </For>
+                <hr class="board__card-actions-rule" />
+                <button
+                    type="button"
+                    role="menuitem"
+                    class="board__card-action"
+                    aria-disabled={at() <= 0 ? 'true' : undefined}
+                    onClick={() => at() > 0 && props.onMenuMove(props.column, at() - 1)}
+                >
+                    Move up
+                </button>
+                <button
+                    type="button"
+                    role="menuitem"
+                    class="board__card-action"
+                    aria-disabled={at() < 0 || at() >= props.siblings.length - 1 ? 'true' : undefined}
+                    onClick={() => at() >= 0 && at() < props.siblings.length - 1 && props.onMenuMove(props.column, at() + 1)}
+                >
+                    Move down
+                </button>
+            </div>
+        </Popover>
+    )
     return (
         <li
             class="board__card"
@@ -457,8 +554,15 @@ function Card(props: CardProps) {
             onFocusOut={() => props.onBlur()}
         >
             <a class="board__card-title t-cell" href={`/tickets/${id()}`} draggable="false">
-                {props.ticket.title || 'Untitled'}
+                {title()}
             </a>
+            <Show when={reason()} fallback={menu()}>
+                {(why) => (
+                    <Tooltip placement="above" text={why()}>
+                        {(describedBy) => menu(describedBy)}
+                    </Tooltip>
+                )}
+            </Show>
             <LabelChips ids={props.ticket.label_ids} max={3} />
             <span class="board__card-foot">
                 <Show when={props.showStatus && status()}>

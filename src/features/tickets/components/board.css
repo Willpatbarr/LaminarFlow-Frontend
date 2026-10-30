@@ -200,3 +200,115 @@
     padding-block: 0;
   }
 }
+
+/* The card's menu button (LAM-184): in the card's top-right corner, out of the
+ * flow, so a card is no taller than before; the title keeps clear of it. */
+.board__card {
+  position: relative;
+}
+
+.board__card-title {
+  padding-inline-end: 24px;
+}
+
+.board__card > .tooltip,
+.board__card > .board__card-menu {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
+.board__card-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.board__card-menu:hover,
+.board__card-menu[aria-expanded='true'] {
+  background: var(--row-hover);
+  color: var(--text-1);
+}
+
+.board__card-menu:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+.board__card-menu:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.board__card-actions {
+  display: grid;
+  min-width: 180px;
+}
+
+.board__card-actions-head {
+  margin: 0;
+  padding: var(--s-6) var(--s-8);
+  color: var(--text-3);
+}
+
+.board__card-actions-rule {
+  width: 100%;
+  margin: var(--s-4) 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.board__card-action {
+  padding: var(--s-6) var(--s-8);
+  border: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--text-1);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.board__card-action:hover,
+.board__card-action:focus-visible {
+  background: var(--row-hover);
+  outline: none;
+}
+
+.board__card-action[aria-disabled='true'] {
+  color: var(--text-3);
+  cursor: default;
+}
+
+/* Touch (LAM-186): the button is a 44px hit area; the glyph stays small and the
+ * card already grows to 44px for its title. */
+@media (pointer: coarse) {
+  .board__card-menu {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
+
+  .board__card > .tooltip,
+  .board__card > .board__card-menu {
+    top: 0;
+    right: 0;
+  }
+
+  .board__card-title {
+    padding-inline-end: var(--touch-target);
+  }
+
+  .board__card-action {
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+  }
+}
