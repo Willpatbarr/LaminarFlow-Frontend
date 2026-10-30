@@ -4,6 +4,7 @@ import type { ImageUpload } from '@/components/editor/images'
 import { altFromFilename } from '@/components/editor/images'
 import { settledId } from '@/features/links/settled'
 
+import { oversizeMessage } from './limits'
 import { uploadAttachment, type AttachmentParent } from './api'
 
 /*
@@ -32,6 +33,9 @@ export async function settledParent(parent: AttachmentParent) {
 
 export function imageUploader(parent: () => AttachmentParent): ImageUpload {
     return async (file, onProgress) => {
+        // Before waiting for the parent or sending anything.
+        const tooBig = oversizeMessage(file)
+        if (tooBig) return { ok: false, message: tooBig }
         const owner = await settledParent(parent())
         if (!owner.ok) return { ok: false, message: owner.message }
         const result = await uploadAttachment(owner.data, file, { onProgress })

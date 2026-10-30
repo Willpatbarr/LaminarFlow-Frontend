@@ -57,3 +57,10 @@
   align-items: center;
   gap: var(--s-8);
 }
+
+.attachments__status {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 0;
+}

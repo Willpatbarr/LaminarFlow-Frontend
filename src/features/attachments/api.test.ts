@@ -75,7 +75,23 @@ describe('uploadAttachment', () => {
         const done = uploadAttachment({ ticketId: 't-1' }, png())
         FakeXhr.last.answer(413, { code: 'attachment_too_large', limit_bytes: 26214400 })
         expect(await done).toMatchObject({ ok: false, code: 'attachment_too_large', limitBytes: 26214400 })
-        expect((await done) as { message: string }).toHaveProperty('message', 'cat.png is too large. Files can be at most 25 MB.')
+        expect((await done) as { message: string }).toHaveProperty('message', 'cat.png is over the limit of 25 MB.')
+    })
+
+    it('refuses an oversize file before sending anything', async () => {
+        vi.stubGlobal('XMLHttpRequest', FakeXhr)
+        FakeXhr.last = undefined as never
+        const progress = vi.fn()
+        const big = new File(['x'], 'report.pdf', { type: 'application/pdf' })
+        Object.defineProperty(big, 'size', { value: 31 * 1024 * 1024 })
+        const result = await uploadAttachment({ ticketId: 't-1' }, big, { onProgress: progress })
+        expect(result).toMatchObject({
+            ok: false,
+            code: 'attachment_too_large',
+            message: 'report.pdf is 31 MB; the limit is 25 MB.',
+        })
+        expect(FakeXhr.last).toBeUndefined()
+        expect(progress).not.toHaveBeenCalled()
     })
 
     it('says a refused type is refused', async () => {
