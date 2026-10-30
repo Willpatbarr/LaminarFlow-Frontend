@@ -264,6 +264,10 @@ export type SyncEngine = {
      *  write, a stale or out-of-order frame, a type or shape it does not
      *  understand, or an engine that has stopped. Never rejects on a bad frame. */
     applyRemote(event: unknown): Promise<boolean>
+    /** Takes a new name for a team or project (LAM-149): a rename the user just made, or
+     *  `team.updated` / `project.updated` from the feed. Only the name is taken, so
+     *  nothing else of the row moves. Resolves true if a row changed. */
+    setContextName(kind: 'team' | 'project', id: string, name: string): Promise<boolean>
     subscribe(listener: (change: SyncChange) => void): () => void
 }
 
@@ -933,8 +937,17 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
 
         let applied = false
         try {
+            const renamesBefore = renameCount
             const server = await Promise.race([remote.listEverything(), halted])
             if (!server || !isRunning()) return
+            // A team or project renamed while this list was on the wire would come back
+            // under its old name: there is no version to tell the two apart (LAM-149).
+            for (const [key, { name, seq }] of renamed) {
+                if (seq <= renamesBefore) continue
+                const [kind, id] = key.split(':')
+                const row = (kind === 'team' ? server.teams : server.projects).find((r) => r.id === id)
+                if (row) row.name = name
+            }
             await db.write((tx) => applyServerState(tx, server))
             applied = true
         } catch (error) {
@@ -1083,7 +1096,39 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         }
     }
 
+    // Teams and projects are read-only context, not sync entities: there is no outbox, no
+    // version, and a rename is a direct call. The event carries a project with no board,
+    // so only the name is read from either frame.
+    let renameCount = 0
+    const renamed = new Map<string, { name: string; seq: number }>()
+
+    async function setContextName(kind: 'team' | 'project', id: string, name: string): Promise<boolean> {
+        if (!isRunning()) return false
+        renamed.set(`${kind}:${id}`, { name, seq: ++renameCount })
+        const changed = await db.write(async (tx) => {
+            const table = kind === 'team' ? tx.teams : tx.projects
+            const row = await table.get(id)
+            if (!row || row.name === name) return false
+            await table.put({ ...row, name } as never)
+            return true
+        })
+        if (changed && isRunning()) notify()
+        return changed
+    }
+
+    function contextRename(frame: unknown): Promise<boolean> | null {
+        if (typeof frame !== 'object' || frame === null) return null
+        const { type, team, project } = frame as { type?: unknown; team?: unknown; project?: unknown }
+        const kind = type === 'team.updated' ? 'team' : type === 'project.updated' ? 'project' : null
+        if (!kind) return null
+        const body = (kind === 'team' ? team : project) as { id?: unknown; name?: unknown } | undefined
+        if (typeof body?.id !== 'string' || typeof body.name !== 'string') return Promise.resolve(false)
+        return setContextName(kind, body.id, body.name)
+    }
+
     function applyRemote(frame: unknown): Promise<boolean> {
+        const rename = contextRename(frame)
+        if (rename) return rename
         const event = remote.parseEvent(frame)
         if (!event || !isRunning()) return Promise.resolve(false)
         const done = new Promise<boolean>((resolve) => remoteQueue.push({ event, resolve }))
@@ -1432,6 +1477,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         resume,
         retryNow,
         applyRemote,
+        setContextName,
         subscribe(listener) {
             listeners.add(listener)
             return () => {

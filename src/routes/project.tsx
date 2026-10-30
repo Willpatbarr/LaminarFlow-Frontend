@@ -3,6 +3,7 @@ import { createEffect, Show, untrack } from 'solid-js'
 
 import { session } from '@/features/auth'
 import { DocumentList } from '@/features/documents/components/DocumentList'
+import { ProjectNameHeading } from '@/features/tickets/components/NameEditor'
 import { TicketList } from '@/features/tickets/components/TicketList'
 import { currentProject, isLoading, selectProject, sync } from '@/sync'
 
@@ -36,6 +37,9 @@ export function ProjectPage(props: { tab?: 'tickets' | 'documents' }) {
                 </section>
             }
         >
+            <Show when={sync.projects.find((project) => project.id === params.projectId)}>
+                {(found) => <ProjectNameHeading projectId={found().id} name={found().name} />}
+            </Show>
             <nav class="project-tabs" aria-label="Project">
                 <a
                     href={`/projects/${params.projectId}`}
