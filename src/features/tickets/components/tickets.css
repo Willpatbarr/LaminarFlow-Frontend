@@ -468,7 +468,7 @@ a.view-switch__item:hover {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent, inherit);
+  color: var(--accent);
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
@@ -480,4 +480,26 @@ a.view-switch__item:hover {
     flex-wrap: wrap;
     align-items: flex-end;
     gap: var(--space-2, 0.5rem);
+}
+
+.new-ticket__more {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  margin-top: var(--s-12);
+}
+
+.new-ticket__created {
+  min-height: 1.5em;
+  margin: var(--s-8) 0 0;
+}
+
+.new-ticket__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }

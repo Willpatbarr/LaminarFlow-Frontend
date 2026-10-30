@@ -26,6 +26,8 @@ type ButtonProps = {
     describedBy?: string
     /** Names the button when its text alone is not enough ("Edit" on every row). */
     'aria-label'?: string
+    /** `aria-keyshortcuts`: the keys that do the same as a click. */
+    keyShortcuts?: string
     /** Receives the <button>, so a dialog can put focus on it. */
     ref?: (el: HTMLButtonElement) => void
 }
@@ -45,6 +47,7 @@ export function Button(props: ButtonProps) {
             disabled={props.disabled || props.disabledReason !== undefined}
             aria-describedby={describedBy ?? props.describedBy}
             aria-label={props['aria-label']}
+            aria-keyshortcuts={props.keyShortcuts}
             onClick={props.onClick}
         >
             {props.children}

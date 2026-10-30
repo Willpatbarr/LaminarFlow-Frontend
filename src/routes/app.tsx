@@ -14,10 +14,11 @@ import { clearMembers } from '@/features/members/members'
 import { clearReviewFeed, loadNeedsMine, needsMine, pendingSignature } from '@/features/review/feed'
 import { useEditorLinks } from '@/features/links/editorLinks'
 import { CommandPalette } from '@/features/search/CommandPalette'
-import { hintFor, installShortcutListener, ShortcutHelp, useShortcut } from '@/features/shortcuts'
+import { hintFor, installShortcutListener, ShortcutHelp, useScope, useShortcut } from '@/features/shortcuts'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
 import { ReviewRequestedToast } from '@/features/review/ReviewRequestedToast'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
+import { CreatedTicketToast } from '@/features/tickets/components/CreatedTicketToast'
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
@@ -159,6 +160,9 @@ export function AppLayout(props: RouteSectionProps) {
         () => navigate(`/boards/${homeBoard()!.id}`),
         () => homeBoard() !== undefined,
     )
+    // `mod+enter` in the New ticket dialog is handled by the dialog itself; the
+    // scope keeps it on the help sheet wherever the app is.
+    useScope('global')
     useShortcut(
         'ticket.new',
         () => setCreatingTicket(true),
@@ -276,6 +280,7 @@ export function AppLayout(props: RouteSectionProps) {
                     <Show when={sync.active}>
                         <SyncTroubleToast />
                         <ArchiveUndoToast />
+                        <CreatedTicketToast />
                         <ReviewRequestedToast />
                     </Show>
                 }

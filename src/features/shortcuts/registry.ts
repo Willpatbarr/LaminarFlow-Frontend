@@ -62,6 +62,7 @@ export const SHORTCUTS = [
     { id: 'nav.documents', keys: 'g d', label: 'Go to documents', scope: 'global' },
     { id: 'nav.board', keys: 'g b', label: 'Go to the board', scope: 'global' },
     { id: 'ticket.new', keys: 'c', label: 'New ticket', scope: 'global', permission: 'ticket:write' },
+    { id: 'ticket.create', keys: 'mod+enter', label: 'Create the ticket, from any field of the New ticket dialog', scope: 'global', permission: 'ticket:write', local: true },
     { id: 'list.next', keys: 'j', label: 'Next ticket', scope: 'list' },
     { id: 'list.previous', keys: 'k', label: 'Previous ticket', scope: 'list' },
     { id: 'ticket.status', keys: 's', label: 'Change status', scope: 'ticket', permission: 'ticket:write' },
@@ -163,7 +164,7 @@ export function keysOf(id: ShortcutId): string {
         .map((step) =>
             step
                 .split('+')
-                .map((key) => (key === 'mod' ? (isMac() ? '⌘' : 'Ctrl+') : key.length === 1 ? key.toUpperCase() : key))
+                .map((key) => (key === 'mod' ? (isMac() ? '⌘' : 'Ctrl+') : key.length === 1 ? key.toUpperCase() : key.charAt(0).toUpperCase() + key.slice(1)))
                 .join(''),
         )
         .join(' then ')
