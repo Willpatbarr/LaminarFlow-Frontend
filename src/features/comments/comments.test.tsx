@@ -110,6 +110,43 @@ describe('the thread on the ticket page', () => {
         expect(posts[0].key).toBeTruthy()
     })
 
+    it('posts on Ctrl+Enter once however fast it is pressed, and Enter alone is a new line', async () => {
+        const posts: Record<string, unknown>[] = []
+        await openApp('/tickets/t-1', {
+            ...listRoutes([ticket({ id: 't-1' })]),
+            'POST /api/v1/comments': async (request) => {
+                const body = await bodyOf(request)
+                posts.push(body)
+                return ok(comment({ id: 'c-new', body: body.body }))
+            },
+        })
+        const region = await thread()
+        const user = userEvent.setup()
+        const box = await within(region).findByRole('textbox', { name: 'Add a comment' })
+        expect(within(region).getByRole('button', { name: 'Comment' })).toHaveAttribute('aria-keyshortcuts', 'Control+Enter Meta+Enter')
+        expect(region.querySelector('.shortcut-hint')).toHaveTextContent(/^(⌘|Ctrl\+)Enter$/)
+
+        await user.click(box)
+        await user.keyboard('line one{Enter}line two')
+        expect(posts).toEqual([])
+        await user.keyboard('{Control>}{Enter}{Enter}{Enter}{/Control}')
+        await waitFor(() => expect(posts).toHaveLength(1))
+        expect(posts[0].body).toBe('line one\n\nline two')
+        await within(region).findByText(/line two/)
+        expect(box.textContent).toBe('')
+        expect(posts).toHaveLength(1)
+    })
+
+    it('lists the comment shortcut in the ? sheet while a thread is on the page', async () => {
+        await openApp('/tickets/t-1', listRoutes([ticket({ id: 't-1' })]))
+        await thread()
+        const user = userEvent.setup()
+        await user.click(document.body)
+        await user.keyboard('?')
+        const sheet = within(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' }))
+        expect(sheet.getByText(/Post the comment, or save the edit/)).toBeInTheDocument()
+    })
+
     it('does not offer an empty comment', async () => {
         await openApp('/tickets/t-1', listRoutes([ticket({ id: 't-1' })]))
         const region = await thread()
@@ -136,6 +173,29 @@ describe('the thread on the ticket page', () => {
 
         await waitFor(() => expect(puts).toHaveLength(1))
         expect(puts[0]).toEqual({ body: 'First thoughts!' })
+    })
+
+    it('saves an edit on Cmd+Enter', async () => {
+        const puts: Record<string, unknown>[] = []
+        await openApp('/tickets/t-1', {
+            ...listRoutes([ticket({ id: 't-1' })], [], [], { comments: [comment()] }),
+            'PUT /api/v1/comments/c-1': async (request) => {
+                const body = await bodyOf(request)
+                puts.push(body)
+                return ok(comment({ body: body.body, updated_at: '2026-01-03T00:00:00Z' }))
+            },
+        })
+        const region = await thread()
+        const user = userEvent.setup()
+        await user.click(await within(region).findByRole('button', { name: 'Edit comment' }))
+        const box = await within(region).findByRole('textbox', { name: 'Edit comment' })
+        await waitFor(() => expect(box).toHaveFocus())
+        await user.keyboard('!')
+        await user.keyboard('{Meta>}{Enter}{Enter}{/Meta}')
+
+        await waitFor(() => expect(puts).toHaveLength(1))
+        expect(puts[0]).toEqual({ body: 'First thoughts!' })
+        expect(within(region).queryByRole('button', { name: 'Save' })).toBeNull()
     })
 
     it('deletes your comment after asking', async () => {

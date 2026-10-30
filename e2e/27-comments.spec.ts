@@ -53,15 +53,21 @@ test('a comment posted in one browser appears live in another account\'s, who ca
     await mine.getByRole('button', { name: 'Edit comment' }).click()
     const editor = mine.getByRole('textbox', { name: 'Edit comment' })
     await editor.fill('Ship it on Monday')
-    await mine.getByRole('button', { name: 'Save' }).click()
+    // Cmd/Ctrl+Enter saves the edit (LAM-156).
+    await editor.press('ControlOrMeta+Enter')
     await expect(mine.getByText('Monday')).toBeVisible()
     await expect(theirs.getByText('Monday')).toBeVisible()
     await expect(theirs.getByText('(edited)')).toBeVisible()
     await expect.poll(commentsOnServer).toEqual(['Ship it on Monday'])
 
     // Bob replies; Alice sees it live, and can delete only her own.
-    await theirs.getByRole('textbox', { name: 'Add a comment' }).fill('Agreed')
-    await theirs.getByRole('button', { name: 'Comment' }).click()
+    // Cmd/Ctrl+Enter posts; plain Enter is a new line, so nothing is sent by it.
+    const reply = theirs.getByRole('textbox', { name: 'Add a comment' })
+    await reply.fill('Agreed')
+    await reply.press('Enter')
+    await expect(theirs.getByRole('button', { name: 'Comment' })).toBeEnabled()
+    await expect.poll(commentsOnServer).toEqual(['Ship it on Monday'])
+    await reply.press('ControlOrMeta+Enter')
     await expect(mine.getByText('Agreed')).toBeVisible()
     const alicesRow = mine.getByRole('listitem').filter({ hasText: 'Monday' })
     const bobsRow = mine.getByRole('listitem').filter({ hasText: 'Agreed' })

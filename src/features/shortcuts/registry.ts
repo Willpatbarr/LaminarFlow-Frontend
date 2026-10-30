@@ -22,7 +22,7 @@ import { can } from '@/features/auth'
 // component hands in, so a key whose screen is not open does nothing and is not
 // listed. Nothing here knows how to create a ticket or open a page.
 
-export type Scope = 'global' | 'list' | 'ticket' | 'board'
+export type Scope = 'global' | 'list' | 'ticket' | 'board' | 'comment'
 
 /** Headings for the help sheet, in the order they are shown. */
 export const SCOPES: { scope: Scope; heading: string }[] = [
@@ -30,6 +30,7 @@ export const SCOPES: { scope: Scope; heading: string }[] = [
     { scope: 'list', heading: 'Ticket list' },
     { scope: 'ticket', heading: 'A ticket' },
     { scope: 'board', heading: 'Board' },
+    { scope: 'comment', heading: 'Writing a comment' },
 ]
 
 export type ShortcutDef = {
@@ -63,6 +64,7 @@ export const SHORTCUTS = [
     { id: 'nav.board', keys: 'g b', label: 'Go to the board', scope: 'global' },
     { id: 'ticket.new', keys: 'c', label: 'New ticket', scope: 'global', permission: 'ticket:write' },
     { id: 'ticket.create', keys: 'mod+enter', label: 'Create the ticket, from any field of the New ticket dialog', scope: 'global', permission: 'ticket:write', local: true },
+    { id: 'comment.submit', keys: 'mod+enter', label: 'Post the comment, or save the edit (Enter is a new line)', scope: 'comment', local: true },
     { id: 'list.next', keys: 'j', label: 'Next ticket', scope: 'list' },
     { id: 'list.previous', keys: 'k', label: 'Previous ticket', scope: 'list' },
     { id: 'ticket.status', keys: 's', label: 'Change status', scope: 'ticket', permission: 'ticket:write' },
