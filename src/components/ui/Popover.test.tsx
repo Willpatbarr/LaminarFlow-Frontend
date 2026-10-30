@@ -138,4 +138,27 @@ describe('Popover', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         expect(trigger).toHaveFocus()
     })
+
+    it('as a listbox: opens at a caret rect without taking focus, and a press inside keeps focus in the field', async () => {
+        const onOpenChange = vi.fn()
+        render(() => (
+            <>
+                <input aria-label="Field" />
+                <Popover open onOpenChange={onOpenChange} role="listbox" label="Links" id="links" align="start" anchor={() => new DOMRect(40, 20, 0, 16)}>
+                    <div role="option" aria-selected="true">One</div>
+                </Popover>
+            </>
+        ))
+        const field = screen.getByLabelText('Field')
+        field.focus()
+        const panel = screen.getByRole('listbox', { name: 'Links' })
+        expect(panel).toHaveAttribute('id', 'links')
+        expect(panel).not.toHaveAttribute('tabindex')
+        expect(field).toHaveFocus()
+        expect(panel).toHaveAttribute('data-placement')
+        const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+        screen.getByRole('option').dispatchEvent(press)
+        expect(press.defaultPrevented).toBe(true)
+        expect(onOpenChange).not.toHaveBeenCalled()
+    })
 })

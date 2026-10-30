@@ -1,10 +1,9 @@
 import { createSignal } from 'solid-js'
-import type { JSX } from '@solidjs/web'
 
 /*
 ┌─ components/editor ─────────────────────────────
 │  internal links: what they look like stored, in the address bar, and how the
-│  editor reaches the app for titles, navigation and the picker (LAM-108)
+│  editor reaches the app for titles, navigation and what can be linked (LAM-108)
 ├─ out ───────────────────────────────────────────
 │      LinkKind · LinkRef · LinkTarget   what a link points at
 │      lfHref(ref) · routeOf(ref)        the stored URL · the app route
@@ -54,11 +53,6 @@ export function parseInternal(url: string, origin: string = globalThis.location?
     return found ? { kind: PLURAL[found[1]], id: decodeURIComponent(found[2]) } : null
 }
 
-export type LinkPickerProps = {
-    onPick: (target: LinkTarget) => void
-    onClose: () => void
-}
-
 /** What the app gives the editor. The editor lives in `components`, which may
  *  not know about tickets or routes, so the shell registers these. */
 export type EditorLinks = {
@@ -67,8 +61,9 @@ export type EditorLinks = {
     titleOf: (ref: LinkRef) => string | undefined
     /** Goes to a route without reloading the page. */
     open: (route: string) => void
-    /** The dialog that searches what can be linked. */
-    picker: (props: LinkPickerProps) => JSX.Element
+    /** Everything that can be linked, for the list that `@` and `[[` open.
+     *  Reads reactive state: the list follows the store while it is open. */
+    targets: () => LinkTarget[]
 }
 
 const [links, setLinks] = createSignal<EditorLinks | null>(null)
