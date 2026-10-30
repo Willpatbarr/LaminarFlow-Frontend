@@ -104,7 +104,7 @@ export function CommentThread(props: CommentThreadProps) {
 
     return (
         <section class="comments" aria-labelledby="comments-title">
-            <h2 id="comments-title" class="t-section">
+            <h2 id="comments-title" class="t-section" tabindex="-1">
                 Comments
                 <Show when={comments().length > 0}>
                     <span class="comments__meta"> ({comments().length})</span>

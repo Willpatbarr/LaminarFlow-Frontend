@@ -56,6 +56,7 @@ import { ConflictPanel } from './ConflictPanel'
 import { LabelChips } from './LabelChips'
 import { hueFor } from '../statusLook'
 import { NewLabel } from './LabelEditor'
+import { SectionBar } from './SectionBar'
 import { SyncMarker } from './SyncMarker'
 import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
@@ -149,7 +150,13 @@ export function TicketDetail(props: TicketDetailProps) {
                 </Match>
                 <Match when={ticket()}>
                     {(found) => (
-                        <TicketEditor ticket={found()} routeId={props.id} viewer={props.viewer} announce={announce} />
+                        <TicketEditor
+                            ticket={found()}
+                            routeId={props.id}
+                            viewer={props.viewer}
+                            announce={announce}
+                            panel={props.onClose !== undefined}
+                        />
                     )}
                 </Match>
             </Switch>
@@ -169,6 +176,7 @@ function LoadingTicket() {
                 Loading ticket…
             </p>
             <div class="ticket__form" aria-hidden="true">
+                <div class="ticket__sections" />
                 <div class="ticket__status-line" />
                 <PlaceholderField control="40px" />
                 <div class="md-editor">
@@ -275,6 +283,8 @@ type TicketEditorProps = {
     routeId: string
     viewer: Viewer
     announce: Announce
+    /** Shown as the side panel beside the list: it scrolls on its own, so it has no section bar. */
+    panel: boolean
 }
 
 // HOW IT SAVES: there is no Save button. Title and description save about a
@@ -570,7 +580,11 @@ function TicketEditor(props: TicketEditorProps) {
                 commitTitle()
             }}
         >
-            <div class="ticket__status-line" role="status">
+            <Show when={!props.panel}>
+                <SectionBar ticketId={props.routeId} title={() => titleEl} />
+            </Show>
+
+            <div id="ticket-details" class="ticket__status-line" role="status">
                 <SyncMarker state={ticketSyncState(id())} withText />
             </div>
 
