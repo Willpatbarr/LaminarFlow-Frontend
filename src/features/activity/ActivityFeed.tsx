@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, onCleanup, onSettled, Show, untrack } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { SkeletonLine } from '@/components/ui/Skeleton'
 import { getAspectType } from '@/features/aspects/api'
 import { loadMembers, memberName } from '@/features/members/members'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
@@ -20,7 +21,9 @@ import './activity.css'
 // 2 minutes ago". Read-only and online-only: it is asked for from the server on
 // opening and when the tab is shown again, and `activity.created` events from the
 // change feed put new lines at the top. Offline, or when the history cannot be
-// had, it says so quietly and the page carries on. The log stores ids; names are
+// had, it says so (with Retry) and the page carries on. Until the first answer
+// there is a placeholder, so a slow load is not mistaken for an empty history
+// (LAM-168); "No activity yet" is said only once the server has answered. The log stores ids; names are
 // looked up in the local stores and the member list. The entity's history is
 // hidden by the server while it is archived (404), which reads as "no history".
 
@@ -48,6 +51,8 @@ export function ActivityFeed(props: ActivityFeedProps) {
     const [aspectNames, setAspectNames] = createSignal<Record<string, string>>({})
     const asked = new Set<string>()
     let latest = 0
+    // The id the feed is showing, for Retry.
+    let shown: string | null = null
 
     const entityId = () => resolveId(props.entityId)
 
@@ -71,8 +76,9 @@ export function ActivityFeed(props: ActivityFeedProps) {
         if (ticket !== latest) return
         setLoaded(true)
         if (!got.ok) {
-            // A refusal (archived, gone) is an empty history; only a missing connection is a problem.
-            setProblem(got.code === 'network' || got.code === 'unknown')
+            // An entity that is archived or gone (404) has no history to show; any other
+            // failure is a problem the person can retry.
+            setProblem(got.code !== 'not_found')
             return
         }
         setProblem(false)
@@ -103,23 +109,32 @@ export function ActivityFeed(props: ActivityFeedProps) {
             setEntries([])
             setNext(null)
             setLoaded(false)
+            setProblem(false)
+            shown = id
             if (!id) return
             void reload(id, true)
-            const shown = () => {
+            const visible = () => {
                 if (document.visibilityState !== 'hidden') void reload(id, false)
             }
-            document.addEventListener('visibilitychange', shown)
+            document.addEventListener('visibilitychange', visible)
             const off = onActivityEvent((entry) => {
                 if (entry.entity_id !== id || entry.entity_type !== props.entityType) return
                 setEntries((held) => merge(held, [entry]))
                 void loadAspectNames([entry])
             })
             onCleanup(() => {
-                document.removeEventListener('visibilitychange', shown)
+                document.removeEventListener('visibilitychange', visible)
                 off()
             })
         },
     )
+
+    // Asked for and not answered yet. A temporary id has nothing to ask for.
+    const loading = () => !loaded() && !isTempId(entityId())
+
+    function retry() {
+        if (shown !== null) void reload(shown, true)
+    }
 
     const names = (): Names => ({
         me: props.accountId,
@@ -132,10 +147,20 @@ export function ActivityFeed(props: ActivityFeedProps) {
     })
 
     return (
-        <section class="activity" aria-labelledby="activity-title">
+        <section class="activity" aria-labelledby="activity-title" aria-busy={loading() ? 'true' : undefined}>
             <h2 id="activity-title" class="t-section">
                 Activity
             </h2>
+            <Show when={loading()}>
+                <div class="activity__loading">
+                    <span class="visually-hidden" role="status">
+                        Loading activity…
+                    </span>
+                    <SkeletonLine width="70%" />
+                    <SkeletonLine width="55%" />
+                    <SkeletonLine width="62%" />
+                </div>
+            </Show>
             <Show when={entries().length > 0}>
                 <ol class="activity__list">
                     <For each={entries()} keyed={(entry) => entry.id}>
@@ -148,10 +173,15 @@ export function ActivityFeed(props: ActivityFeedProps) {
                 </ol>
             </Show>
             <Show when={loaded() && entries().length === 0 && !problem()}>
-                <p class="activity__none t-meta">Nothing has changed yet.</p>
+                <p class="activity__none t-meta">No activity yet.</p>
             </Show>
             <Show when={problem()}>
                 <p class="activity__none t-meta">The history is not available right now. It needs a connection.</p>
+                <div>
+                    <Button variant="ghost" size="sm" onClick={retry}>
+                        Retry
+                    </Button>
+                </div>
             </Show>
             <Show when={next() !== null}>
                 <div>
