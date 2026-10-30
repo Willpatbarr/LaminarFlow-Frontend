@@ -10,11 +10,12 @@
   z-index: 10;
   width: max-content;
   max-width: 260px;
-  padding: var(--s-4) var(--s-8);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-control);
+  padding: 5px var(--s-8);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
   background: var(--bg-overlay);
-  color: var(--text);
+  color: var(--text-1);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
   pointer-events: none;
   visibility: hidden;
 }
