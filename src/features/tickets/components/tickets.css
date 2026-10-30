@@ -26,19 +26,12 @@
 }
 
 /* Epic, sprint and milestone pages (LAM-193): the tickets table has the list's
- * width, and while it is a table (not stacked) a row's chips stay on one line
- * after the title. The title keeps a readable minimum and the chips give way
- * (clipped at the cell's edge), so rows stay 34px at any desktop width. */
+ * width, and while it is a table (not stacked) the title keeps a readable
+ * minimum. What the label chips do when the cell is short is LAM-196's
+ * (.label-fit, below), shared with the main list. */
 @container table (min-width: 660px) {
-  .tickets--scoped .label-chips {
-    flex: 0 1 auto;
-    flex-wrap: nowrap;
-    min-width: 0;
-    overflow: hidden;
-  }
-
   .tickets--scoped .ticket__title-cell > .table__text {
-    flex: 1 1 auto;
+    flex: 1 100 auto;
     min-width: 240px;
   }
 }
@@ -285,6 +278,90 @@
 
 .label-chips__more {
   color: var(--text-3);
+}
+
+/* Label chips on a table row (LAM-196). Stacked rows (phone, tablet, a narrow
+ * table) are as before: the first `max` chips and a plain "+n", wrapping with
+ * the other cells, so none of the fitting machinery takes part. */
+.label-fit,
+.label-fit__clip {
+  display: contents;
+}
+
+.label-fit__sizer,
+.label-fit .tooltip,
+.label-chips > li[data-over-max] {
+  display: none;
+}
+
+/* The table layout (the grid: viewport >= 768px and the table >= 660px, as in
+ * Table.css). The chips sit on one line the width of the cell; those that do
+ * not fit are hidden from sight and from the accessibility tree
+ * (visibility, so they stay measurable) and the "+N" chip stands in for them.
+ * The "+N" is outside the clip so its tooltip can leave the cell. The row stays
+ * at --row-h whatever the labels. */
+@media (min-width: 768px) {
+  @container table (min-width: 660px) {
+    .label-fit {
+      position: relative;
+      display: flex;
+      flex: 0 1 auto;
+      min-width: 36px;
+      max-width: 100%;
+    }
+
+    .label-fit__clip {
+      display: block;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-x: clip;
+    }
+
+    .label-fit .label-chips {
+      display: flex;
+      flex-wrap: nowrap;
+      width: max-content;
+    }
+
+    .label-chips > li[data-over-max] {
+      display: list-item;
+    }
+
+    .label-chips > li.label-fit__plain {
+      display: none;
+    }
+
+    .label-chips > li[data-fit-hidden] {
+      visibility: hidden;
+    }
+
+    .label-fit__sizer {
+      display: inline-flex;
+      position: absolute;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .label-fit .tooltip {
+      display: inline-flex;
+      position: absolute;
+      top: 50%;
+      right: 0;
+      translate: 0 -50%;
+    }
+
+    .label-fit__more {
+      background: var(--bg-overlay);
+      color: var(--text-2);
+    }
+
+    /* The title gives way before the chips do, down to a readable minimum
+     * (240px on the epic, sprint and milestone pages, above). */
+    .ticket__title-cell > .table__text {
+      flex-shrink: 100;
+      min-width: 160px;
+    }
+  }
 }
 
 .ticket__title-cell {

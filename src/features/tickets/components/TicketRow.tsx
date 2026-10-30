@@ -245,7 +245,7 @@ function LoadedTicketRow(props: LoadedRow) {
                             {name()}
                         </span>
                         <Show when={!cells().includes('label')}>
-                            <LabelChips ids={props.ticket.label_ids} max={3} />
+                            <LabelChips ids={props.ticket.label_ids} max={3} fit />
                         </Show>
                     </span>
                     <For each={cells()}>
@@ -284,7 +284,7 @@ function LoadedTicketRow(props: LoadedRow) {
                                 </Match>
                                 <Match when={field === 'label'}>
                                     <span id={cellId('label')}>
-                                        <LabelChips ids={props.ticket.label_ids} max={2} />
+                                        <LabelChips ids={props.ticket.label_ids} max={2} fit />
                                     </span>
                                 </Match>
                                 <Match when={field === 'sprint'}>
