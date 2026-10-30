@@ -115,4 +115,26 @@ describe('Toast', () => {
 
         expect(screen.getByRole('alert')).toBeInTheDocument()
     })
+
+    it('defaults to rust, and an amber warning has to say so', () => {
+        render(() => (
+            <>
+                <Toast title="Default" />
+                <Toast hue="amber" title="Warning" />
+            </>
+        ))
+
+        const [def, warn] = screen.getAllByRole('status')
+        expect(def).toHaveAttribute('data-hue', 'rust')
+        expect(warn).toHaveAttribute('data-hue', 'amber')
+    })
+
+    it('draws a good outcome\'s mark as the check Icon, hidden from assistive tech', () => {
+        const { container } = render(() => <Toast hue="green" mark="check" title="Done" />)
+
+        const mark = container.querySelector('.toast__mark')!
+        expect(mark).toHaveAttribute('aria-hidden', 'true')
+        expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+        expect(mark).not.toHaveTextContent('✓')
+    })
 })

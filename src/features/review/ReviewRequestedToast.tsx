@@ -29,7 +29,7 @@ export function ReviewRequestedToast() {
     )
     return (
         <Show when={shown() > 0}>
-            <Toast hue="green" mark="✓" title="Review requested." onDismiss={clearReviewRequested} />
+            <Toast hue="green" mark="check" title="Review requested." onDismiss={clearReviewRequested} />
         </Show>
     )
 }

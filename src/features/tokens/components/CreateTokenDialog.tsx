@@ -206,7 +206,7 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                         </Button>
                     </div>
                     <Show when={copied()}>
-                        <Toast title="Copied" detail="The token is on your clipboard." onDismiss={() => setCopied(false)} />
+                        <Toast hue="green" mark="check" title="Copied" detail="The token is on your clipboard." onDismiss={() => setCopied(false)} />
                     </Show>
                     <Show when={failure().form}>
                         {(message) => (

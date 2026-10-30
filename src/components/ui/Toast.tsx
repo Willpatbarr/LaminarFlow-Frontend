@@ -10,9 +10,11 @@ type ToastProps = {
     /** Say what happened to the *work*, not to the request: a queued change is
      *  not a lost change. */
     detail?: string
-    /** The glyph in the badge. Defaults to `!`; a good outcome wants something else. */
-    mark?: string
-    /** Defaults to `amber`. `rust` is for something that is actually lost. */
+    /** The badge. Defaults to `!`; a good outcome passes `check` (the coolicons
+     *  Icon, not a text glyph). */
+    mark?: 'check'
+    /** Defaults to `rust`, the spec's default. `amber` is for a warning (work
+     *  is safe but not done), and callers that mean it must say so. */
     hue?: NoticeHue
     role?: 'status' | 'alert'
     action?: string
@@ -31,9 +33,11 @@ type ToastProps = {
 // the field being typed in.
 export function Toast(props: ToastProps) {
     return (
-        <div class="toast" data-hue={props.hue ?? 'amber'} role={props.role ?? 'status'}>
+        <div class="toast" data-hue={props.hue ?? 'rust'} role={props.role ?? 'status'}>
             <span class="toast__mark" aria-hidden="true">
-                {props.mark ?? '!'}
+                <Show when={props.mark === 'check'} fallback="!">
+                    <Icon name="check" size={12} />
+                </Show>
             </span>
             <div class="toast__body">
                 <span class="toast__title t-body">{props.title}</span>

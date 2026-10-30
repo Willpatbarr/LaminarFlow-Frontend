@@ -30,7 +30,7 @@ export function CreatedTicketToast() {
             {(ticket) => (
                 <Toast
                     hue="blue"
-                    mark="✓"
+                    mark="check"
                     title={`Created “${ticket().title}”`}
                     action="Open ticket"
                     onAction={() => {
