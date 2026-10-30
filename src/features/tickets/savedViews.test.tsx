@@ -273,6 +273,36 @@ describe('saving a view', () => {
     })
 })
 
+describe('the Views page (LAM-165)', () => {
+    it('shows name, visibility, owner and updated as columns', async () => {
+        await open('/views', [MINE, TEAMS, view({ id: 'sv-orphan', name: 'Team own', owner_account_id: null })])
+
+        const table = await screen.findByRole('table')
+        expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+            'Name',
+            'Visibility',
+            'Owner',
+            'Updated',
+            'Actions',
+        ])
+        const mine = within(within(table).getByRole('link', { name: 'My todo' }).closest('tr')!)
+        expect(mine.getByText('Private')).toBeInTheDocument()
+        expect(mine.getByText('You')).toBeInTheDocument()
+        expect(mine.getByRole('time')).toBeInTheDocument()
+        const own = within(within(table).getByRole('link', { name: 'Team own' }).closest('tr')!)
+        expect(own.getAllByText('Team')).toHaveLength(2)
+    })
+
+    it('says what saved views are and how to make one when there are none', async () => {
+        await open('/views', [])
+
+        expect(await screen.findByRole('heading', { name: 'No saved views yet', level: 2 })).toBeInTheDocument()
+        expect(screen.getByText(/choose “Save view”/)).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Go to tickets' })).toHaveAttribute('href', '/')
+        expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+})
+
 describe('the Views page', () => {
     it('lists the views and deletes one after asking', async () => {
         let deleted = false

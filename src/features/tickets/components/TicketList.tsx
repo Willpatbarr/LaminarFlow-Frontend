@@ -55,6 +55,17 @@ type TicketListProps = {
      *  the session is still unknown; the store's own `isLoading()` covers the
      *  first hydration. */
     loading?: boolean
+    /** The title's level. A page that already has its own h1 (the project page) passes 'h2'. */
+    heading?: 'h1' | 'h2'
+}
+
+// "Tickets", at the level the page needs (one h1 per page).
+function ListTitle(props: { heading?: 'h1' | 'h2' }) {
+    return (
+        <Show when={props.heading === 'h2'} fallback={<h1 class="t-screen-title">Tickets</h1>}>
+            <h2 class="t-screen-title">Tickets</h2>
+        </Show>
+    )
 }
 
 // Title · status · assignee · unsynced marker. The loading placeholder's
@@ -79,10 +90,10 @@ export function TicketList(props: TicketListProps) {
         <section class="tickets tickets--list" aria-busy={busy() ? 'true' : undefined}>
             <Switch>
                 <Match when={busy()}>
-                    <LoadingTickets />
+                    <LoadingTickets heading={props.heading} />
                 </Match>
                 <Match when={loadFailed()}>
-                    <h1 class="t-screen-title">Tickets</h1>
+                    <ListTitle heading={props.heading} />
                     <p class="t-body" role="alert">
                         Your tickets could not be loaded. Check your connection and try again.
                     </p>
@@ -96,7 +107,7 @@ export function TicketList(props: TicketListProps) {
                     <FirstRunSetup viewer={props.viewer} />
                 </Match>
                 <Match when={currentProject()}>
-                    {(project) => <ProjectTickets project={project()} viewer={props.viewer} />}
+                    {(project) => <ProjectTickets project={project()} viewer={props.viewer} heading={props.heading} />}
                 </Match>
             </Switch>
         </section>
@@ -110,11 +121,11 @@ const TITLE_WIDTHS: SkeletonLength[] = ['62%', '44%', '73%']
 // The heading and the button stay: they are true before any data arrives. The
 // button is disabled rather than hidden, so it does not appear a moment later,
 // and there is no project to create a ticket in yet anyway.
-function LoadingTickets() {
+function LoadingTickets(props: { heading?: 'h1' | 'h2' }) {
     return (
         <>
             <header class="tickets__header">
-                <h1 class="t-screen-title">Tickets</h1>
+                <ListTitle heading={props.heading} />
                 <div class="tickets__actions">
                     <Button disabled>New ticket</Button>
                 </div>
@@ -140,6 +151,7 @@ function LoadingTickets() {
 type ProjectTicketsProps = {
     project: Project
     viewer: Viewer
+    heading?: 'h1' | 'h2'
 }
 
 function ProjectTickets(props: ProjectTicketsProps) {
@@ -378,7 +390,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
             }}
         >
             <header class="tickets__header">
-                <h1 class="t-screen-title">Tickets</h1>
+                <ListTitle heading={props.heading} />
                 <Show when={sync.projects.length > 1}>
                     <div class="tickets__picker">
                         <Select

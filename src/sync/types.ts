@@ -184,6 +184,8 @@ export type SavedView = {
     /** Null for a team's own view, which any member may edit. */
     owner_account_id: string | null
     config: SavedViewConfig
+    /** When it was last changed. Absent on rows stored before the Views page showed it. */
+    updated_at?: string
     version: number
 }
 

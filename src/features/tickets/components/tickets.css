@@ -436,22 +436,6 @@ a.view-switch__item:hover {
   border: 0;
 }
 
-/* LAM-118: the /views page. */
-.views-list {
-  display: grid;
-  gap: var(--s-8);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.views-list__item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-12);
-}
-
 /* Narrow screens (LAM-140): the title cell dissolves into the stacked row, so
  * the title is its own full line (wrapping, never cut) and the label chips
  * flow with the status and assignee below it. Breakpoint as in Table.css. */

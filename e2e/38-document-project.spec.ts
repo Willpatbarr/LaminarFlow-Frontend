@@ -42,3 +42,29 @@ test('New document from a filtered list lands in that project; the picker makes 
     await page.goto(`/projects/${world.projectId}/documents`)
     await expect(page.getByRole('link', { name: 'Filed here' })).toHaveCount(0)
 })
+
+// LAM-170: the filter is in the address, so the palette's New document files it in the filtered project too.
+test('Ctrl+K New document on a filtered /documents lands in that project, and survives a reload', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const account = await newAccount('doc-project-palette')
+    const world = await projectOf(account)
+    await signedInAs(context, account, baseURL!)
+
+    await page.goto('/documents')
+    await page.getByLabel('Project').selectOption({ label: world.projectName })
+    await page.reload()
+    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+
+    await page.keyboard.press('Control+k')
+    await page.keyboard.type('new doc')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(UUID)
+    const id = page.url().split('/').pop()!
+    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+    await expect
+        .poll(async () => (await account.api.GET('/api/v1/documents/{id}', { params: { path: { id } } })).data?.project_id)
+        .toBe(world.projectId)
+})

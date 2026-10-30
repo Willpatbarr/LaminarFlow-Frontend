@@ -59,11 +59,12 @@ export function ProjectPage(props: { tab?: 'tickets' | 'documents' }) {
                 fallback={
                     <TicketList
                         viewer={viewer()}
+                        heading="h2"
                         loading={session.status === 'unknown' || !exists() || !picked()}
                     />
                 }
             >
-                <h1 class="t-screen-title">Documents</h1>
+                <h2 class="t-screen-title">Documents</h2>
                 <DocumentList
                     projectId={params.projectId}
                     loading={session.status === 'unknown' || !exists()}

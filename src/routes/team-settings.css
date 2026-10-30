@@ -1,0 +1,31 @@
+/* Team settings (LAM-165): each section is its own block, set off by a divider and
+ * room above and below, so "Statuses" is not pressed against the page title. */
+.settings {
+  display: grid;
+  gap: var(--s-22);
+  max-width: 54rem;
+}
+
+.settings__title {
+  margin-bottom: var(--s-4);
+}
+
+.settings__section {
+  display: grid;
+  gap: var(--s-8);
+  padding-top: var(--s-22);
+  border-top: 1px solid var(--border);
+}
+
+.settings__section > .t-section {
+  margin: 0;
+}
+
+.settings__section > .t-meta {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.settings__section > p.t-body {
+  margin: 0;
+}

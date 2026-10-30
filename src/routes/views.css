@@ -1,0 +1,88 @@
+/* The /views page (LAM-118, LAM-165): columns for name, visibility, owner and when it
+ * last changed, and an empty state that says what a saved view is. */
+.views-table {
+  width: 100%;
+  max-width: 64rem;
+  border-collapse: collapse;
+}
+
+.views-table th {
+  padding: var(--s-8) var(--s-12);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--text-2);
+  text-align: left;
+}
+
+.views-table td {
+  padding: var(--s-8) var(--s-12);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.views-table__name {
+  display: grid;
+}
+
+.views-table__actions {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.views-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-8);
+  max-width: 40rem;
+  padding: var(--s-16);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-panel);
+}
+
+.views-empty > * {
+  margin: 0;
+}
+
+/* Narrow screens (LAM-139/140): each view is a stacked card, every cell naming
+ * itself, so nothing is hidden. */
+@media (max-width: 767px) {
+  .views-table,
+  .views-table tbody,
+  .views-table tr,
+  .views-table td {
+    display: block;
+  }
+
+  .views-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .views-table tr {
+    padding: var(--s-8) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .views-table td {
+    padding: var(--s-2) 0;
+    border-bottom: 0;
+  }
+
+  .views-table td[data-label]:not(.views-table__name)::before {
+    content: attr(data-label) ": ";
+    color: var(--text-2);
+  }
+
+  .views-table__actions {
+    width: auto;
+    text-align: left;
+  }
+}
+
+.views-empty__link {
+  display: inline-block;
+  text-decoration: none;
+}

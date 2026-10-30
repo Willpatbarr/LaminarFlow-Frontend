@@ -1,4 +1,4 @@
-import { useNavigate } from '@solidjs/router'
+import { useLocation, useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 
 import { api } from '@/api/client'
@@ -9,6 +9,7 @@ import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { isLoading, sync, type Doc } from '@/sync'
 
 import { makeDocument } from '../newDocument'
+import { filteredProjectId, NO_PROJECT, projectFilterOf, withProjectFilter } from '../projectFilter'
 import './documents.css'
 
 type DocumentListProps = {
@@ -18,7 +19,7 @@ type DocumentListProps = {
 }
 
 const ALL = ''
-const NONE = 'none'
+const NONE = NO_PROJECT
 
 export const docTitle = (document: Doc) => document.title.trim() || 'Untitled'
 
@@ -28,7 +29,13 @@ export const docTitle = (document: Doc) => document.title.trim() || 'Untitled'
 // happen. Filters (all must match) are the endpoint's: project, type, aspect type.
 export function DocumentList(props: DocumentListProps) {
     const navigate = useNavigate()
-    const [project, setProject] = createSignal(ALL)
+    const location = useLocation()
+    // The project filter is in the address (LAM-170), so a reload keeps it and the
+    // command palette files "New document" under it too. Changing it is not a
+    // place to go back to, so it replaces the entry.
+    const project = () => projectFilterOf(location.search)
+    const setProject = (value: string) =>
+        navigate(`${location.pathname}${withProjectFilter(location.search, value)}`, { replace: true })
     const [type, setType] = createSignal(ALL)
     const [aspect, setAspect] = createSignal(ALL)
     const [creating, setCreating] = createSignal(false)
@@ -82,10 +89,17 @@ export function DocumentList(props: DocumentListProps) {
 
     // A new document is normal, or an aspect of a type picked here. An aspect
     // starts with every field empty: an absent key is an empty field.
+    const filtering = () => (props.projectId === undefined && project() !== ALL) || type() !== ALL || aspect() !== ALL
+    const clearFilters = () => {
+        if (props.projectId === undefined) setProject(ALL)
+        setType(ALL)
+        setAspect(ALL)
+    }
+
     async function create(aspectTypeId: string | null = null) {
         setCreating(true)
         try {
-            const target = props.projectId ?? (project() !== ALL && project() !== NONE ? project() : null)
+            const target = props.projectId ?? filteredProjectId(location.search)
             await makeDocument(navigate, { aspectTypeId, projectId: target })
         } finally {
             setCreating(false)
@@ -94,53 +108,76 @@ export function DocumentList(props: DocumentListProps) {
 
     return (
         <div class="doclist" aria-busy={busy() ? 'true' : undefined}>
-            <div class="doclist__filters">
+            <div class="doclist__toolbar" role="group" aria-label="Document filters and actions">
                 <Show when={props.projectId === undefined}>
+                    <div class="doclist__select">
+                        <Select
+                            label="Project"
+                            value={project()}
+                            onChange={setProject}
+                            options={[
+                                { value: ALL, label: 'All projects' },
+                                ...sync.projects
+                                    .toSorted((a, b) => a.name.localeCompare(b.name))
+                                    .map((candidate) => ({ value: candidate.id, label: candidate.name })),
+                                { value: NONE, label: 'Team-wide (no project)' },
+                            ]}
+                        />
+                    </div>
+                </Show>
+                <div class="doclist__select">
                     <Select
-                        label="Project"
-                        value={project()}
-                        onChange={setProject}
+                        label="Type"
+                        value={type()}
+                        onChange={setType}
                         options={[
-                            { value: ALL, label: 'All projects' },
-                            ...sync.projects
-                                .toSorted((a, b) => a.name.localeCompare(b.name))
-                                .map((candidate) => ({ value: candidate.id, label: candidate.name })),
-                            { value: NONE, label: 'Team-wide (no project)' },
+                            { value: ALL, label: 'All types' },
+                            { value: 'normal', label: 'Document' },
+                            { value: 'aspect', label: 'Aspect' },
                         ]}
                     />
-                </Show>
-                <Select
-                    label="Type"
-                    value={type()}
-                    onChange={setType}
-                    options={[
-                        { value: ALL, label: 'All types' },
-                        { value: 'normal', label: 'Document' },
-                        { value: 'aspect', label: 'Aspect' },
-                    ]}
-                />
+                </div>
                 <Show when={aspectOptions().length > 1}>
-                    <Select label="Aspect type" value={aspect()} onChange={setAspect} options={aspectOptions()} />
+                    <div class="doclist__select">
+                        <Select label="Aspect type" value={aspect()} onChange={setAspect} options={aspectOptions()} />
+                    </div>
                 </Show>
-                <Button variant="primary" disabled={busy() || creating()} disabledReason={denial('ticket:write', 'create documents')} onClick={() => void create(null)}>
-                    New document
-                </Button>
-                <Show when={Object.keys(aspectNames()).length > 0}>
-                    <Select
-                        label="New aspect"
-                        value=""
-                        disabled={busy() || creating() || !can('ticket:write')}
-                        onChange={(value) => {
-                            if (value) void create(value)
-                        }}
-                        options={[
-                            { value: '', label: 'Choose a type…' },
-                            ...Object.entries(aspectNames())
-                                .map(([value, label]) => ({ value, label }))
-                                .toSorted((a, b) => a.label.localeCompare(b.label)),
-                        ]}
-                    />
-                </Show>
+                {/* Its room is kept whether or not it is showing, so it appearing moves nothing. */}
+                <div class="doclist__clear">
+                    <Show when={filtering()}>
+                        <Button variant="ghost" onClick={clearFilters}>
+                            Clear filters
+                        </Button>
+                    </Show>
+                </div>
+                <div class="doclist__actions">
+                    <Show when={Object.keys(aspectNames()).length > 0}>
+                        <div class="doclist__select">
+                            <Select
+                                label="New aspect"
+                                value=""
+                                disabled={busy() || creating() || !can('ticket:write')}
+                                onChange={(value) => {
+                                    if (value) void create(value)
+                                }}
+                                options={[
+                                    { value: '', label: 'Choose a type…' },
+                                    ...Object.entries(aspectNames())
+                                        .map(([value, label]) => ({ value, label }))
+                                        .toSorted((a, b) => a.label.localeCompare(b.label)),
+                                ]}
+                            />
+                        </div>
+                    </Show>
+                    <Button
+                        variant="primary"
+                        disabled={busy() || creating()}
+                        disabledReason={denial('ticket:write', 'create documents')}
+                        onClick={() => void create(null)}
+                    >
+                        New document
+                    </Button>
+                </div>
             </div>
             <Show when={busy()}>
                 <p class="visually-hidden" role="status">
