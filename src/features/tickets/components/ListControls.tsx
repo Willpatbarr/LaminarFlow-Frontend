@@ -67,6 +67,10 @@ export function ListControls(props: ListControlsProps) {
     const model = () => fromGroup(props.config.filter)
     const columns = () => visibleColumns(props.config)
     const sortKey = () => props.config.sort?.[0]
+    // No sort is the list's own order, newest change first: the same thing as
+    // sorting by "Updated", descending. One option stands for both (LAM-155),
+    // so the direction button always has something to flip.
+    const direction = () => sortKey() ?? { field: 'updated_at', desc: true }
 
     const [text, setText] = createSignal(untrack(() => model()?.text ?? ''))
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -193,31 +197,36 @@ export function ListControls(props: ListControlsProps) {
                     <div class="list-controls__select">
                         <Select
                             label="Sort by"
-                            value={sortKey()?.field ?? ''}
+                            value={direction().field === 'updated_at' ? '' : direction().field}
                             options={[
                                 { value: '', label: 'Recently updated' },
-                                ...COLUMN_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
+                                ...COLUMN_FIELDS.filter((f) => f !== 'updated_at').map((f) => ({
+                                    value: f,
+                                    label: fieldLabel(f),
+                                })),
                             ]}
                             onChange={pickSort}
                         />
                     </div>
-                    <Show when={sortKey()}>
-                        {(key) => (
-                            <Button
-                                variant="secondary"
-                                aria-label={`Sort direction: ${key().desc ? 'descending' : 'ascending'}`}
-                                onClick={() => set({ sort: [{ field: key().field, desc: !key().desc }] })}
-                            >
-                                {key().desc ? 'Descending' : 'Ascending'}
-                            </Button>
-                        )}
+                    <div class="list-controls__direction">
+                        <Button
+                            variant="secondary"
+                            aria-label={`Sort direction: ${direction().desc ? 'descending' : 'ascending'}`}
+                            onClick={() => set({ sort: [{ field: direction().field, desc: !direction().desc }] })}
+                        >
+                            {direction().desc ? 'Descending' : 'Ascending'}
+                        </Button>
+                    </div>
+                </Show>
+                {/* Its room is kept whether or not it is showing, so it appearing
+                    moves nothing. */}
+                <div class="list-controls__clear">
+                    <Show when={props.config.filter !== undefined}>
+                        <Button variant="ghost" onClick={() => set({ filter: undefined })}>
+                            Clear filters
+                        </Button>
                     </Show>
-                </Show>
-                <Show when={props.config.filter !== undefined}>
-                    <Button variant="ghost" onClick={() => set({ filter: undefined })}>
-                        Clear filters
-                    </Button>
-                </Show>
+                </div>
             </div>
 
             <div class="list-controls__row">

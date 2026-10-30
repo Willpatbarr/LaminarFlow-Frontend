@@ -8,6 +8,9 @@ type TableProps = {
     columns: string[]
     /** CSS `grid-template-columns`, shared by the header and every row. */
     template: string
+    /** Draw the column header. Default true. A list of several tables passes
+     *  false and draws one `TableHeader` above them all. */
+    header?: boolean
     /** What to say when there are no rows. Omit to render nothing extra. */
     empty?: string
     /** `TableRow`s. */
@@ -25,15 +28,32 @@ type TableProps = {
 export function Table(props: TableProps) {
     return (
         <div class="table" style={{ '--table-columns': props.template }}>
-            <div class="table__header" aria-hidden="true">
-                <For each={props.columns}>
-                    {(column) => <span class="t-overline">{column}</span>}
-                </For>
-            </div>
+            <Show when={props.header !== false}>
+                <Header columns={props.columns} />
+            </Show>
             <ul class="table__rows">{props.children}</ul>
             <Show when={props.empty}>
                 <p class="table__empty t-meta">{props.empty}</p>
             </Show>
+        </div>
+    )
+}
+
+function Header(props: { columns: string[] }) {
+    return (
+        <div class="table__header" aria-hidden="true">
+            <For each={props.columns}>{(column) => <span class="t-overline">{column}</span>}</For>
+        </div>
+    )
+}
+
+/** The column header on its own, for several `Table`s that share one set of
+ *  columns (the status groups of the ticket list). Same template, so it lines
+ *  up with every row below it. */
+export function TableHeader(props: { columns: string[]; template: string }) {
+    return (
+        <div class="table-head" style={{ '--table-columns': props.template }}>
+            <Header columns={props.columns} />
         </div>
     )
 }

@@ -1,5 +1,6 @@
 .table {
-  overflow: hidden;
+  /* Not hidden: a row's tooltip must be able to leave the card. The corners are
+   * rounded on the first and last row instead (below). */
   border: 1px solid var(--border);
   border-radius: var(--r-card);
   background: var(--bg-raised);
@@ -17,8 +18,21 @@
 .table__header {
   height: 28px;
   border-bottom: 1px solid var(--border);
+  border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0;
   background: var(--bg-overlay);
   color: var(--text-3);
+}
+
+/* One header for a stack of tables: no card of its own, just the overline row,
+ * inset by the card's border so its columns sit over theirs. */
+.table-head {
+  padding-inline: 1px;
+}
+
+.table-head > .table__header {
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .table__rows {
@@ -35,6 +49,17 @@
   height: var(--row-h);
   color: var(--text-1);
   text-decoration: none;
+}
+
+/* The card no longer clips, so its corners are the rows' own. */
+.table__item:last-child > .table__row {
+  border-bottom-left-radius: calc(var(--r-card) - 1px);
+  border-bottom-right-radius: calc(var(--r-card) - 1px);
+}
+
+.table:not(:has(> .table__header)) .table__item:first-child > .table__row {
+  border-top-left-radius: calc(var(--r-card) - 1px);
+  border-top-right-radius: calc(var(--r-card) - 1px);
 }
 
 .table__row:hover {
@@ -82,6 +107,23 @@
   gap: var(--s-4);
 }
 
+/* Row actions are quiet, not hidden (LAM-155): muted until the row is hovered
+ * or holds focus, and full strength always where there is no hover. */
+.table__actions .icon-button {
+  color: var(--text-3);
+}
+
+.table__item:hover .table__actions .icon-button:not(:disabled),
+.table__item:focus-within .table__actions .icon-button:not(:disabled) {
+  color: var(--text-1);
+}
+
+@media (hover: none) {
+  .table__actions .icon-button:not(:disabled) {
+    color: var(--text-1);
+  }
+}
+
 /* A row being edited holds fields, which are taller than a read-only line.
  * Title, status, then the buttons: it does not follow the view's columns. */
 .table__row--editing {
@@ -109,7 +151,8 @@
  * (aria-hidden, no clicks), and sorting is the list toolbar's "Sort by".
  * Keep the breakpoint in step with NARROW_QUERY in useNarrowScreen.ts. */
 @media (max-width: 767px) {
-  .table__header {
+  .table__header,
+  .table-head {
     display: none;
   }
 
@@ -136,13 +179,17 @@
    * keeps their room, and is as tall as they are. */
   .table__item:has(> .table__actions) > .table__row::after {
     content: '';
-    flex: 0 0 124px;
+    flex: 0 0 64px;
     min-height: 28px;
   }
 
   .table__actions {
     inset-block: auto var(--s-8);
     min-height: 28px;
+  }
+
+  .table__actions .icon-button:not(:disabled) {
+    color: var(--text-1);
   }
 
   /* An edited row is a form: title, then status and the buttons. */

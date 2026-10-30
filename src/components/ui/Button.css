@@ -77,3 +77,9 @@
   padding: var(--s-6) var(--s-12);
   font-size: 12px;
 }
+
+/* A link dressed as a button (a destination, not an action). */
+a.button {
+  display: inline-block;
+  text-decoration: none;
+}

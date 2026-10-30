@@ -7,7 +7,14 @@
 .tickets__header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
+  gap: var(--s-16);
+}
+
+/* The list's sections (header, saved-view bar, controls, groups) stacked with
+ * one rhythm, so nothing sits against the list. */
+.tickets__stack {
+  display: grid;
   gap: var(--s-16);
 }
 
@@ -21,7 +28,44 @@
 
 /* Pushed to the far end, whatever sits between it and the title. */
 .tickets__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-12);
   margin-left: auto;
+}
+
+/* List | Board, with the key for the other view beside it. */
+.view-switch {
+  display: inline-flex;
+  align-items: center;
+}
+
+.view-switch__item {
+  padding: var(--s-6) var(--s-12);
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+  font: 400 13.5px/1 var(--sans);
+  text-decoration: none;
+}
+
+.view-switch__item:first-child {
+  border-radius: var(--r-control) 0 0 var(--r-control);
+}
+
+.view-switch__item:nth-child(2) {
+  margin-left: -1px;
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+}
+
+.view-switch__item--current {
+  background: var(--bg-overlay);
+  color: var(--text-1);
+}
+
+a.view-switch__item:hover {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+  color: var(--text-1);
 }
 
 .tickets__group {
@@ -286,6 +330,29 @@
   gap: var(--s-12);
 }
 
+/* Fixed widths for the two buttons whose text changes, and room kept for
+ * "Clear filters", so none of them can move or shrink the search box. */
+.list-controls__direction {
+  display: flex;
+  flex: 0 0 7.5rem;
+}
+
+.list-controls__direction > .button {
+  width: 100%;
+}
+
+/* Same height as the fields beside them (22px line + 8px padding + 1px border,
+ * each side), so the row's controls share a top and a bottom. */
+.list-controls__direction > .button,
+.list-controls__clear > .button {
+  height: 40px;
+}
+
+.list-controls__clear {
+  display: flex;
+  flex: 0 0 8.5rem;
+}
+
 .list-controls__search {
   flex: 1 1 200px;
   max-width: 320px;
@@ -305,14 +372,18 @@
 }
 
 .list-controls__fields {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  align-items: start;
   gap: var(--s-16);
   margin-top: var(--s-8);
 }
 
 .list-controls__fieldset {
   display: grid;
+  /* Top-aligned: without this the grid spreads its rows over the height the
+   * tallest column forces, and short columns start lower. */
+  align-content: start;
   gap: var(--s-4);
   min-width: 0;
   margin: 0;
@@ -335,6 +406,8 @@
 .saved-view-bar__row {
   display: flex;
   flex-wrap: wrap;
+  /* The button keeps its place in this row, never over the list. */
+  min-height: 34px;
   align-items: center;
   gap: var(--s-12);
   justify-content: flex-end;
@@ -393,4 +466,9 @@
     white-space: normal;
     overflow-wrap: anywhere;
   }
+}
+
+/* An open filter panel takes the row, so its columns have the page's width. */
+.list-controls__panel[open] {
+  flex: 1 1 100%;
 }

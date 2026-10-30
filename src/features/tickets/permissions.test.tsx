@@ -83,6 +83,7 @@ describe('with every permission', () => {
         expect(screen.getByRole('button', { name: 'New ticket' })).toBeEnabled()
         expect(screen.getByRole('button', { name: /^Edit/ })).toBeEnabled()
         expect(screen.getByRole('button', { name: /^New epic/ })).toBeInTheDocument()
-        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+        // The row buttons' tooltips are always there; none of them is a denial.
+        expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument()
     })
 })

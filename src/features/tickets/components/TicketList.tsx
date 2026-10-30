@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
 import { StatusPill } from '@/components/ui/StatusPill'
-import { Table } from '@/components/ui/Table'
+import { Table, TableHeader } from '@/components/ui/Table'
 import {
     boardsForProject,
     currentProject,
@@ -36,6 +36,7 @@ import { buildGroups } from '../listView/group'
 import { serverMatches } from '../listView/serverRun'
 import { VIEW_PARAM, viewUrl } from '../savedViews/savedView'
 import { hueFor, isStarted } from '../statusLook'
+import { tickets as ticketCount } from '@/features/syncstatus/components/plural'
 import { ShortcutHint } from '@/features/shortcuts/ShortcutHint'
 import { useScope, useShortcut } from '@/features/shortcuts/registry'
 import type { Viewer } from '../viewer'
@@ -57,13 +58,13 @@ type TicketListProps = {
 
 // Title · status · assignee · unsynced marker. The loading placeholder's
 // columns; the list proper builds its own from the view's `columns`.
-const COLUMNS = 'minmax(0, 1fr) 132px 20px 12px 124px'
+const COLUMNS = 'minmax(0, 1fr) 132px 72px 12px 64px'
 
 // The chosen columns, then the unsynced marker and the room the row's buttons
 // take. Shared by every group so the columns line up down the page.
-const templateFor = (columns: string[]) => [...columns.map((field) => FIELDS[field].width), '12px', '124px'].join(' ')
+const templateFor = (columns: string[]) => [...columns.map((field) => FIELDS[field].width), '12px', '64px'].join(' ')
 const headersFor = (columns: string[]) => [
-    ...columns.map((field) => (field === 'assignee' ? '' : fieldLabel(field))),
+    ...columns.map((field) => fieldLabel(field)),
     '',
     '',
 ]
@@ -131,7 +132,7 @@ function LoadingTickets() {
                     <SkeletonBox shape="pill" width="88px" height="21px" />
                     <SkeletonLine width="2ch" height="11px" />
                 </div>
-                <Table columns={['Title', 'Status', '', '', '']} template={COLUMNS}>
+                <Table columns={['Title', 'Status', 'Assignee', '', '']} template={COLUMNS}>
                     <For each={TITLE_WIDTHS}>{(width) => <TicketRow loading titleWidth={width} />}</For>
                 </Table>
             </div>
@@ -292,6 +293,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
 
     return (
         <div
+            class="tickets__stack"
             ref={(el) => {
                 root = el
                 el.addEventListener('click', openPanel, true)
@@ -314,17 +316,20 @@ function ProjectTickets(props: ProjectTicketsProps) {
                 <div class="tickets__actions">
                     <Show when={boardsForProject(props.project.id)[0]}>
                         {(board) => (
-                            <>
-                                <a class="t-body" href={`/boards/${board().id}`}>
+                            <nav class="view-switch" aria-label="View">
+                                <span class="view-switch__item view-switch__item--current" aria-current="page">
+                                    List
+                                </span>
+                                <a class="view-switch__item" href={`/boards/${board().id}`}>
                                     Board
-                                    <ShortcutHint id="nav.board" />
-                                </a>{' '}
-                            </>
+                                </a>
+                                <ShortcutHint id="nav.board" />
+                            </nav>
                         )}
                     </Show>
-                    <a class="t-body" href={`/teams/${props.project.team_id}/settings`}>
+                    <a class="button button--ghost" href={`/teams/${props.project.team_id}/settings`}>
                         Edit statuses
-                    </a>{' '}
+                    </a>
                     <Button onClick={() => setCreating(true)} disabledReason={denial('ticket:write', 'create tickets')}>
                         New ticket
                         <ShortcutHint id="ticket.new" />
@@ -370,6 +375,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     {/* Keyed by group: the group objects are rebuilt on every
                         change, and keying by reference would rebuild every row's
                         DOM with them. */}
+                    <TableHeader columns={headersFor(columns())} template={templateFor(columns())} />
                     <For each={groups()} keyed={(group) => group.key}>
                         {(group) => (
                             <section class="tickets__group" aria-label={group().title}>
@@ -379,7 +385,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                                             type="button"
                                             class="tickets__group-toggle"
                                             aria-expanded={view().collapsed.includes(group().key) ? 'false' : 'true'}
-                                            aria-label={`${group().title}, ${group().tickets.length} tickets`}
+                                            aria-label={`${group().title}, ${ticketCount(group().tickets.length)}`}
                                             onClick={() => toggleGroup(group().key)}
                                         >
                                             <span class="tickets__chevron" aria-hidden="true">
@@ -407,7 +413,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                                     </h2>
                                 </Show>
                                 <Show when={!view().collapsed.includes(group().key)}>
-                                    <Table columns={headersFor(columns())} template={templateFor(columns())}>
+                                    <Table columns={headersFor(columns())} template={templateFor(columns())} header={false}>
                                         <For each={group().tickets}>
                                             {(ticket) => (
                                                 <TicketRow
