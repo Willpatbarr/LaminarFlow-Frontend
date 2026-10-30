@@ -121,6 +121,9 @@ function LoadedTicketRow(props: LoadedRow) {
 
     const id = () => props.ticket.id
     const name = () => props.ticket.title || 'Untitled'
+    // The link is named by the title alone; the other cells describe it.
+    const cellId = (part: string) => `ticket-row-${props.ticket.id}-${part}`
+    const describedBy = () => cells().map(cellId).join(' ')
 
     // The parked change that collided with someone else's, if the head of this
     // ticket's queue is one.
@@ -203,6 +206,8 @@ function LoadedTicketRow(props: LoadedRow) {
             fallback={
                 <TableRow
                     href={`/tickets/${props.ticket.id}`}
+                    labelledBy={cellId('title')}
+                    describedBy={describedBy()}
                     below={panel()}
                     gone={props.gone}
                     actions={
@@ -248,7 +253,9 @@ function LoadedTicketRow(props: LoadedRow) {
                     }
                 >
                     <span class="ticket__title-cell">
-                        <span class="table__text t-cell">{name()}</span>
+                        <span class="table__text t-cell" id={cellId('title')}>
+                            {name()}
+                        </span>
                         <Show when={!cells().includes('label')}>
                             <LabelChips ids={props.ticket.label_ids} max={3} />
                         </Show>
@@ -257,7 +264,7 @@ function LoadedTicketRow(props: LoadedRow) {
                         {(field) => (
                             <Switch>
                                 <Match when={field === 'status'}>
-                                    <span>
+                                    <span id={cellId('status')}>
                                         <Show
                                             when={props.status}
                                             fallback={<StatusPill label="No status" hue="slate" />}
@@ -273,25 +280,27 @@ function LoadedTicketRow(props: LoadedRow) {
                                     </span>
                                 </Match>
                                 <Match when={field === 'assignee'}>
-                                    <AssigneeMarker assigneeId={props.ticket.assignee_id} viewer={props.viewer} />
+                                    <span id={cellId('assignee')} style={{ display: 'contents' }}>
+                                        <AssigneeMarker assigneeId={props.ticket.assignee_id} viewer={props.viewer} />
+                                    </span>
                                 </Match>
                                 <Match when={field === 'epic'}>
-                                    <span class="table__text t-cell" data-cell="epic">
+                                    <span class="table__text t-cell" data-cell="epic" id={cellId('epic')}>
                                         {nameOf(sync.epics, props.ticket.epic_id) || '—'}
                                     </span>
                                 </Match>
                                 <Match when={field === 'milestone'}>
-                                    <span class="table__text t-cell" data-cell="milestone">
+                                    <span class="table__text t-cell" data-cell="milestone" id={cellId('milestone')}>
                                         {nameOf(sync.milestones, props.ticket.milestone_id) || '—'}
                                     </span>
                                 </Match>
                                 <Match when={field === 'label'}>
-                                    <span>
+                                    <span id={cellId('label')}>
                                         <LabelChips ids={props.ticket.label_ids} max={2} />
                                     </span>
                                 </Match>
                                 <Match when={field === 'sprint'}>
-                                    <span class="table__text t-cell" data-cell="sprint">
+                                    <span class="table__text t-cell" data-cell="sprint" id={cellId('sprint')}>
                                         {props.ticket.sprint_ids
                                             .map((id) => nameOf(sync.sprints, id))
                                             .filter((n) => n !== '')
@@ -299,12 +308,12 @@ function LoadedTicketRow(props: LoadedRow) {
                                     </span>
                                 </Match>
                                 <Match when={field === 'updated_at'}>
-                                    <span class="t-meta">
+                                    <span class="t-meta" id={cellId('updated_at')}>
                                         <RelativeTime at={props.ticket.updated_at} />
                                     </span>
                                 </Match>
                                 <Match when={field === 'position'}>
-                                    <span class="t-meta" data-cell="position">
+                                    <span class="t-meta" data-cell="position" id={cellId('position')}>
                                         {props.ticket.position}
                                     </span>
                                 </Match>

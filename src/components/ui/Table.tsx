@@ -62,6 +62,11 @@ type TableRowProps =
     | {
           /** Where the row goes when activated. */
           href: string
+          /** The element that names the link (the title cell), by id. Without
+           *  it the link is named by everything in the row. */
+          labelledBy?: string
+          /** The other cells, by id: read after the name, not as part of it. */
+          describedBy?: string
           loading?: false
           editing?: false
           /** Controls that belong to the row but cannot sit inside its link
@@ -124,6 +129,8 @@ export function TableRow(props: TableRowProps) {
                                 <a
                                     class="table__row row"
                                     href={props.loading || props.editing ? undefined : props.href}
+                                    aria-labelledby={props.loading || props.editing ? undefined : props.labelledBy}
+                                    aria-describedby={props.loading || props.editing ? undefined : props.describedBy}
                                 >
                                     {props.children}
                                 </a>

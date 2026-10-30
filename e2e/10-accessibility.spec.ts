@@ -96,7 +96,19 @@ for (const scheme of SCHEMES) {
             await connectionIs(page, 'Connected')
             await scan(page, `ticket-list-${scheme}`, testInfo)
 
+            // LAM-171: a row link is named by the ticket title alone, and the other
+            // cells describe it.
+            const row = page.getByRole('link', { name: 'Scanned ticket', exact: true })
+            await expect(row).toBeVisible()
+            await expect(row).toHaveAccessibleDescription(/\S/)
+
             await openTicket(page, ticket.id, 'Scanned ticket')
+            // The ticket page's create buttons say what they do here; the sidebar's
+            // keep the plain names, so each name is unique.
+            for (const kind of ['epic', 'sprint', 'milestone']) {
+                await expect(page.getByRole('button', { name: `New ${kind}`, exact: true })).toHaveCount(1)
+                await expect(page.getByRole('button', { name: `New ${kind} for this ticket`, exact: true })).toHaveCount(1)
+            }
             await scan(page, `ticket-page-${scheme}`, testInfo)
         })
 
