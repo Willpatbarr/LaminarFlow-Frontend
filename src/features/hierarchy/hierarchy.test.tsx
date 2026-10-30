@@ -90,8 +90,23 @@ describe('the lists', () => {
     })
 
     it('/sprints shows the dates, and /milestones the target date', async () => {
+        localStorage.removeItem('lf-sprints-past-open')
         await open('/sprints', everything())
+        // March is long past: its group is collapsed to a count, not hidden.
+        const toggle = await screen.findByRole('button', { name: /Past \(1\)/ })
+        expect(toggle).toHaveAttribute('aria-expanded', 'false')
+        expect(screen.queryByText('1 Mar 2026 – 14 Mar 2026')).toBeNull()
+        await userEvent.setup().click(toggle)
         expect(await screen.findByText('1 Mar 2026 – 14 Mar 2026')).toBeInTheDocument()
+        expect(localStorage.getItem('lf-sprints-past-open')).toBe('1')
+    })
+
+    it('/sprints opens Past expanded when this device left it expanded', async () => {
+        localStorage.setItem('lf-sprints-past-open', '1')
+        await open('/sprints', everything())
+        expect(await screen.findByRole('button', { name: /Past \(1\)/ })).toHaveAttribute('aria-expanded', 'true')
+        expect(screen.getByText('1 Mar 2026 – 14 Mar 2026')).toBeInTheDocument()
+        localStorage.removeItem('lf-sprints-past-open')
     })
 
     it('says plainly that a project has none, with no warning', async () => {
@@ -110,7 +125,7 @@ describe('a detail page', () => {
         expect(screen.queryByRole('link', { name: /Query box/ })).toBeNull()
         expect(screen.queryByRole('link', { name: /Loose end/ })).toBeNull()
         expect(screen.getByText('1 of 2 tickets done (50%)')).toBeInTheDocument()
-        expect(screen.getByRole('progressbar', { name: 'Progress of Checkout' })).toHaveAttribute('value', '1')
+        expect(screen.getByRole('progressbar', { name: 'Progress of Checkout' })).toHaveAttribute('aria-valuenow', '1')
     })
 
     it('says so when nothing is filed there', async () => {
