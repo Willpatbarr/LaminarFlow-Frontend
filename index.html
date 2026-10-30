@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0d1013" />
+    <script>
+      // Theme before first paint (LAM-144): no flash of the wrong one. Keep in step
+      // with src/features/theme/theme.ts.
+      try {
+        var t = localStorage.getItem('lf-theme')
+        var d = document.documentElement
+        if (t === 'light' || t === 'dark') {
+          d.setAttribute('data-theme', t)
+          document.querySelector('meta[name="color-scheme"]').setAttribute('content', t)
+        }
+        var light = t === 'light' || (t !== 'dark' && matchMedia('(prefers-color-scheme: light)').matches)
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f7f7f5' : '#0d1013')
+      } catch (e) {}
+    </script>
     <title>laminarflow-frontend</title>
   </head>
   <body>

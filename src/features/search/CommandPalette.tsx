@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled,
 
 import { makeDocument } from '@/features/documents/newDocument'
 import { useShortcut } from '@/features/shortcuts'
+import { setTheme, THEMES } from '@/features/theme'
 import { sync } from '@/sync'
 
 import { MAX_QUERY, searchServer, type SearchItem } from './api'
@@ -202,6 +203,18 @@ function Palette(props: PaletteProps & { onClose: () => void }) {
                 label: [{ text: 'New ticket', mark: false }],
                 detail: [],
             })
+        }
+        for (const item of THEMES) {
+            const label = `Theme: ${item.label}`
+            if (w.every((word) => label.toLowerCase().includes(word))) {
+                out.push({
+                    key: `command:theme-${item.value}`,
+                    kind: 'command',
+                    run: () => setTheme(item.value),
+                    label: [{ text: label, mark: false }],
+                    detail: [],
+                })
+            }
         }
         const fromServer = (asked?.items ?? []).flatMap((item) => serverRow(item, w) ?? [])
         const seen = new Set(fromServer.map((row) => row.key))

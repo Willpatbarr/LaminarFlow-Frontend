@@ -6,6 +6,7 @@ import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
 import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { ICONS, SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { can, logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
+import { ThemeSwitch } from '@/features/theme'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import { KINDS, type Kind } from '@/features/hierarchy/kinds'
 import { clearMembers } from '@/features/members/members'
@@ -224,6 +225,7 @@ export function AppLayout(props: RouteSectionProps) {
                                 : undefined
                         }
                         userName={session.me?.display_name}
+                        account={<ThemeSwitch />}
                         loading={stillAsking()}
                         status={
                             <Show when={sync.active && !narrow()}>
