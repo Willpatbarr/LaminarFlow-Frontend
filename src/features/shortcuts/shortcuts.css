@@ -1,4 +1,5 @@
-.shortcut-hint {
+/* The key text shown as the ? sheet's content (the .shortcut-hint look, kept). */
+.shortcut-help__keys {
     display: inline-block;
     margin-inline-start: 8px;
     padding: 0 6px;
@@ -9,6 +10,7 @@
     white-space: nowrap;
 }
 
+/* The ? sheet lists the keys as its content, so they stay on touch devices. */
 .shortcut-help {
     display: flex;
     flex-direction: column;

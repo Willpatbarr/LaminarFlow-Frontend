@@ -85,7 +85,7 @@ describe('keys in the New ticket dialog', () => {
         const { user, dialog } = await openDialog()
         const create = within(dialog).getByRole('button', { name: 'Create ticket' })
         expect(create).toHaveAttribute('aria-keyshortcuts', 'Control+Enter Meta+Enter')
-        expect(dialog.querySelector('.modal__hint')).toHaveTextContent(/^(⌘|Ctrl\+)Enter$/)
+        expect(dialog.querySelector('.shortcut-hint')).toHaveTextContent(/^(⌘|Ctrl\+)Enter$/)
 
         await user.keyboard('{Escape}')
         await user.keyboard('?')

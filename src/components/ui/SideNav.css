@@ -252,11 +252,13 @@
   border-radius: var(--r-card);
 }
 
-.side-nav__hint {
+/* Layout only: the look and the touch-device hiding come from .shortcut-hint
+ * (src/index.css). The doubled selector beats its box and margin. */
+.side-nav__hint.shortcut-hint {
     margin-inline-start: auto;
-    font-family: inherit;
-    color: var(--text-2);
-    white-space: nowrap;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
 }
 
 .side-nav--collapsed .side-nav__hint {
