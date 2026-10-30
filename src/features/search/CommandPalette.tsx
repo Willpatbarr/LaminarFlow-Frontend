@@ -10,6 +10,7 @@ import { sync } from '@/sync'
 import { MAX_QUERY, searchServer, type SearchItem } from './api'
 import { highlight, parseSnippet, plain, wordsOf, type Piece } from './snippet'
 import { closePalette, paletteOpen, paletteOpener, togglePalette } from './paletteState'
+import { Icon } from '@/components/ui/icons/Icon'
 import './search.css'
 
 /*
@@ -304,25 +305,28 @@ function Palette(props: PaletteProps & { onClose: () => void }) {
                 }}
             >
                 <div class="palette" role="dialog" aria-modal="true" aria-label="Search" onKeyDown={onKeyDown}>
-                    <input
-                        ref={(el) => {
-                            input = el
-                        }}
-                        class="palette__input"
-                        type="text"
-                        role="combobox"
-                        aria-label="Search tickets, documents and projects"
-                        aria-expanded="true"
-                        aria-controls={listId}
-                        aria-autocomplete="list"
-                        aria-activedescendant={active() ? optionId(active()!.key) : undefined}
-                        placeholder="Search tickets, documents and projects"
-                        autocomplete="off"
-                        spellcheck={false}
-                        maxlength={MAX_QUERY}
-                        value={query()}
-                        onInput={(event) => setQuery(event.currentTarget.value)}
-                    />
+                    <div class="palette__search">
+                        <input
+                            ref={(el) => {
+                                input = el
+                            }}
+                            class="palette__input"
+                            type="text"
+                            role="combobox"
+                            aria-label="Search tickets, documents and projects"
+                            aria-expanded="true"
+                            aria-controls={listId}
+                            aria-autocomplete="list"
+                            aria-activedescendant={active() ? optionId(active()!.key) : undefined}
+                            placeholder="Search tickets, documents and projects"
+                            autocomplete="off"
+                            spellcheck={false}
+                            maxlength={MAX_QUERY}
+                            value={query()}
+                            onInput={(event) => setQuery(event.currentTarget.value)}
+                        />
+                        <Icon name="search" size={16} class="palette__search-icon" />
+                    </div>
                     <div id={listId} class="palette__list" role="listbox" aria-label="Results">
                         <For each={groups()} keyed={(group) => group.kind}>
                             {(group) => (

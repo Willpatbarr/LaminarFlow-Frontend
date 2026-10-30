@@ -1,6 +1,7 @@
 import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { DisclosureCaret } from '@/components/ui/DisclosureCaret'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { ensureMembers, members } from '@/features/members/members'
@@ -17,7 +18,6 @@ import { COLUMN_FIELDS, fieldLabel, GROUP_FIELDS, visibleColumns, type ListViewC
 import { fromGroup, PICK_FIELDS, toGroup, type FilterModel, type PickField } from '../listView/filterModel'
 import type { Viewer } from '../viewer'
 import { Checkbox } from '@/components/ui/Checkbox'
-import { Icon } from '@/components/ui/icons/Icon'
 
 /*
 ┌─ tickets ───────────────────────────────────────
@@ -65,17 +65,6 @@ const LEGEND: Record<PickField, string> = {
     milestone: 'Milestone',
     label: 'Label',
     sprint: 'Sprint',
-}
-
-// The open/closed marker of a <details> panel, in place of the browser's own
-// triangle. Both carets are drawn; CSS shows the one that matches [open].
-function DisclosureCaret() {
-    return (
-        <span class="list-controls__caret" aria-hidden="true">
-            <Icon name="caret-right" size={16} class="list-controls__caret-closed" />
-            <Icon name="caret-down" size={16} class="list-controls__caret-open" />
-        </span>
-    )
 }
 
 export function ListControls(props: ListControlsProps) {
@@ -200,6 +189,7 @@ export function ListControls(props: ListControlsProps) {
                             label="Search"
                             hideLabel
                             placeholder="Search"
+                            icon="search"
                             value={text()}
                             onInput={typeText}
                         />
@@ -259,7 +249,7 @@ export function ListControls(props: ListControlsProps) {
                             class="list-controls__panel"
                             onToggle={(event) => setFilterOpen(event.currentTarget.open)}
                         >
-                            <summary class="t-body list-controls__summary">
+                            <summary class="t-body list-controls__summary disclosure-summary">
                                 <DisclosureCaret />
                                 Filter{activeCount() > 0 ? ` (${activeCount()})` : ''}
                             </summary>
@@ -308,7 +298,7 @@ export function ListControls(props: ListControlsProps) {
                 </Show>
                 <Show when={!props.filterOnly}>
                     <details class="list-controls__panel" onToggle={(event) => setColumnsOpen(event.currentTarget.open)}>
-                        <summary class="t-body list-controls__summary">
+                        <summary class="t-body list-controls__summary disclosure-summary">
                             <DisclosureCaret />
                             Columns
                         </summary>

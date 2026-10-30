@@ -1,7 +1,8 @@
-import { createUniqueId } from 'solid-js'
+import { createUniqueId, Show } from 'solid-js'
 
 import { FieldFoot } from './CharacterCount'
 import { describedBy, isOver, type Count } from './count'
+import { Icon, type IconName } from './icons/Icon'
 import './Input.css'
 
 // Controlled: the caller owns the value. `onInput` hands back the string, not
@@ -20,6 +21,8 @@ type InputProps = {
     name?: string
     autocomplete?: 'email' | 'current-password' | 'new-password' | 'given-name' | 'family-name'
     placeholder?: string
+    /** A decorative coolicon at the start of the field (a search box's magnifier). */
+    icon?: IconName
     required?: boolean
     disabled?: boolean
     /** Shows the value and lets it be selected and read out, but not changed. */
@@ -46,23 +49,28 @@ export function Input(props: InputProps) {
             <label class={`input__label t-body${props.hideLabel ? ' visually-hidden' : ''}`} for={id}>
                 {props.label}
             </label>
-            <input
-                id={id}
-                ref={props.ref}
-                class="input__control"
-                type={props.type ?? 'text'}
-                name={props.name}
-                autocomplete={props.autocomplete}
-                placeholder={props.placeholder}
-                required={props.required}
-                disabled={props.disabled}
-                readonly={props.readOnly}
-                value={props.value}
-                aria-invalid={props.error || isOver(props.count) ? 'true' : undefined}
-                aria-describedby={describedBy(props, errorId, countId)}
-                onInput={(event) => props.onInput(event.currentTarget.value)}
-                onBlur={() => props.onBlur?.()}
-            />
+            <div class="input__field">
+                <input
+                    id={id}
+                    ref={props.ref}
+                    class={`input__control${props.icon ? ' input__control--icon' : ''}`}
+                    type={props.type ?? 'text'}
+                    name={props.name}
+                    autocomplete={props.autocomplete}
+                    placeholder={props.placeholder}
+                    required={props.required}
+                    disabled={props.disabled}
+                    readonly={props.readOnly}
+                    value={props.value}
+                    aria-invalid={props.error || isOver(props.count) ? 'true' : undefined}
+                    aria-describedby={describedBy(props, errorId, countId)}
+                    onInput={(event) => props.onInput(event.currentTarget.value)}
+                    onBlur={() => props.onBlur?.()}
+                />
+                <Show when={props.icon}>
+                    {(icon) => <Icon name={icon()} size={16} class="input__icon" />}
+                </Show>
+            </div>
             <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>
     )

@@ -1,5 +1,6 @@
 import { createUniqueId, For, Show } from 'solid-js'
 
+import { Icon, type IconName } from './icons/Icon'
 import './Input.css'
 import './Select.css'
 
@@ -18,6 +19,8 @@ type SelectProps = {
     options: SelectOption[]
     onChange: (value: string) => void
     disabled?: boolean
+    /** A decorative coolicon at the start of the field (the team picker's group). */
+    icon?: IconName
     ref?: (el: HTMLSelectElement) => void
     /** Marks the control invalid and renders the message under it. */
     error?: string
@@ -39,7 +42,7 @@ export function Select(props: SelectProps) {
             <select
                 id={id}
                 ref={props.ref}
-                class="input__control select__control"
+                class={`input__control select__control${props.icon ? ' input__control--icon' : ''}`}
                 disabled={props.disabled}
                 aria-invalid={props.error ? 'true' : undefined}
                 aria-describedby={props.error ? errorId : undefined}
@@ -53,6 +56,9 @@ export function Select(props: SelectProps) {
                     )}
                 </For>
             </select>
+            <Show when={props.icon}>
+                {(icon) => <Icon name={icon()} size={16} class="input__icon" />}
+            </Show>
             </div>
             <Show when={props.error}>
                 <span id={errorId} class="input__error t-meta">

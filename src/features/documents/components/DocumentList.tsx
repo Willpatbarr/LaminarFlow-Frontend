@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 import { api } from '@/api/client'
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons/Icon'
 import { Select } from '@/components/ui/Select'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { isLoading, sync, type Doc } from '@/sync'
@@ -175,6 +176,7 @@ export function DocumentList(props: DocumentListProps) {
                         disabledReason={denial('ticket:write', 'create documents')}
                         onClick={() => void create(null)}
                     >
+                        <Icon name="file-add" size={16} />
                         New document
                     </Button>
                 </div>

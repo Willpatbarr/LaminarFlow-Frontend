@@ -180,6 +180,7 @@ export function SideNav(props: SideNavProps) {
                                     </Show>
                                     <Select
                                         label="Team"
+                                        icon={collapsed() ? undefined : 'team'}
                                         value={teams().value}
                                         options={teams().options}
                                         onChange={teams().onChange}
