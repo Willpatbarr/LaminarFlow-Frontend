@@ -18,7 +18,7 @@ test('assign a ticket to a second user, reload, and the assignee finds it in the
 
     await signedInAs(context, alice, baseURL!)
     await openTicket(page, ticket.id, 'Hand me over')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const picker = page.getByLabel('Assignee')
     await expect(picker).toHaveValue('')

@@ -31,7 +31,7 @@ test('create a type with three fields, reorder them, and remove one after the co
     await page.getByRole('link', { name: 'Edit aspect types' }).click()
     await expect(page.getByRole('heading', { name: 'Aspect types' })).toBeVisible()
     await expect(page.getByRole('list', { name: 'Aspect types' }).getByRole('link').first()).toBeVisible()
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Create: lands in the editor.
     await page.getByLabel('New aspect type name').fill(name)

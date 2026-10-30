@@ -11,7 +11,7 @@ test('ticket title and description typed without leaving the field survive a rel
     const ticket = await serverCreate(account, world.projectId, fields('Typed ticket'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Typed ticket')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByLabel('Title').fill('Typed ticket, renamed')
     const description = page.getByRole('textbox', { name: 'Description' })
@@ -40,7 +40,7 @@ test('a milestone description typed without leaving the field survives a reload'
     await signedInAs(context, account, baseURL!)
     await page.goto(`/milestones/${milestone.id}`)
     await expect(page.getByRole('heading', { name: 'v1.0' })).toBeVisible()
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByLabel('Name').fill('v1.0 final')
     await page.getByLabel('Description').fill('Ship it in March')
@@ -64,7 +64,7 @@ test('text typed in one ticket and left within a second goes to that ticket, not
     const b = await serverCreate(account, world.projectId, fields('Ticket B'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, a.id, 'Ticket A')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByLabel('Title').fill('Ticket A, edited')
     // Straight to the other ticket in the same page (no reload, no blur).

@@ -19,7 +19,7 @@ import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast
 import { LogoutConfirm } from '@/features/syncstatus/components/LogoutConfirm'
 import { PendingChanges } from '@/features/syncstatus/components/PendingChanges'
 import { SyncTroubleToast } from '@/features/syncstatus/components/SyncTroubleToast'
-import { boardById, boardsForProject, currentProject, savedViewsForTeam, statusesForProject, sync, unsyncedCount } from '@/sync'
+import { boardById, boardsForProject, currentProject, pendingSummary, savedViewsForTeam, statusesForProject, sync, unsyncedCount } from '@/sync'
 
 import { useRekeyRoute } from './rekey'
 
@@ -81,6 +81,21 @@ export function AppLayout(props: RouteSectionProps) {
                 ? { ...link, note: String(needsMine().length) }
                 : { ...link, hint }
         }),
+    )
+    // The sync status rows. A 401 means the server answered, so it reads
+    // "Signed out", not "Offline"; and while signed out the pending row is left
+    // out (the banner says how many changes are waiting), so the rail stays one
+    // row shorter exactly when the banner is taking space above.
+    const statusRows = () => (
+        <>
+            <Show when={!session.expired}>
+                <PendingChanges />
+            </Show>
+            <ConnectionIndicator
+                state={session.expired ? 'signed_out' : sync.connection}
+                syncing={!session.expired && pendingSummary()?.reason === 'waiting' ? pendingSummary()!.count : 0}
+            />
+        </>
     )
     // The first /auth/me got no usable answer: nothing more to wait for, and
     // the content area says so instead of showing a placeholder for ever.
@@ -198,8 +213,7 @@ export function AppLayout(props: RouteSectionProps) {
                 route={location.pathname}
                 status={
                     <Show when={sync.active}>
-                        <PendingChanges />
-                        <ConnectionIndicator state={sync.connection} />
+                        {statusRows()}
                     </Show>
                 }
                 nav={
@@ -229,16 +243,14 @@ export function AppLayout(props: RouteSectionProps) {
                         account={<ThemeSwitch />}
                         loading={stillAsking()}
                         status={
-                            <Show when={sync.active && !narrow()}>
-                                <PendingChanges />
-                                <ConnectionIndicator state={sync.connection} />
-                            </Show>
+                            <Show when={sync.active && !narrow()}>{statusRows()}</Show>
                         }
                         onLogout={askToLeave}
                     />
                 }
                 banners={
                     <SessionExpiredBanner
+                        waiting={unsyncedCount()}
                         onSignedIn={({ sameAccount }) => {
                             // Someone else's account has none of this
                             // account's tickets: the page they were on is not

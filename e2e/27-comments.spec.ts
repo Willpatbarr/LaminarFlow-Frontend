@@ -27,8 +27,8 @@ test('a comment posted in one browser appears live in another account\'s, who ca
     const bobPage = await bobContext.newPage()
     await openTicket(page, ticket.id, 'Talk about it')
     await openTicket(bobPage, ticket.id, 'Talk about it')
-    await connectionIs(page, 'Live')
-    await connectionIs(bobPage, 'Live')
+    await connectionIs(page, 'Connected')
+    await connectionIs(bobPage, 'Connected')
 
     const mine = page.getByRole('region', { name: /Comments/ })
     const theirs = bobPage.getByRole('region', { name: /Comments/ })
@@ -96,7 +96,7 @@ test('a comment written offline is kept and sent once the network is back', asyn
 
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Offline talk')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await context.setOffline(true)
     await connectionIs(page, 'Offline')
@@ -124,7 +124,7 @@ test('a document page has its own thread, for a normal document and an aspect on
     await signedInAs(context, account, baseURL!)
     await page.goto(`/documents/${documentId}`)
     await expect(page.getByLabel('Title')).toHaveValue('Runbook')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const thread = page.getByRole('region', { name: /Comments/ })
     await thread.getByRole('textbox', { name: 'Add a comment' }).fill('Step 3 is out of date')

@@ -18,7 +18,7 @@ async function setup(page: Page, context: BrowserContext, baseURL: string) {
     await signedInAs(context, alice, baseURL)
     await page.goto(`/documents/${doc.id}`)
     await expect(page.getByLabel('Title')).toHaveValue('Shared doc')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     return { alice, bob, doc }
 }
 

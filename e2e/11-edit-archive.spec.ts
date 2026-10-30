@@ -17,7 +17,7 @@ test('create with C, edit inline, archive and undo, each reaching the server', a
     const world = await projectOf(account)
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Create: the C key, a title, a description and a status other than the first.
     await page.keyboard.press('c')
@@ -71,7 +71,7 @@ test('an inline edit and an archive made offline sync when the network returns',
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
     await expect(page.getByRole('link', { name: /Edit while offline/ })).toBeVisible()
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await context.setOffline(true)
     await page.getByRole('button', { name: 'Edit Edit while offline' }).click()
@@ -100,7 +100,7 @@ test('an undo made offline is queued and restores the ticket on reconnect', asyn
     const ticket = await serverCreate(account, world.projectId, fields('Undo me offline', { status_id: world.statusIds[0] }))
     await signedInAs(context, account, baseURL!)
     await openProject(page, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await page.getByRole('button', { name: 'Archive Undo me offline' }).click()
     await expect.poll(async () => await serverTicket(account, ticket.id)).toBeNull()

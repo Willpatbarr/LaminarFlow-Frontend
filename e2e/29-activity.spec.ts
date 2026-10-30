@@ -10,7 +10,7 @@ test('changing a status adds a line to the ticket\'s activity', async ({ page, c
 
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Track my changes')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     const activity = page.getByRole('region', { name: 'Activity' })
     await expect(activity.getByText(/created this ticket/)).toBeVisible()

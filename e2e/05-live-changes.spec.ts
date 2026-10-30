@@ -33,8 +33,8 @@ test('an edit in one browser shows up in another account\'s open ticket, live', 
 
     await openTicket(page, ticket.id, 'Original title')
     await openTicket(bobPage, ticket.id, 'Original title')
-    await connectionIs(page, 'Live')
-    await connectionIs(bobPage, 'Live')
+    await connectionIs(page, 'Connected')
+    await connectionIs(bobPage, 'Connected')
     await page.evaluate((key) => Object.assign(window, { [key]: true }), NOT_RELOADED)
 
     // Bob renames it; saving is leaving the field.
@@ -73,7 +73,7 @@ test('a ticket created and then archived elsewhere appears in, then leaves, an o
 
     await openProject(page, world)
     await openProject(bobPage, world)
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
     await page.evaluate((key) => Object.assign(window, { [key]: true }), NOT_RELOADED)
 
     await bobPage.getByRole('button', { name: 'New ticket' }).click()

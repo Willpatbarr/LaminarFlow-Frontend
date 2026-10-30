@@ -12,6 +12,9 @@ type SessionExpiredBannerProps = {
     /** The user signed in again. `sameAccount` is false when they signed in as
      *  someone else, whose first screen is not the one they were on. */
     onSignedIn?: (result: { sameAccount: boolean }) => void
+    /** Changes that have not reached the server. Said here, once, so the rail
+     *  does not need a row of its own for them while signed out. */
+    waiting?: number
 }
 
 // Shown when the server turned the session down while the user was in the app
@@ -38,6 +41,7 @@ export function SessionExpiredBanner(props: SessionExpiredBannerProps) {
             >
                 You've been signed out. Your changes are saved on this device and will sync when
                 you sign back in.
+                {props.waiting ? ` ${props.waiting} ${props.waiting === 1 ? 'change' : 'changes'} waiting.` : ''}
             </Banner>
         </Show>
     )

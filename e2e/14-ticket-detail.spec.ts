@@ -30,7 +30,7 @@ test('every field set on the ticket page reaches the server and survives a reloa
     const ticket = await serverCreate(account, world.projectId, fields('Detail page'))
     await signedInAs(context, account, baseURL!)
     await openTicket(page, ticket.id, 'Detail page')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     // Everything unset reads "None", not an error.
     for (const name of ['Epic', 'Sprint', 'Milestone']) await expect(page.getByLabel(name)).toHaveValue('')

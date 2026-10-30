@@ -215,7 +215,7 @@ describe('the pending-changes indicator', () => {
         expect(items[1]).toHaveTextContent('Second, edited')
     })
 
-    it('asks for a sign-in when a 401 is what holds the changes', async () => {
+    it('asks for a sign-in in the banner when a 401 is what holds the changes', async () => {
         await openApp('/', {
             ...two,
             'PUT /api/v1/tickets/t-1': () => problem(401, 'unauthorized'),
@@ -225,7 +225,12 @@ describe('the pending-changes indicator', () => {
         await updateTicket('t-1', { title: 'First, edited' })
         await updateTicket('t-2', { title: 'Second, edited' })
 
-        expect(await nav().findByRole('button', { name: 'Sign in to sync 2 changes' })).toBeInTheDocument()
+        // The banner asks for the sign-in and counts the changes; the rail adds
+        // no row of its own for them and says "Signed out", not "Offline".
+        expect(await screen.findByText(/2 changes waiting/)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+        expect(nav().queryByRole('button', { name: /Sign in to sync/ })).not.toBeInTheDocument()
+        expect(nav().getByRole('status')).toHaveTextContent('Signed out')
     })
 
     it('keeps a refused archive reachable: the list links to its page, which can discard it', async () => {

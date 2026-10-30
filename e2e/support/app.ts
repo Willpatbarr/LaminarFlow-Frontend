@@ -92,9 +92,15 @@ export async function openTicket(page: Page, id: string, title: string) {
     await expect(page.getByLabel('Title')).toHaveValue(title)
 }
 
-/** The side nav's connection indicator reads `state`. "Live" is drawn quietly
- *  (a dot, no visible word), so it is attached, not necessarily visible. */
-export async function connectionIs(page: Page, state: 'Live' | 'Offline' | 'Reconnecting' | 'Connecting') {
+/** The side nav's connection indicator reads `state`: its live region holds the
+ *  state word alone (the drawn label may also say "Syncing N changes", and is
+ *  hidden from assistive tech). The rail may be collapsed or in a closed drawer,
+ *  so this is attached, not necessarily visible. Scoped to the rail: the top
+ *  bar on a phone shows the same word, but outside it. */
+export async function connectionIs(
+    page: Page,
+    state: 'Connected' | 'Offline' | 'Reconnecting' | 'Connecting' | 'Signed out',
+) {
     await expect(
         page.getByRole('complementary').getByRole('status').filter({ hasText: new RegExp(`^${state}$`) }),
     ).toBeAttached()
@@ -190,7 +196,7 @@ export async function aConflict(page: Page, context: BrowserContext, baseURL: st
     await signedInAs(context, alice, baseURL)
     const socket = await cuttableSocket(page)
     await openTicket(page, ticket.id, 'Shared ticket')
-    await connectionIs(page, 'Live')
+    await connectionIs(page, 'Connected')
 
     await socket.cut()
     await connectionIs(page, 'Reconnecting')
