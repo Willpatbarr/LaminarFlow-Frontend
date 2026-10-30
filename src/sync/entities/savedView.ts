@@ -39,6 +39,7 @@ export const toSavedView = (body: SavedViewBody): SavedView => ({
     is_shared: body.is_shared,
     owner_account_id: body.owner_account_id,
     config: body.config,
+    updated_at: body.updated_at,
     version: 1,
 })
 
@@ -78,8 +79,14 @@ export const savedViewEntity: Entity<'saved_view'> = {
         tempPrefix: 'tmp_saved_view_',
         fieldsOf: savedViewFieldsOf,
         sameFields: (a, b) => a.name === b.name && a.is_shared === b.is_shared && sameConfig(a.config, b.config),
-        fromCreate: (id, payload, stamp) => ({ id, ...payload, owner_account_id: stamp.accountId, version: 1 }),
-        edit: (base, fields) => ({ ...base, ...savedViewFieldsOf(fields) }),
+        fromCreate: (id, payload, stamp) => ({
+            id,
+            ...payload,
+            owner_account_id: stamp.accountId,
+            updated_at: stamp.at,
+            version: 1,
+        }),
+        edit: (base, fields, stamp) => ({ ...base, ...savedViewFieldsOf(fields), updated_at: stamp.at }),
         // A saved view cannot be unarchived; the engine never asks.
         restore: (archived) => archived,
         copyOf: (row) => ({

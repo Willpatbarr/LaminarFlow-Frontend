@@ -7,6 +7,8 @@ import { LabelEditor } from '@/features/tickets/components/LabelEditor'
 import { StatusEditor } from '@/features/tickets/components/StatusEditor'
 import { isLoading, sync } from '@/sync'
 
+import './team-settings.css'
+
 // /teams/:teamId/settings. The team's statuses (LAM-95) and labels (LAM-104); the board's
 // column menu opens the same editor (LAM-107).
 export function TeamSettingsPage() {
@@ -35,29 +37,37 @@ export function TeamSettingsPage() {
                     }
                 >
                     {(found) => (
-                        <>
+                        <div class="settings">
                             <p class="t-body">
                                 <a href={`/teams/${found().id}`}>← {found().name}</a>
                             </p>
-                            <h1 class="t-screen-title">Team settings</h1>
-                            <h2 class="t-section">Name</h2>
-                            <TeamNameField teamId={found().id} name={found().name} />
-                            <h2 class="t-section">Statuses</h2>
-                            <p class="t-meta">
-                                Rename, reorder, add or delete. No status is special: even the first three can go.
-                            </p>
-                            <StatusEditor teamId={found().id} />
-                            <h2 class="t-section">Labels</h2>
-                            <p class="t-meta">
-                                How a ticket is marked as a bug, a feature or a task. Names are unique in the team.
-                            </p>
-                            <LabelEditor teamId={found().id} />
-                            <h2 class="t-section">Aspect types</h2>
-                            <p class="t-meta">The labeled fields a document can have.</p>
-                            <p class="t-body">
-                                <a href={`/teams/${found().id}/aspect-types`}>Edit aspect types</a>
-                            </p>
-                        </>
+                            <h1 class="t-screen-title settings__title">Team settings</h1>
+                            <section class="settings__section">
+                                <h2 class="t-section">Name</h2>
+                                <TeamNameField teamId={found().id} name={found().name} />
+                            </section>
+                            <section class="settings__section">
+                                <h2 class="t-section">Statuses</h2>
+                                <p class="t-meta">
+                                    Rename, reorder, add or delete. No status is special: even the first three can go.
+                                </p>
+                                <StatusEditor teamId={found().id} />
+                            </section>
+                            <section class="settings__section">
+                                <h2 class="t-section">Labels</h2>
+                                <p class="t-meta">
+                                    How a ticket is marked as a bug, a feature or a task. Names are unique in the team.
+                                </p>
+                                <LabelEditor teamId={found().id} />
+                            </section>
+                            <section class="settings__section">
+                                <h2 class="t-section">Aspect types</h2>
+                                <p class="t-meta">The labeled fields a document can have.</p>
+                                <p class="t-body">
+                                    <a href={`/teams/${found().id}/aspect-types`}>Edit aspect types</a>
+                                </p>
+                            </section>
+                        </div>
                     )}
                 </Show>
             </Show>

@@ -48,6 +48,22 @@ it('opens a project by URL and shows its tickets page', async () => {
     expect(await screen.findByRole('heading', { name: 'Tickets' })).toBeInTheDocument()
 })
 
+it('has one h1 on a project page: the project name, with the section as an h2 (LAM-165)', async () => {
+    await openApp(`/projects/${PROJECT.id}`, listRoutes())
+
+    expect(await screen.findByRole('heading', { name: PROJECT.name, level: 1 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Tickets', level: 2 })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([PROJECT.name])
+})
+
+it('has one h1 on the project Documents tab too (LAM-165)', async () => {
+    await openApp(`/projects/${PROJECT.id}/documents`, listRoutes())
+
+    expect(await screen.findByRole('heading', { name: PROJECT.name, level: 1 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Documents', level: 2 })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([PROJECT.name])
+})
+
 it('says so for a team or project the account does not have', async () => {
     await openApp('/teams/nope', listRoutes())
     expect(await screen.findByRole('heading', { name: 'Team not found' })).toBeInTheDocument()

@@ -186,11 +186,63 @@
   gap: var(--s-16);
 }
 
-.doclist__filters {
+/* One toolbar row, like the ticket list's controls (LAM-155, LAM-165): fixed-width
+ * selects on a wrapping row, room kept for "Clear filters" so it moves nothing,
+ * and the actions pushed to the end. */
+.doclist__toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--s-16);
+  gap: var(--s-12);
+}
+
+.doclist__select {
+  flex: 0 0 11rem;
+  width: 11rem;
+}
+
+.doclist__clear {
+  display: flex;
+  flex: 0 0 8.5rem;
+}
+
+.doclist__clear > .button,
+.doclist__actions > .button {
+  height: 40px;
+}
+
+.doclist__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-12);
+  margin-left: auto;
+}
+
+@media (max-width: 767px) {
+  .doclist__select {
+    flex: 1 1 calc(50% - var(--s-6));
+    width: auto;
+    min-width: 9rem;
+  }
+
+  .doclist__clear {
+    flex: 1 1 100%;
+  }
+
+  .doclist__clear:empty {
+    display: none;
+  }
+
+  .doclist__actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .doclist__actions > .doclist__select,
+  .doclist__actions > .button {
+    flex: 1 1 100%;
+  }
 }
 
 .doclist__items {

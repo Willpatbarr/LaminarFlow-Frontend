@@ -50,6 +50,7 @@ describe('hydration', () => {
                 is_shared: false,
                 owner_account_id: 'acc-me',
                 config: { filter: FILTER, group: 'epic' },
+                updated_at: '2026-01-01T00:00:00Z',
                 version: 1,
             },
         ])

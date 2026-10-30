@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { connectSyncToSession, wipeLocalData } from '@/sync'
-import { doc, listRoutes, ticket } from '@/sync/testing/harness'
+import { doc, listRoutes, PROJECT, ticket } from '@/sync/testing/harness'
 import { openApp, startAnonymous } from '@/testing/app'
 import { bodyOf, ok, problem } from '@/testing/fetch'
 
@@ -136,5 +136,35 @@ describe('Command palette', () => {
         await user.keyboard('{Enter}')
         await waitFor(() => expect(history.get()).toMatch(/^\/documents\/.+/))
         expect(screen.queryByRole('dialog', { name: 'Search' })).not.toBeInTheDocument()
+    })
+
+    async function newDocumentFrom(url: string, created: Record<string, unknown>[]) {
+        const routes = {
+            ...world(() => ok({ items: [] })),
+            'POST /api/v1/documents': async (request: Request) => {
+                const sent = await bodyOf(request)
+                created.push(sent)
+                return ok({ ...doc({ id: 'd-new' }), ...sent }, 201)
+            },
+        }
+        await openApp(url, routes)
+        const user = userEvent.setup()
+        await screen.findByRole('heading', { name: 'Documents', level: 1 })
+        await user.keyboard('{Control>}k{/Control}')
+        await user.type(within(await screen.findByRole('dialog', { name: 'Search' })).getByRole('combobox'), 'new doc')
+        await user.keyboard('{Enter}')
+        await waitFor(() => expect(created).toHaveLength(1))
+    }
+
+    it('New document on /documents filtered to a project files it in that project (LAM-170)', async () => {
+        const created: Record<string, unknown>[] = []
+        await newDocumentFrom(`/documents?project=${PROJECT.id}`, created)
+        expect(created[0]).toMatchObject({ project_id: PROJECT.id, team_id: null })
+    })
+
+    it('New document on /documents with no project filter is team-wide (LAM-170)', async () => {
+        const created: Record<string, unknown>[] = []
+        await newDocumentFrom('/documents', created)
+        expect(created[0]).toMatchObject({ project_id: null })
     })
 })

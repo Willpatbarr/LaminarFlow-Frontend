@@ -210,6 +210,50 @@ describe('a document\'s project (LAM-138)', () => {
     })
 })
 
+describe('the project filter is in the address (LAM-170)', () => {
+    const docs = [
+        doc({ id: 'd-a', title: 'In project', project_id: 'p-1', updated_at: '2025-12-31T00:00:00Z' }),
+        doc({ id: 'd-b', title: 'Loose note', project_id: null, updated_at: '2025-12-30T00:00:00Z' }),
+    ]
+    const names = () =>
+        within(screen.getByRole('list', { name: 'Documents' }))
+            .getAllByRole('listitem')
+            .map((item) => item.querySelector('a')?.textContent)
+
+    it('picking a project writes it to the address, and Clear filters takes it out', async () => {
+        const history = await openApp('/documents', listRoutes([], docs))
+        const user = userEvent.setup()
+        await screen.findByRole('option', { name: 'Launch' })
+        await user.selectOptions(screen.getByLabelText('Project'), 'p-1')
+        expect(history.get()).toBe('/documents?project=p-1')
+        await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+        expect(history.get()).toBe('/documents')
+        expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+    })
+
+    it('opening the address (a reload) applies the filter', async () => {
+        await openApp('/documents?project=p-1', listRoutes([], docs))
+        expect(await screen.findByRole('link', { name: 'In project' })).toBeInTheDocument()
+        expect(names()).toEqual(['In project'])
+        expect(screen.getByLabelText('Project')).toHaveValue('p-1')
+    })
+
+    it('"none" shows only the team-wide documents', async () => {
+        await openApp('/documents?project=none', listRoutes([], docs))
+        expect(await screen.findByRole('link', { name: 'Loose note' })).toBeInTheDocument()
+        expect(names()).toEqual(['Loose note'])
+    })
+
+    it('the filters, New aspect and New document share one toolbar', async () => {
+        await openApp('/documents', listRoutes([], docs))
+        await screen.findByRole('link', { name: 'In project' })
+        const bar = screen.getByRole('group', { name: 'Document filters and actions' })
+        expect(within(bar).getByLabelText('Project')).toBeInTheDocument()
+        expect(within(bar).getByLabelText('Type')).toBeInTheDocument()
+        expect(within(bar).getByRole('button', { name: 'New document' })).toBeInTheDocument()
+    })
+})
+
 describe('browsing documents (LAM-97)', () => {
     const docs = [
         doc({ id: 'd-a', title: 'In project', project_id: 'p-1', updated_at: '2025-12-31T00:00:00Z' }),
