@@ -2,6 +2,7 @@ import type { JSX } from '@solidjs/web'
 import { createEffect, createSignal, createUniqueId, Show } from 'solid-js'
 
 import { useNarrowScreen } from './useNarrowScreen'
+import { Icon } from './icons/Icon'
 import './AppShell.css'
 
 type AppShellProps = {
@@ -104,14 +105,7 @@ export function AppShell(props: AppShellProps) {
                         aria-controls={drawerId}
                         onClick={() => setOpen(!open())}
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path
-                                d="M4 6h16M4 12h16M4 18h16"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                        </svg>
+                        <Icon name="menu" />
                     </button>
                     <span class="app-shell__title t-cell">{props.title}</span>
                     <div class="app-shell__status">{props.status}</div>

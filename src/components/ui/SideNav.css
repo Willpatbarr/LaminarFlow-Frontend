@@ -135,6 +135,8 @@
 }
 
 .side-nav__collapse {
+  display: inline-flex;
+  align-items: center;
   margin-left: auto;
   padding: var(--s-2) var(--s-8);
   border: none;

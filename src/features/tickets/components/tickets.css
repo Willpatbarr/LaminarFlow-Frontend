@@ -316,7 +316,8 @@ a.view-switch__item:hover {
 }
 
 .tickets__chevron {
-  width: 1ch;
+  display: inline-flex;
+  width: 16px;
   color: var(--text-3);
 }
 

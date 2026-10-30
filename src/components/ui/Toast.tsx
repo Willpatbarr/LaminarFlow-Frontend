@@ -2,6 +2,7 @@ import { Show } from 'solid-js'
 
 import { Button } from './Button'
 import type { NoticeHue } from './Banner'
+import { Icon } from './icons/Icon'
 import './Toast.css'
 
 type ToastProps = {
@@ -54,7 +55,7 @@ export function Toast(props: ToastProps) {
                     aria-label="Dismiss"
                     onClick={() => props.onDismiss?.()}
                 >
-                    <span aria-hidden="true">×</span>
+                    <Icon name="close" size={16} />
                 </button>
             </Show>
         </div>

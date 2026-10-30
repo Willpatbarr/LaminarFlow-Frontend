@@ -2,7 +2,8 @@ import { render, screen } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
-import { ICONS, initialsOf, monogram, SideNav } from './SideNav'
+import { ICON_PATHS } from './icons/Icon'
+import { initialsOf, monogram, SideNav } from './SideNav'
 
 describe('monogram', () => {
     it.each([
@@ -177,9 +178,9 @@ describe('SideNav', () => {
                     { label: 'Mine', href: '/views/v2' },
                 ]}
                 create={[
-                    { label: 'New epic', onClick: () => {}, icon: ICONS.epic },
-                    { label: 'New sprint', onClick: () => {}, icon: ICONS.sprint },
-                    { label: 'New milestone', onClick: () => {}, icon: ICONS.milestone },
+                    { label: 'New epic', onClick: () => {}, icon: 'epic' },
+                    { label: 'New sprint', onClick: () => {}, icon: 'sprint' },
+                    { label: 'New milestone', onClick: () => {}, icon: 'milestone' },
                 ]}
                 userName="Ada Lovelace"
                 onLogout={() => {}}
@@ -192,7 +193,7 @@ describe('SideNav', () => {
 
             const create = screen.getByRole('list', { name: 'Create' })
             const paths = Array.from(create.querySelectorAll('svg g path')).map((p) => p.getAttribute('d'))
-            expect(paths).toEqual([ICONS.epic, ICONS.sprint, ICONS.milestone])
+            expect(paths).toEqual([ICON_PATHS.epic, ICON_PATHS.sprint, ICON_PATHS.milestone])
             for (const name of ['New epic', 'New sprint', 'New milestone']) {
                 expect(screen.getByRole('button', { name })).toHaveAttribute('title', name)
             }

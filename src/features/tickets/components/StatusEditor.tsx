@@ -21,6 +21,7 @@ import {
 
 import { COLOURS, hueFor, isStarted } from '../statusLook'
 import { nameCount, overMessage } from '../limits'
+import { Icon } from '@/components/ui/icons/Icon'
 import './StatusEditor.css'
 
 /*
@@ -191,7 +192,7 @@ function StatusRow(props: StatusRowProps) {
                 }}
                 onDragEnd={() => props.onDragEnd()}
             >
-                ⋮⋮
+                <Icon name="drag" size={16} />
             </span>
             <StatusPill label={props.status.name} hue={hueFor(props.status.color)} active={isStarted(props.status)} />
             <form

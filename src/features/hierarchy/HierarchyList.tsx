@@ -19,6 +19,7 @@ import {
 import { doneStatusIds } from './ScopedTickets'
 import { NewHierarchyDialog } from './NewHierarchyDialog'
 import { formatDay, groupSprints, KINDS, localToday, progressOf, type Kind } from './kinds'
+import { Icon } from '@/components/ui/icons/Icon'
 import './hierarchy.css'
 import '../tickets/components/tickets.css'
 
@@ -171,7 +172,7 @@ function SprintGroupsView(props: { projectId: string; items: (Item & { start_dat
                             aria-controls="sprints-past"
                             onClick={toggle}
                         >
-                            {pastOpen() ? '▾' : '▸'} Past ({groups().past.length})
+                            <Icon name={pastOpen() ? 'caret-down' : 'caret-right'} size={16} /> Past ({groups().past.length})
                         </button>
                     </h2>
                     <div id="sprints-past">

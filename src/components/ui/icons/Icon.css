@@ -1,0 +1,10 @@
+/* A link or button that holds an icon beside its words ("‹ Tickets"). */
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.icon-text > svg {
+  flex: none;
+}
