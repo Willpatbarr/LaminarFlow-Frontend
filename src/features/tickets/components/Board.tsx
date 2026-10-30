@@ -479,7 +479,7 @@ type ColumnMenuProps = {
     onEditStatuses: () => void
 }
 
-// The column's settings, in a Popover (the disclosure pattern, not a menu: it
+// The column's settings, in a Popover (a bottom sheet on phones; the disclosure pattern, not a menu: it
 // holds a text field and checkboxes). It renders in a portal so the column's
 // scroll area cannot clip it. Every change is a new `columns` for the board,
 // written through the sync engine.
@@ -501,6 +501,7 @@ function ColumnMenu(props: ColumnMenuProps) {
     return (
         <Popover
             label={`Column ${props.column.name}`}
+            presentation="auto"
             trigger={(trigger) => (
                 <button type="button" class="board__menu-button" aria-label={`Column options for ${props.column.name}`} {...trigger}>
                     <Icon name="more" />

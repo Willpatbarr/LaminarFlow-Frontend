@@ -161,4 +161,55 @@ describe('Popover', () => {
         expect(press.defaultPrevented).toBe(true)
         expect(onOpenChange).not.toHaveBeenCalled()
     })
+
+    describe('as a bottom sheet', () => {
+        function Sheet() {
+            return (
+                <>
+                    <Popover
+                        label="S"
+                        presentation="sheet"
+                        trigger={(trigger) => (
+                            <button type="button" {...trigger}>
+                                Open S
+                            </button>
+                        )}
+                    >
+                        <input aria-label="Field" />
+                    </Popover>
+                    <button type="button">Elsewhere</button>
+                </>
+            )
+        }
+
+        it('is a modal dialog, takes focus, and Done closes it and returns focus', async () => {
+            const user = userEvent.setup()
+            render(() => <Sheet />)
+            const trigger = screen.getByRole('button', { name: 'Open S' })
+            await user.click(trigger)
+            const dialog = screen.getByRole('dialog', { name: 'S' })
+            expect(dialog).toHaveAttribute('aria-modal', 'true')
+            expect(screen.getByLabelText('Field')).toHaveFocus()
+            await user.click(screen.getByRole('button', { name: 'Done' }))
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+            expect(trigger).toHaveFocus()
+        })
+
+        it('closes on Escape and on a press on the backdrop; Tab stays inside', async () => {
+            const user = userEvent.setup()
+            render(() => <Sheet />)
+            const trigger = screen.getByRole('button', { name: 'Open S' })
+            await user.click(trigger)
+            await user.tab()
+            expect(screen.getByRole('button', { name: 'Done' })).toHaveFocus()
+            await user.tab()
+            expect(screen.getByLabelText('Field')).toHaveFocus()
+            await user.keyboard('{Escape}')
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+            expect(trigger).toHaveFocus()
+            await user.click(trigger)
+            await user.click(document.querySelector('.sheet-backdrop') as HTMLElement)
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+    })
 })

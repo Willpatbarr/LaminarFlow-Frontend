@@ -1,6 +1,8 @@
 import { Portal, type JSX } from '@solidjs/web'
 import { createEffect, createSignal, createUniqueId, Show, untrack } from 'solid-js'
 
+import { Button } from './Button'
+import { useNarrowScreen } from './useNarrowScreen'
 import './Popover.css'
 
 /** What a trigger must spread onto its button: the wiring the pattern needs. */
@@ -41,6 +43,13 @@ type PopoverProps = {
     onOpenChange?: (open: boolean) => void
     /** Which edge of the anchor the panel lines up with. Default `end`. */
     align?: 'start' | 'end'
+    /** How the panel is shown. `popover` (default) hangs it off the anchor.
+     *  `sheet` is a bottom sheet: full width, pinned to the bottom, scrolls
+     *  inside, with a grab bar, a visible Done button and a dimmed backdrop
+     *  (`aria-modal`; Tab stays inside). `auto` is a sheet at phone width
+     *  (`useNarrowScreen`) and a popover elsewhere. A `listbox` is always a
+     *  popover: it never takes focus. Same close rules either way. */
+    presentation?: 'popover' | 'sheet' | 'auto'
 }
 
 const FOCUSABLE =
@@ -70,6 +79,11 @@ export function Popover(props: PopoverProps) {
     let panel: HTMLDivElement | undefined
 
     const role = () => props.role ?? 'dialog'
+    const narrow = useNarrowScreen()
+    const isSheet = () => {
+        const mode = props.presentation ?? 'popover'
+        return role() !== 'listbox' && (mode === 'sheet' || (mode === 'auto' && narrow()))
+    }
 
     function setOpen(next: boolean) {
         if (next) setOpenId(id)
@@ -89,7 +103,7 @@ export function Popover(props: PopoverProps) {
     }
 
     function place() {
-        if (!panel) return
+        if (!panel || untrack(isSheet)) return
         // Called from events and effects alike: never a tracking scope of its own.
         const anchor = untrack(() => props.anchor)
         const rect =
@@ -164,7 +178,23 @@ export function Popover(props: PopoverProps) {
     })
 
     function onPanelKeyDown(event: KeyboardEvent) {
-        if (role() !== 'menu' || !panel) return
+        if (!panel) return
+        if (isSheet() && event.key === 'Tab') {
+            // aria-modal: Tab wraps inside the sheet.
+            const items = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)]
+            if (items.length === 0) return
+            const first = items[0]
+            const last = items[items.length - 1]
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+                event.preventDefault()
+                last.focus()
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault()
+                first.focus()
+            }
+            return
+        }
+        if (role() !== 'menu') return
         const items = [...panel.querySelectorAll<HTMLElement>(MENU_ITEMS)]
         if (items.length === 0) return
         const at = items.indexOf(document.activeElement as HTMLElement)
@@ -189,6 +219,8 @@ export function Popover(props: PopoverProps) {
         if (closer && panel?.contains(closer)) close()
     }
 
+    const body = () => (typeof props.children === 'function' ? props.children(close) : props.children)
+
     const triggerProps: PopoverTriggerProps = {
         ref: (el) => {
             trigger = el
@@ -208,13 +240,15 @@ export function Popover(props: PopoverProps) {
             {props.trigger?.(triggerProps)}
             <Show when={isOpen()}>
                 <Portal>
+                    <div class={`${isSheet() ? 'sheet-backdrop' : 'popover-host'}`}>
                     <div
                         ref={(el) => {
                             panel = el
                         }}
                         id={panelId}
-                        class="popover"
-                        role={role()}
+                        class={`popover${isSheet() ? ' popover--sheet' : ''}`}
+                        role={isSheet() ? 'dialog' : role()}
+                        aria-modal={isSheet() ? 'true' : undefined}
                         aria-label={props.label}
                         tabindex={role() === 'listbox' ? undefined : '-1'}
                         onMouseDown={(event: MouseEvent) => {
@@ -224,7 +258,18 @@ export function Popover(props: PopoverProps) {
                         onKeyDown={onPanelKeyDown}
                         onClick={onPanelClick}
                     >
-                        {typeof props.children === 'function' ? props.children(close) : props.children}
+                        <Show when={isSheet()} fallback={body()}>
+                            <div class="sheet__grab" aria-hidden="true" />
+                            <div class="sheet__body" role={role() === 'menu' ? 'menu' : undefined}>
+                                {body()}
+                            </div>
+                            <div class="sheet__footer">
+                                <Button variant="secondary" onClick={() => close()}>
+                                    Done
+                                </Button>
+                            </div>
+                        </Show>
+                    </div>
                     </div>
                 </Portal>
             </Show>

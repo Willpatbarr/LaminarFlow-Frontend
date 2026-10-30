@@ -35,3 +35,82 @@
     animation: none;
   }
 }
+
+/* Bottom sheet presentation (`presentation="sheet"`, or "auto" at phone width):
+ * the same surface pinned to the bottom edge, full width, scrolling inside. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(0 0 0 / 0.45);
+  animation: sheet-fade 160ms ease-out;
+}
+
+.popover--sheet {
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  max-height: 80dvh;
+  overflow: hidden;
+  padding: var(--s-8) var(--s-12) 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: var(--r-panel) var(--r-panel) 0 0;
+  animation: sheet-in 200ms ease-out;
+}
+
+.sheet__grab {
+  flex: none;
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin-bottom: var(--s-8);
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet__footer {
+  flex: none;
+  display: flex;
+  padding: var(--s-8) 0 calc(var(--s-8) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--bg-overlay);
+}
+
+.sheet__footer > * {
+  flex: 1;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover--sheet,
+  .sheet-backdrop {
+    animation: none;
+  }
+}
+.popover-host {
+  display: contents;
+}
