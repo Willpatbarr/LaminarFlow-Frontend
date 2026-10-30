@@ -39,6 +39,7 @@ import { ReviewableField, type ReviewContext } from '@/features/review/Reviewabl
 
 import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
+import { createReviewTarget } from '../reviewTarget'
 import { DocumentConflictPanel } from './DocumentConflictPanel'
 import './documents.css'
 
@@ -206,13 +207,11 @@ function DocumentEditor(props: DocumentEditorProps) {
 
     // Reviews are asked for from the actions panel, on the text selected in
     // whichever field was last selected in (LAM-150).
-    const [target, setTarget] = createSignal<{ key: string; begin: () => string } | null>(null)
+    const { target, selectionIn } = createReviewTarget()
     const [reviewProblem, setReviewProblem] = createSignal('')
-    const selectionIn = (key: string) => (begin: (() => string) | null) => {
-        if (begin) setTarget({ key, begin })
-        else if (untrack(target)?.key === key) setTarget(null)
+    createEffect(target, () => {
         setReviewProblem('')
-    }
+    })
     const narrow = useNarrowScreen()
 
     // A range is measured against the text the server holds, so a review can be
@@ -264,6 +263,8 @@ function DocumentEditor(props: DocumentEditorProps) {
     }
 
     const titleErrorId = createUniqueId()
+    // Lives here, not in the actions Popover, which is unmounted while closed.
+    const makeAspect = createMakeAspectState(() => props.doc)
 
     const actions = () => (
         <DocumentActions
@@ -274,6 +275,7 @@ function DocumentEditor(props: DocumentEditorProps) {
         >
             <Show when={!isAspect()}>
                 <MakeAspect
+                    state={makeAspect}
                     doc={props.doc}
                     disabled={locked()}
                     text={content.value}
@@ -488,7 +490,7 @@ function DocumentActions(props: DocumentActionsProps) {
                 <span id={hintId} class="t-meta">
                     {props.problem ||
                         (!props.hasSelection
-                            ? 'Select some text first, then ask for a review of it.'
+                            ? 'Select text to request a review on it.'
                             : !props.canRequest
                               ? 'Available once your latest changes are saved.'
                               : 'Asks a teammate to review the selected text.')}
@@ -557,29 +559,20 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
     )
 }
 
-type MakeAspectProps = {
-    doc: Doc
-    disabled: boolean
-    /** What the editor holds now, including words not yet saved. */
-    text: () => string
-    onMade: () => Promise<void>
-}
+type MakeAspectState = ReturnType<typeof createMakeAspectState>
 
-// "Make this an Aspect": pick a type, and the document becomes one through the
-// outbox like any other edit. The server moves the text into the type's first
-// field, and so does the local copy (bodyForConversion), so they agree. Types
-// are asked for, not synced, so this needs a connection to list them.
-function MakeAspect(props: MakeAspectProps) {
+// What "Make this an Aspect" holds: the types on offer and the one picked but not
+// yet applied. Kept by the page so that the narrow-screen Popover (mounted only
+// while open) shows the choice again when it is reopened.
+function createMakeAspectState(doc: () => Doc) {
     const [types, setTypes] = createSignal<AspectType[]>([])
-    const teamName = (id: string) => sync.teams.find((team) => team.id === id)?.name ?? 'Team'
     const [chosen, setChosen] = createSignal('')
     const [error, setError] = createSignal<string | undefined>()
     const [unavailable, setUnavailable] = createSignal(false)
-    const [busy, setBusy] = createSignal(false)
 
     // The document's own team, else its project's, else every team's.
     const teamIds = () => {
-        const own = props.doc.team_id ?? sync.projects.find((p) => p.id === props.doc.project_id)?.team_id
+        const own = doc().team_id ?? sync.projects.find((p) => p.id === doc().project_id)?.team_id
         return own ? [own] : sync.teams.map((team) => team.id)
     }
 
@@ -599,6 +592,26 @@ function MakeAspect(props: MakeAspectProps) {
             })()
         },
     )
+    return { types, chosen, setChosen, error, setError, unavailable, teamIds }
+}
+
+type MakeAspectProps = {
+    state: MakeAspectState
+    doc: Doc
+    disabled: boolean
+    /** What the editor holds now, including words not yet saved. */
+    text: () => string
+    onMade: () => Promise<void>
+}
+
+// "Make this an Aspect": pick a type, and the document becomes one through the
+// outbox like any other edit. The server moves the text into the type's first
+// field, and so does the local copy (bodyForConversion), so they agree. Types
+// are asked for, not synced, so this needs a connection to list them.
+function MakeAspect(props: MakeAspectProps) {
+    const { types, chosen, setChosen, error, setError, unavailable, teamIds } = props.state
+    const teamName = (id: string) => sync.teams.find((team) => team.id === id)?.name ?? 'Team'
+    const [busy, setBusy] = createSignal(false)
 
     async function make() {
         const typeId = chosen()

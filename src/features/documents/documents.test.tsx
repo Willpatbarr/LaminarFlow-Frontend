@@ -56,7 +56,7 @@ describe('the document page', () => {
         await editor()
         const panel = screen.getByRole('complementary', { name: 'Document actions' })
         expect(within(panel).getByRole('button', { name: 'Request review' })).toBeDisabled()
-        expect(within(panel).getByText('Select some text first, then ask for a review of it.')).toBeInTheDocument()
+        expect(within(panel).getByText('Select text to request a review on it.')).toBeInTheDocument()
     })
 
     it('draws an internal link as a chip to its route', async () => {
