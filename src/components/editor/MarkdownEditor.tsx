@@ -67,6 +67,10 @@ type MarkdownEditorProps = {
      *  takes no files. The editor shows the progress and the failure itself,
      *  under the field, and inserts the Markdown image when the upload is done. */
     images?: ImageUpload
+    /** Cmd/Ctrl+Enter, to post or save what is written. Plain Enter stays a
+     *  new line. While the link list has options it owns the keys, so the
+     *  chord does nothing then: one key press is never a pick and a post. */
+    onSubmit?: () => void
     /** Receives the editor, for the caller to focus it or read its state. */
     ref?: (editor: Editor) => void
 }
@@ -180,6 +184,13 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
             contentType: 'markdown',
             editable: !props.readOnly,
             editorProps: {
+                handleKeyDown: (_view, event) => {
+                    const chord = event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+                    if (!chord || event.isComposing || !props.onSubmit) return false
+                    // Swallowed even when it does nothing, or the editor would add a line break.
+                    if (!(session() && listed().length > 0) && !props.readOnly) untrack(() => props.onSubmit?.())
+                    return true
+                },
                 attributes: {
                     role: 'textbox',
                     'aria-multiline': 'true',

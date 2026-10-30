@@ -4,6 +4,7 @@ import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { Button } from '@/components/ui/Button'
 import { TextArea } from '@/components/ui/TextArea'
 import { loadMembers, memberName } from '@/features/members/members'
+import { ShortcutHint, useScope } from '@/features/shortcuts'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { createComment, resolveId, type Comment } from '@/sync'
 
@@ -188,11 +189,19 @@ function RequestCard(props: PanelProps & { request: Comment }) {
     const [noting, setNoting] = createSignal(false)
     const [note, setNote] = createSignal('')
 
+    useScope('comment')
+    // Plain flags beside the signals: a signal write is batched, so two
+    // Cmd+Enter presses in the same moment would both see the old value.
+    let deciding = false
+    let replying = false
+
     async function decide(status: ReviewStatus, done: string, text = '') {
-        if (busy()) return
+        if (deciding || busy()) return
+        deciding = true
         setBusy(true)
         setProblem('')
         const result = await decideReviewRequest(props.request.id, status, text)
+        deciding = false
         setBusy(false)
         if (result.ok) {
             remember([result.data])
@@ -204,11 +213,16 @@ function RequestCard(props: PanelProps & { request: Comment }) {
 
     async function postComment() {
         const text = reply().trim()
-        if (text === '') return
-        setReply('')
-        setCommenting(false)
-        await createComment({ ticket_id: null, document_id: resolveId(props.documentId), body: text })
-        props.onAnnounce('Comment posted.')
+        if (replying || text === '') return
+        replying = true
+        try {
+            setReply('')
+            setCommenting(false)
+            await createComment({ ticket_id: null, document_id: resolveId(props.documentId), body: text })
+            props.onAnnounce('Comment posted.')
+        } finally {
+            replying = false
+        }
     }
 
     const head = () => (
@@ -317,11 +331,18 @@ function RequestCard(props: PanelProps & { request: Comment }) {
                         void decide('changes_requested', 'Changes requested.', note())
                     }}
                 >
-                    <TextArea label="What would help? (optional)" rows={3} value={note()} onInput={setNote} />
+                    <TextArea
+                        label="What would help? (optional)"
+                        rows={3}
+                        value={note()}
+                        onInput={setNote}
+                        onSubmit={() => void decide('changes_requested', 'Changes requested.', note())}
+                    />
                     <div class="review__actions">
-                        <Button type="submit" size="sm" disabled={busy()}>
+                        <Button type="submit" size="sm" disabled={busy()} keyShortcuts="Control+Enter Meta+Enter">
                             Request changes
                         </Button>
+                        <ShortcutHint id="comment.submit" />
                         <Button type="button" size="sm" variant="ghost" onClick={() => setNoting(false)}>
                             Cancel
                         </Button>
@@ -336,11 +357,23 @@ function RequestCard(props: PanelProps & { request: Comment }) {
                         void postComment()
                     }}
                 >
-                    <TextArea label="Your comment" rows={3} value={reply()} onInput={setReply} />
+                    <TextArea
+                        label="Your comment"
+                        rows={3}
+                        value={reply()}
+                        onInput={setReply}
+                        onSubmit={() => void postComment()}
+                    />
                     <div>
-                        <Button type="submit" size="sm" disabled={reply().trim() === ''}>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={reply().trim() === ''}
+                            keyShortcuts="Control+Enter Meta+Enter"
+                        >
                             Post comment
                         </Button>
+                        <ShortcutHint id="comment.submit" />
                     </div>
                 </form>
             </Show>

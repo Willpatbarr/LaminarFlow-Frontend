@@ -73,3 +73,9 @@
 .comments__form .md-editor__content {
   min-height: 5em;
 }
+
+.comments__submit {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}

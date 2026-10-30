@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { imageUploader } from '@/features/attachments/upload'
 import { loadMembers, memberName } from '@/features/members/members'
+import { ShortcutHint, useScope } from '@/features/shortcuts'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import {
     commentHead,
@@ -70,6 +71,7 @@ export function CommentThread(props: CommentThreadProps) {
     const unsent = () => isTempId(resolveId(parentId(props.parent)))
     const noun = () => (props.parent.ticketId !== undefined ? 'ticket' : 'document')
 
+    useScope('comment')
     onSettled(() => {
         void loadMembers()
     })
@@ -79,17 +81,25 @@ export function CommentThread(props: CommentThreadProps) {
     const tooLong = () => count().used > count().max
     const [announcement, setAnnouncement] = createSignal('')
 
+    // A plain flag, not a signal: a signal write is batched, so two presses in
+    // the same moment would both still see the old draft and post it twice.
+    let posting = false
     async function post() {
         const text = draft().trim()
-        if (isBlank(text) || tooLong() || unsent() || props.disabled) return
-        const id = resolveId(parentId(props.parent))
-        setDraft('')
-        await createComment({
-            ticket_id: props.parent.ticketId !== undefined ? id : null,
-            document_id: props.parent.documentId !== undefined ? id : null,
-            body: text,
-        })
-        setAnnouncement('Comment posted.')
+        if (posting || isBlank(text) || tooLong() || unsent() || props.disabled) return
+        posting = true
+        try {
+            const id = resolveId(parentId(props.parent))
+            setDraft('')
+            await createComment({
+                ticket_id: props.parent.ticketId !== undefined ? id : null,
+                document_id: props.parent.documentId !== undefined ? id : null,
+                body: text,
+            })
+            setAnnouncement('Comment posted.')
+        } finally {
+            posting = false
+        }
     }
 
     return (
@@ -129,12 +139,20 @@ export function CommentThread(props: CommentThreadProps) {
                         value={draft()}
                         readOnly={props.disabled}
                         onChange={setDraft}
+                        onSubmit={() => void post()}
                         count={count()}
                         error={tooLong() ? `A comment can be at most ${count().max} characters.` : undefined}
                     />
-                    <Button type="submit" disabled={props.disabled || isBlank(draft()) || tooLong()}>
-                        Comment
-                    </Button>
+                    <div class="comments__submit">
+                        <Button
+                            type="submit"
+                            disabled={props.disabled || isBlank(draft()) || tooLong()}
+                            keyShortcuts="Control+Enter Meta+Enter"
+                        >
+                            Comment
+                        </Button>
+                        <ShortcutHint id="comment.submit" />
+                    </div>
                 </form>
             </Show>
             <div class="visually-hidden" aria-live="polite" aria-atomic="true">
@@ -177,11 +195,17 @@ function CommentItem(props: CommentItemProps) {
         setEditing(true)
     }
 
+    let saving = false
     async function save() {
         const body = text().trim()
-        if (isBlank(body) || commentCount(body).used > commentCount(body).max) return
-        setEditing(false)
-        if (body !== props.comment.body) await updateComment(props.comment.id, { body })
+        if (saving || isBlank(body) || commentCount(body).used > commentCount(body).max) return
+        saving = true
+        try {
+            setEditing(false)
+            if (body !== props.comment.body) await updateComment(props.comment.id, { body })
+        } finally {
+            saving = false
+        }
     }
 
     return (
@@ -251,12 +275,19 @@ function CommentItem(props: CommentItemProps) {
                         }}
                         value={text()}
                         onChange={setText}
+                        onSubmit={() => void save()}
                         count={commentCount(text())}
                     />
                     <span class="comments__actions">
-                        <Button type="submit" size="sm" disabled={isBlank(text()) || commentCount(text()).used > commentCount(text()).max}>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={isBlank(text()) || commentCount(text()).used > commentCount(text()).max}
+                            keyShortcuts="Control+Enter Meta+Enter"
+                        >
                             Save
                         </Button>
+                        <ShortcutHint id="comment.submit" />
                         <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
                             Cancel
                         </Button>

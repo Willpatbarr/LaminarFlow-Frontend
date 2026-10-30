@@ -11,6 +11,8 @@ type TextAreaProps = {
     onInput: (value: string) => void
     /** Focus left the control. For a field that saves when you leave it. */
     onBlur?: () => void
+    /** Cmd/Ctrl+Enter, to send what is written; plain Enter stays a new line. */
+    onSubmit?: () => void
     rows?: number
     placeholder?: string
     disabled?: boolean
@@ -45,6 +47,12 @@ export function TextArea(props: TextAreaProps) {
                 aria-describedby={describedBy(props, errorId, countId)}
                 onInput={(event) => props.onInput(event.currentTarget.value)}
                 onBlur={() => props.onBlur?.()}
+                onKeyDown={(event) => {
+                    if (!props.onSubmit || event.isComposing || event.key !== 'Enter') return
+                    if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
+                    event.preventDefault()
+                    props.onSubmit()
+                }}
             />
             <FieldFoot errorId={errorId} countId={countId} error={props.error} count={props.count} />
         </div>

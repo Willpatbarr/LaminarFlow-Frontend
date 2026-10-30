@@ -9,11 +9,11 @@ import { setEditorLinks, titlesChanged, type LinkTarget } from './internalLinks'
 
 // The editor mounted for real in jsdom: Markdown in, Markdown out.
 
-async function mount(value: string, extra: { onChange?: (md: string) => void } = {}) {
+async function mount(value: string, extra: { onChange?: (md: string) => void; onSubmit?: () => void } = {}) {
     let editor: Editor | undefined
     const onChange = extra.onChange ?? (() => {})
     render(() => (
-        <MarkdownEditor label="Notes" value={value} onChange={onChange} ref={(e) => (editor = e)} />
+        <MarkdownEditor label="Notes" value={value} onChange={onChange} onSubmit={extra.onSubmit} ref={(e) => (editor = e)} />
     ))
     await waitFor(() => expect(editor).toBeDefined())
     return editor!
@@ -264,6 +264,43 @@ describe('internal links as chips', () => {
         atlas.click()
         await waitFor(() => expect(screen.getByRole('link', { name: 'Atlas' })).toBeInTheDocument())
         expect(editor.getMarkdown().trim()).toBe('[Launch runbook](lf://document/d-1) [Atlas](lf://project/p-1)')
+        setEditorLinks(null)
+    })
+
+    it('submits on Cmd/Ctrl+Enter without a new line, and leaves plain Enter as a new line', async () => {
+        const onSubmit = vi.fn()
+        const editor = await mount('hello', { onSubmit })
+        editor.commands.focus('end')
+        press(editor, 'Enter')
+        expect(onSubmit).not.toHaveBeenCalled()
+        expect(editor.state.doc.childCount).toBe(2)
+        press(editor, 'Enter', { shiftKey: true })
+        expect(onSubmit).not.toHaveBeenCalled()
+
+        const before = editor.getMarkdown()
+        expect(press(editor, 'Enter', { metaKey: true })).toBe(true)
+        expect(press(editor, 'Enter', { ctrlKey: true })).toBe(true)
+        expect(onSubmit).toHaveBeenCalledTimes(2)
+        expect(editor.getMarkdown()).toBe(before)
+    })
+
+    it('leaves Cmd+Enter to the link list while it has options, and submits once it is closed', async () => {
+        register()
+        const onSubmit = vi.fn()
+        const editor = await mount('', { onSubmit })
+        editor.commands.focus()
+        typeText(editor, '@launch')
+        await waitFor(() => expect(options()).toHaveLength(2))
+        // Not a pick and not a submit: one press is one thing.
+        expect(press(editor, 'Enter', { metaKey: true })).toBe(true)
+        expect(onSubmit).not.toHaveBeenCalled()
+        expect(screen.queryByRole('link', { name: 'Launch checklist' })).toBeNull()
+        expect(screen.getByRole('listbox')).toBeInTheDocument()
+        // Plain Enter still picks.
+        press(editor, 'Escape')
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+        press(editor, 'Enter', { ctrlKey: true })
+        expect(onSubmit).toHaveBeenCalledTimes(1)
         setEditorLinks(null)
     })
 

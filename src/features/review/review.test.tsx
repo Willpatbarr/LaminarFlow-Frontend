@@ -167,6 +167,30 @@ describe('what a reviewer can do', () => {
         expect(await screen.findByTestId('decision-note')).toHaveTextContent('Shorter, please.')
     })
 
+    it('Request changes goes out on Ctrl+Enter in the note, once, and plain Enter is a new line', async () => {
+        const puts: unknown[] = []
+        await openApp(
+            '/documents/d-1',
+            withRequest(request(), {
+                'PUT /api/v1/review-requests/rr-1': async (r: Request) => (
+                    puts.push(await bodyOf(r)),
+                    ok(request({ review_status: 'changes_requested', decided_by: ME, decision_note: 'a\nb', updated_at: '2026-01-02T00:00:00Z' }))
+                ),
+            }),
+        )
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Request changes' }))
+        const box = await screen.findByRole('textbox', { name: /What would help/ })
+        const form = box.closest('form')!
+        expect(within(form).getByRole('button', { name: 'Request changes' })).toHaveAttribute('aria-keyshortcuts', 'Control+Enter Meta+Enter')
+        expect(form.querySelector('.shortcut-hint')).not.toBeNull()
+        await user.type(box, 'a{Enter}b')
+        expect(puts).toEqual([])
+        await user.keyboard('{Control>}{Enter}{Enter}{/Control}')
+        await waitFor(() => expect(puts).toHaveLength(1))
+        expect(puts).toEqual([{ review_status: 'changes_requested', decision_note: 'a\nb' }])
+    })
+
     it('Cancel on the note sends nothing', async () => {
         const puts: unknown[] = []
         await openApp(
