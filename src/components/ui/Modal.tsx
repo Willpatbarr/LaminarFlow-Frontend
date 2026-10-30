@@ -152,7 +152,7 @@ export function Modal(props: ModalProps) {
                             {props.confirm}
                         </Button>
                         <Show when={props.confirmHint}>
-                            <kbd class="modal__hint t-meta" aria-hidden="true">
+                            <kbd class="shortcut-hint modal__hint t-meta" aria-hidden="true">
                                 {props.confirmHint}
                             </kbd>
                         </Show>

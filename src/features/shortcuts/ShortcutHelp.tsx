@@ -22,7 +22,7 @@ export function ShortcutHelp(props: { onClose: () => void }) {
                                         <div class="shortcut-help__row">
                                             <dt class="t-body">{item.label}</dt>
                                             <dd>
-                                                <kbd class="shortcut-hint t-meta">{item.keys}</kbd>
+                                                <kbd class="shortcut-help__keys t-meta">{item.keys}</kbd>
                                             </dd>
                                         </div>
                                     )}

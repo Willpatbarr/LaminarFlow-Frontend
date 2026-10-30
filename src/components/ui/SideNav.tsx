@@ -200,7 +200,7 @@ export function SideNav(props: SideNavProps) {
                                     <span class="side-nav__label">Search</span>
                                     <Show when={search().hint}>
                                         {(hint) => (
-                                            <kbd class="side-nav__hint t-meta" aria-hidden="true">
+                                            <kbd class="shortcut-hint side-nav__hint t-meta" aria-hidden="true">
                                                 {hint()}
                                             </kbd>
                                         )}
@@ -368,7 +368,7 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
                 <span class="side-nav__label">{props.link.label}</span>
                 <Show when={props.link.hint}>
                     {(hint) => (
-                        <kbd class="side-nav__hint t-meta" aria-hidden="true">
+                        <kbd class="shortcut-hint side-nav__hint t-meta" aria-hidden="true">
                             {hint()}
                         </kbd>
                     )}

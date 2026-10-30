@@ -61,14 +61,10 @@
   }
 }
 
-/* The key that confirms, beside the confirm button. */
-.modal__hint {
-  padding: 0 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  font-family: inherit;
-  color: var(--text-2);
-  white-space: nowrap;
+/* The key that confirms, beside the confirm button. Look and touch hiding come
+ * from .shortcut-hint; this only drops its start margin (the footer has a gap). */
+.modal__hint.shortcut-hint {
+  margin-inline-start: 0;
 }
 
 .modal[data-wide] {

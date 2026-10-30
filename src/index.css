@@ -219,3 +219,25 @@ code {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Keyboard-shortcut hints (the one .shortcut-hint class: side nav, Search, button
+ * chips, dialogs) mean nothing without a keyboard, so they hide on devices with
+ * no hover and a coarse pointer. A tablet with a trackpad or mouse keeps them.
+ * Targets the device, not the viewport width. aria-keyshortcuts is untouched. */
+@media (hover: none) and (pointer: coarse) {
+  kbd.shortcut-hint {
+    display: none;
+  }
+}
+
+/* The base look of a hint. Global because the side nav and dialogs use it too. */
+.shortcut-hint {
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  color: var(--text-2);
+  white-space: nowrap;
+}
