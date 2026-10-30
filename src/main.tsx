@@ -1,5 +1,6 @@
 import { render } from '@solidjs/web'
 import './index.css'
+import { applyTheme } from '@/features/theme'
 import { refresh, watchExpiredSession } from '@/features/auth'
 import { connectSyncToSession } from '@/sync'
 import { router as Router } from './router'
@@ -7,6 +8,10 @@ import { router as Router } from './router'
 // The router instance is itself the provider component; the route tree, root
 // layout included, lives in router.tsx. There is no type registration step -
 // the tree's literal types flow through `router.paths` on their own.
+// index.html already set the attribute before first paint; this keeps the
+// browser-chrome colour in step and listens for the OS changing.
+applyTheme()
+
 render(() => <Router />, document.getElementById('root')!)
 
 // The one place the local store is tied to the session: it starts syncing when

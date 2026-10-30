@@ -57,6 +57,9 @@ type SideNavProps = {
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
+    /** Account settings that live in the rail, such as the theme switch (LAM-144).
+     *  Shown in the drawer too; sits above the status. The caller's to fill. */
+    account?: JSX.Element
     /** Sits at the foot of the rail, above the log-out button: a quiet status
      *  such as the connection indicator. Optional, and the caller's to fill. */
     status?: JSX.Element
@@ -191,6 +194,7 @@ export function SideNav(props: SideNavProps) {
                             </Show>
                         </nav>
                         <div class="side-nav__foot">
+                            {props.account}
                             {props.status}
                             <Show when={props.userName}>
                                 <button

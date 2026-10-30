@@ -2,8 +2,9 @@
  * itself transcribed from the Design System Sheet. Components use these
  * variables and never a raw hex.
  *
- * Dark is the base and light overrides it under prefers-color-scheme, the same
- * shape as _shared.md. There is no manual toggle.
+ * Each token is written once as light-dark(<light>, <dark>). color-scheme on
+ * :root decides which side applies: the OS preference by default, or the
+ * data-theme attribute the in-app switch sets (src/features/theme).
  *
  * Elevation is background lightness, not shadow: base -> raised -> overlay. A
  * shadow belongs only on something that genuinely floats (a dragged card, a
@@ -30,37 +31,37 @@
   color-scheme: dark light;
 
   /* Surfaces */
-  --bg-base: #0d1013;
-  --bg-raised: #14181c;
-  --bg-overlay: #1b2025;
-  --border: #23292f;
-  --border-strong: #333b42;
+  --bg-base: light-dark(#f7f7f5, #0d1013);
+  --bg-raised: light-dark(#ffffff, #14181c);
+  --bg-overlay: light-dark(#ffffff, #1b2025);
+  --border: light-dark(#e5e5e1, #23292f);
+  --border-strong: light-dark(#d2d2cd, #333b42);
 
   /* Text */
-  --text-1: #e6ebef;
-  --text-2: #98a3ab;
-  --text-3: #808a92;
+  --text-1: light-dark(#191c1f, #e6ebef);
+  --text-2: light-dark(#5f666c, #98a3ab);
+  --text-3: light-dark(#686f76, #808a92);
 
   /* Accent */
-  --accent: #2ab8c9;
-  --accent-hover: #3fcbdb;
-  --accent-pressed: #1f9aa9;
+  --accent: light-dark(#0a7a8a, #2ab8c9);
+  --accent-hover: light-dark(#086878, #3fcbdb);
+  --accent-pressed: light-dark(#065866, #1f9aa9);
   --accent-tint: rgba(42, 184, 201, 0.14);
 
   /* A dark teal rather than --bg-base: white on #2ab8c9 would be about 2.3:1. */
-  --text-on-accent: #062429;
+  --text-on-accent: light-dark(#ffffff, #062429);
   /* A kbd hint sitting on a filled (accent) button: its own text and border so
    * it does not inherit the grey --text-2 of a hint on the page. 6.8:1 on
    * --accent, 4.8:1 on --accent-pressed. */
-  --kbd-on-accent: #062429;
-  --kbd-on-accent-border: rgba(6, 36, 41, 0.5);
+  --kbd-on-accent: light-dark(#eef9fb, #062429);
+  --kbd-on-accent-border: light-dark(rgba(238, 249, 251, 0.6), rgba(6, 36, 41, 0.5));
 
   /* A disabled control: visibly greyed and lower emphasis than an enabled one,
    * never accent-filled, and still visible (disabled is exempt from WCAG text
    * contrast, but the glyph is kept at 3:1 or more against its own fill). */
-  --disabled-bg: #1b2025;
-  --disabled-fg: #6b757d;
-  --disabled-border: #23292f;
+  --disabled-bg: light-dark(#ebebe8, #1b2025);
+  --disabled-fg: light-dark(#767c83, #6b757d);
+  --disabled-border: light-dark(#e0e0dc, #23292f);
 
   /* Status and label hues. The fill is the same in both themes; only the
    * foreground swaps. A chip is the hue at 14-20% alpha behind its fg, so
@@ -74,14 +75,14 @@
   --rust: #b05a55;
   --violet: #8a6fb0;
 
-  --slate-fg: #a9b6c0;
-  --blue-fg: #9ec2e8;
-  --teal-fg: #8fd0d8;
-  --green-fg: #8fd8b4;
-  --amber-fg: #d6c48f;
-  --clay-fg: #e0b39c;
-  --rust-fg: #e2a29d;
-  --violet-fg: #c2a8e0;
+  --slate-fg: light-dark(#4a555e, #a9b6c0);
+  --blue-fg: light-dark(#2f5a85, #9ec2e8);
+  --teal-fg: light-dark(#26707a, #8fd0d8);
+  --green-fg: light-dark(#2f6b45, #8fd8b4);
+  --amber-fg: light-dark(#7a6120, #d6c48f);
+  --clay-fg: light-dark(#8a5230, #e0b39c);
+  --rust-fg: light-dark(#8e3f3b, #e2a29d);
+  --violet-fg: light-dark(#5e4880, #c2a8e0);
 
   --chip-alpha: 16%;
 
@@ -103,48 +104,20 @@
 
   /* Table rows. The sheet's 2.8% wash is white, i.e. a dark-theme value. */
   --row-h: 34px;
-  --row-hover: rgba(255, 255, 255, 0.028);
+  --row-hover: light-dark(rgba(0, 0, 0, 0.028), rgba(255, 255, 255, 0.028));
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg-base: #f7f7f5;
-    --bg-raised: #ffffff;
-    --bg-overlay: #ffffff;
-    --border: #e5e5e1;
-    --border-strong: #d2d2cd;
-
-    --text-1: #191c1f;
-    --text-2: #5f666c;
-    --text-3: #686f76;
-
-    --accent: #0a7a8a;
-    /* The dark theme's hover and pressed are lighter than the base; on a light
-     * page that would fade a link away as the pointer reaches it. */
-    --accent-hover: #086878;
-    --accent-pressed: #065866;
-    --text-on-accent: #ffffff;
-    --kbd-on-accent: #eef9fb;
-    --kbd-on-accent-border: rgba(238, 249, 251, 0.6);
-
-    --disabled-bg: #ebebe8;
-    --disabled-fg: #767c83;
-    --disabled-border: #e0e0dc;
-
-    --slate-fg: #4a555e;
-    --blue-fg: #2f5a85;
-    --teal-fg: #26707a;
-    --green-fg: #2f6b45;
-    --amber-fg: #7a6120;
-    --clay-fg: #8a5230;
-    --rust-fg: #8e3f3b;
-    --violet-fg: #5e4880;
-
-    --row-hover: rgba(0, 0, 0, 0.028);
-  }
+/* The in-app switch (LAM-144). With no attribute the page follows the OS
+ * (color-scheme: dark light above); data-theme pins it, and light-dark() in every
+ * token picks the matching side, so each theme's values are written once. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 /* Type scale. Tracking is a percentage on the sheet: -2.5% is -0.025em. */
