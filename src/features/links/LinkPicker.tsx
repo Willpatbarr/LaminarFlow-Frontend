@@ -61,8 +61,9 @@ export function LinkPicker(props: LinkPickerProps) {
                 >
                     <For each={shown()} keyed={(option) => option.id}>
                         {(option) => (
-                            <label class="link-picker__option t-body">
+                            <label class="link-picker__option t-body" for={`link-picker-${option().id}`}>
                                 <input
+                                    id={`link-picker-${option().id}`}
                                     type="radio"
                                     name="link-picker"
                                     checked={chosen() === option().id}

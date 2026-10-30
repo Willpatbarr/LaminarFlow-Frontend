@@ -164,8 +164,9 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
                     ]}
                     onChange={setStatusId}
                 />
-                <label class="new-ticket__more t-body">
+                <label class="new-ticket__more t-body" for="new-ticket-more">
                     <input
+                        id="new-ticket-more"
                         type="checkbox"
                         checked={more()}
                         onChange={(event) => {

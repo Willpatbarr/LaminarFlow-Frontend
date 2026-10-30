@@ -725,8 +725,9 @@ function TicketEditor(props: TicketEditorProps) {
                 >
                     <For each={labelChoices()}>
                         {(label) => (
-                            <label class="ticket__label t-body">
+                            <label class="ticket__label t-body" for={`ticket-label-${id()}-${label.id}`}>
                                 <input
+                                    id={`ticket-label-${id()}-${label.id}`}
                                     type="checkbox"
                                     checked={labelIds().includes(label.id)}
                                     onChange={(event) => void toggleLabel(label.id, event.currentTarget.checked)}

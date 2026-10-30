@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onSettled, Show, untrack } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -66,6 +66,7 @@ const LEGEND: Record<PickField, string> = {
 }
 
 export function ListControls(props: ListControlsProps) {
+    const uid = createUniqueId()
     onSettled(() => void ensureMembers())
     const model = () => fromGroup(props.config.filter)
     const columns = () => visibleColumns(props.config)
@@ -254,8 +255,9 @@ export function ListControls(props: ListControlsProps) {
                                                 <legend class="t-overline">{LEGEND[field]}</legend>
                                                 <For each={choices(field, current().picks[field].ids)}>
                                                     {(option) => (
-                                                        <label class="list-controls__check t-body">
+                                                        <label class="list-controls__check t-body" for={`${uid}-${field}-${option.id}`}>
                                                             <input
+                                                                id={`${uid}-${field}-${option.id}`}
                                                                 type="checkbox"
                                                                 checked={current().picks[field].ids.includes(option.id)}
                                                                 onChange={(event) =>
@@ -271,8 +273,9 @@ export function ListControls(props: ListControlsProps) {
                                                         </label>
                                                     )}
                                                 </For>
-                                                <label class="list-controls__check t-body">
+                                                <label class="list-controls__check t-body" for={`${uid}-${field}-none`}>
                                                     <input
+                                                        id={`${uid}-${field}-none`}
                                                         type="checkbox"
                                                         checked={current().picks[field].none}
                                                         onChange={(event) =>
@@ -297,8 +300,9 @@ export function ListControls(props: ListControlsProps) {
                                 <legend class="visually-hidden">Visible columns</legend>
                                 <For each={COLUMN_FIELDS}>
                                     {(field) => (
-                                        <label class="list-controls__check t-body">
+                                        <label class="list-controls__check t-body" for={`${uid}-column-${field}`}>
                                             <input
+                                                id={`${uid}-column-${field}`}
                                                 type="checkbox"
                                                 checked={columns().includes(field)}
                                                 disabled={field === 'title'}

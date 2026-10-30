@@ -95,8 +95,9 @@ export function RequestReviewDialog(props: Props) {
                         <Show when={people().length > 0} fallback={<p class="t-meta">No one else is in this workspace yet.</p>}>
                             <For each={people()}>
                                 {(member) => (
-                                    <label class="review-dialog__person t-body" title={member.email}>
+                                    <label class="review-dialog__person t-body" title={member.email} for={`review-person-${member.account_id}`}>
                                         <input
+                                            id={`review-person-${member.account_id}`}
                                             type="checkbox"
                                             checked={chosen().includes(member.account_id)}
                                             onChange={() => toggle(member.account_id)}

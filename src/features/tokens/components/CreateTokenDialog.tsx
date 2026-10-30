@@ -159,8 +159,9 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                                     {(scope) => scopeBox(scope, () => 'Delete account', () => '')}
                                 </For>
                                 <Show when={dangerPicked()}>
-                                    <label class="t-body tokens__confirm">
+                                    <label class="t-body tokens__confirm" for="token-understood">
                                         <input
+                                            id="token-understood"
                                             type="checkbox"
                                             checked={understood()}
                                             onChange={(event) => setUnderstood(event.currentTarget.checked)}
