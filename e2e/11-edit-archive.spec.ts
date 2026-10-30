@@ -25,7 +25,8 @@ test('create with C, edit inline, archive and undo, each reaching the server', a
     await dialog.getByLabel('Title').fill('Plan the launch')
     await dialog.getByLabel('Description').fill('Dates and owners')
     await dialog.getByLabel('Status').selectOption({ label: world.statusNames[1] })
-    await dialog.getByRole('button', { name: 'Create ticket' }).click()
+    // Enter in the title creates it (LAM-152).
+    await dialog.getByLabel('Title').press('Enter')
     await expect(page).toHaveURL(/\/tickets\/[0-9a-f]{8}-/)
     const id = page.url().split('/').pop()!
 

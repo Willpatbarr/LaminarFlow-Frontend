@@ -59,3 +59,41 @@ test('? lists the shortcuts, G then T goes back to the list, and keys typed into
     await expect(page.getByRole('dialog', { name: 'New ticket' }).getByLabel('Title')).toHaveValue('gd?')
     await expect(page).toHaveURL(/\/$/)
 })
+
+test('Create more keeps the dialog open for the next ticket, and Cmd/Ctrl+Enter creates from the description', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const account = await newAccount('createmore')
+    const world = await projectOf(account)
+    await signedInAs(context, account, baseURL!)
+    await openProject(page, world)
+
+    await page.keyboard.press('c')
+    const dialog = page.getByRole('dialog', { name: 'New ticket' })
+    await dialog.getByLabel('Status').selectOption({ label: world.statusNames[1] })
+    await dialog.getByLabel('Create more').check()
+    await dialog.getByLabel('Title').click()
+    await page.keyboard.type('First of two')
+    await page.keyboard.press('Enter')
+
+    // Still open, cleared, focused, status kept, and said politely.
+    await expect(dialog.getByLabel('Title')).toHaveValue('')
+    await expect(dialog.getByLabel('Title')).toBeFocused()
+    await expect(dialog.getByLabel('Status')).toHaveValue(world.statusIds[1])
+    await expect(page.getByRole('status').filter({ hasText: 'Created “First of two”' }).first()).toBeVisible()
+
+    await page.keyboard.type('Second of two')
+    await dialog.getByLabel('Description').fill('Plain Enter is a new line')
+    await dialog.getByLabel('Description').press('ControlOrMeta+Enter')
+    await expect(dialog.getByLabel('Title')).toHaveValue('')
+
+    await expect
+        .poll(async () => (await serverTickets(account, world.projectId)).map((t) => [t.title, t.status_id]).sort())
+        .toEqual([
+            ['First of two', world.statusIds[1]],
+            ['Second of two', world.statusIds[1]],
+        ])
+    await expect(page).toHaveURL(/\/$/)
+})

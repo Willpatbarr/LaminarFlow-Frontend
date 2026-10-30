@@ -24,6 +24,13 @@ type ModalProps = {
     /** Something to read rather than to answer (a help sheet): no Cancel, only
      *  the confirm; Escape and a click outside still close it. */
     informational?: boolean
+    /** The key that confirms from anywhere in the dialog, written for people
+     *  ("⌘Enter"), shown beside the confirm; `confirmKeys` is the same for
+     *  screen readers, as `aria-keyshortcuts`. */
+    confirmHint?: string
+    confirmKeys?: string
+    /** Keys pressed anywhere in the form, for a shortcut that confirms. */
+    onKeyDown?: (event: KeyboardEvent) => void
     onConfirm: () => void
     /** Also called for Escape and a click on the backdrop. */
     onCancel: () => void
@@ -101,6 +108,7 @@ export function Modal(props: ModalProps) {
                     aria-modal="true"
                     aria-labelledby={titleId}
                     aria-describedby={props.consequence ? consequenceId : undefined}
+                    onKeyDown={props.onKeyDown}
                     onSubmit={(event) => {
                         event.preventDefault()
                         if (!props.confirmDisabled) props.onConfirm()
@@ -136,9 +144,15 @@ export function Modal(props: ModalProps) {
                             type="submit"
                             variant={props.destructive ? 'danger' : 'primary'}
                             disabled={props.confirmDisabled}
+                            keyShortcuts={props.confirmKeys}
                         >
                             {props.confirm}
                         </Button>
+                        <Show when={props.confirmHint}>
+                            <kbd class="modal__hint t-meta" aria-hidden="true">
+                                {props.confirmHint}
+                            </kbd>
+                        </Show>
                     </div>
                 </form>
             </div>

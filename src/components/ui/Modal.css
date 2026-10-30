@@ -60,3 +60,13 @@
     transform: translateY(4px);
   }
 }
+
+/* The key that confirms, beside the confirm button. */
+.modal__hint {
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  color: var(--text-2);
+  white-space: nowrap;
+}
