@@ -266,7 +266,8 @@ export type SyncEngine = {
     applyRemote(event: unknown): Promise<boolean>
     /** Takes a new name for a team or project (LAM-149): a rename the user just made, or
      *  `team.updated` / `project.updated` from the feed. Only the name is taken, so
-     *  nothing else of the row moves. Resolves true if a row changed. */
+     *  nothing else of the row moves. Resolves true if a row changed. An id the
+     *  store does not hold is left alone here; the feed's frame inserts it (LAM-199). */
     setContextName(kind: 'team' | 'project', id: string, name: string): Promise<boolean>
     subscribe(listener: (change: SyncChange) => void): () => void
 }
@@ -1116,18 +1117,89 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         return changed
     }
 
-    function contextRename(frame: unknown): Promise<boolean> | null {
+    // A team or project this client has not heard of arrives whole (LAM-199): created by someone
+    // else, or by the MCP tools. A team brings its seeded statuses with it, since no status.*
+    // frame is sent for them. The frame is enough to show the row at once. Never a
+    // hydration: that re-lists the whole workspace, which a busy workspace answers slowly, and it
+    // would run once per frame. A new project's board (the frame carries only its id and
+    // columns) is the one thing fetched, and only that board.
+    async function addContext(kind: 'team' | 'project', body: Record<string, unknown>): Promise<boolean> {
+        if (!isRunning()) return false
+        const id = body.id as string
+        const name = body.name as string
+        const added = await db.write(async (tx) => {
+            if (kind === 'team') {
+                if (await tx.teams.get(id)) return false
+                if (typeof body.workspace_id !== 'string') return false
+                await tx.teams.put({ id, workspace_id: body.workspace_id, name })
+                const statuses = Array.isArray(body.statuses) ? (body.statuses as Record<string, unknown>[]) : []
+                for (const st of statuses) {
+                    if (typeof st.id !== 'string' || typeof st.name !== 'string') continue
+                    const row = {
+                        id: st.id,
+                        team_id: id,
+                        name: st.name,
+                        color: typeof st.color === 'string' ? st.color : '',
+                        position: typeof st.position === 'number' ? st.position : 0,
+                        category: typeof st.category === 'string' ? st.category : 'not_started',
+                        version: 1,
+                    }
+                    await tx.statuses.put(row)
+                    await tx.serverStatuses.put(row)
+                }
+                return true
+            }
+            if (await tx.projects.get(id)) return false
+            if (typeof body.team_id !== 'string') return false
+            await tx.projects.put({ id, team_id: body.team_id, name })
+            return true
+        })
+        if (added && isRunning()) {
+            notify()
+            if (kind === 'project' && typeof body.board_id === 'string') void fetchBoard(id, body.board_id)
+        }
+        return added
+    }
+
+    // The board seeded with a project made elsewhere, read and applied as a board.updated would
+    // be (so a board this client already holds, or has edits queued for, is handled as that
+    // frame is). A failure is left for the next hydration to repair.
+    async function fetchBoard(projectId: string, boardId: string): Promise<void> {
+        try {
+            const { data } = await deps.api.GET('/api/v1/boards/{id}', { params: { path: { id: boardId } } })
+            if (!data || !isRunning()) return
+            await applyRemote({
+                type: 'board.updated',
+                actor_id: '',
+                at: new Date().toISOString(),
+                project_id: projectId,
+                board_id: boardId,
+                board: data,
+            })
+        } catch {
+            // Offline or refused: nothing is lost, a hydration brings the board.
+        }
+    }
+
+    // team.updated / project.updated: a known id takes the name only (a rename's project carries
+    // no board and its team no statuses, so nothing else may be read from it); an unknown id is a
+    // create and is inserted.
+    function contextFrame(frame: unknown): Promise<boolean> | null {
         if (typeof frame !== 'object' || frame === null) return null
         const { type, team, project } = frame as { type?: unknown; team?: unknown; project?: unknown }
         const kind = type === 'team.updated' ? 'team' : type === 'project.updated' ? 'project' : null
         if (!kind) return null
-        const body = (kind === 'team' ? team : project) as { id?: unknown; name?: unknown } | undefined
+        const body = (kind === 'team' ? team : project) as Record<string, unknown> | undefined
         if (typeof body?.id !== 'string' || typeof body.name !== 'string') return Promise.resolve(false)
-        return setContextName(kind, body.id, body.name)
+        const { id, name } = body as { id: string; name: string }
+        return setContextName(kind, id, name).then(async (renamedRow) => {
+            if (renamedRow) return true
+            return addContext(kind, body)
+        })
     }
 
     function applyRemote(frame: unknown): Promise<boolean> {
-        const rename = contextRename(frame)
+        const rename = contextFrame(frame)
         if (rename) return rename
         const event = remote.parseEvent(frame)
         if (!event || !isRunning()) return Promise.resolve(false)
