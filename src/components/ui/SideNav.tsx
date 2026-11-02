@@ -3,6 +3,7 @@ import { createSignal, For, Show } from 'solid-js'
 
 import { Avatar } from './Avatar'
 import { Icon, ICON_PATHS, type IconName } from './icons/Icon'
+import { Popover } from './Popover'
 import { Select, type SelectOption } from './Select'
 import { SkeletonCircle, SkeletonLine } from './Skeleton'
 import { Tooltip } from './Tooltip'
@@ -89,6 +90,13 @@ type SideNavProps = {
     /** The Search button at the top of the rail (LAM-183). Absent: none. `hint` is
      *  the shortcut written beside it. */
     search?: { onClick: (button: HTMLButtonElement) => void; hint?: string }
+    /** The Settings button in the foot, above Log out (LAM-200); `hint` is the key written
+     *  beside it. The router marks it `aria-current` on /settings and `data-active` under it
+     *  (/settings/tokens), which the stylesheet reads. Absent: none. */
+    settings?: { href: string; hint?: string }
+    /** The items of the menu the profile block opens (LAM-200): `role="menuitem"` elements. Absent:
+     *  the profile is a plain label, not a button. */
+    menu?: JSX.Element
     onLogout: () => void
     /** Draw the rail's own placeholder: the profile slot and one bar per link,
      *  with nothing to click. For the moment before the session is known. */
@@ -155,10 +163,42 @@ export function SideNav(props: SideNavProps) {
                 fallback={
                     <>
                         <div class="side-nav__profile">
-                            <span class="side-nav__monogram t-meta" aria-hidden="true">
-                                {monogram(props.userName ?? '')}
-                            </span>
-                            <span class="side-nav__name t-cell">{props.userName}</span>
+                            <Show
+                                when={props.menu}
+                                fallback={
+                                    <>
+                                        <span class="side-nav__monogram t-meta" aria-hidden="true">
+                                            {monogram(props.userName ?? '')}
+                                        </span>
+                                        <span class="side-nav__name t-cell">{props.userName}</span>
+                                    </>
+                                }
+                            >
+                                {(menu) => (
+                                    <Popover
+                                        label="Account menu"
+                                        role="menu"
+                                        align="start"
+                                        presentation="auto"
+                                        trigger={(trigger) => (
+                                            <button
+                                                type="button"
+                                                class="side-nav__account"
+                                                aria-label="Account menu"
+                                                title={collapsed() ? 'Account menu' : undefined}
+                                                {...trigger}
+                                            >
+                                                <span class="side-nav__monogram t-meta" aria-hidden="true">
+                                                    {monogram(props.userName ?? '')}
+                                                </span>
+                                                <span class="side-nav__name t-cell">{props.userName}</span>
+                                            </button>
+                                        )}
+                                    >
+                                        <div class="row-menu">{menu()}</div>
+                                    </Popover>
+                                )}
+                            </Show>
                             <button
                                 type="button"
                                 class="side-nav__collapse t-meta"
@@ -290,6 +330,26 @@ export function SideNav(props: SideNavProps) {
                             <hr class="side-nav__divider" aria-hidden="true" />
                             {props.account}
                             {props.status}
+                            <Show when={props.settings}>
+                                {(settings) => (
+                                    <a
+                                        class="side-nav__link side-nav__settings t-body"
+                                        href={settings().href}
+                                        aria-keyshortcuts={settings().hint?.replace(' then ', ' ')}
+                                        title={collapsed() ? 'Settings' : undefined}
+                                    >
+                                        <Icon class="side-nav__icon" name="settings" />
+                                        <span class="side-nav__label">Settings</span>
+                                        <Show when={settings().hint}>
+                                            {(hint) => (
+                                                <kbd class="shortcut-hint side-nav__hint t-meta" aria-hidden="true">
+                                                    {hint()}
+                                                </kbd>
+                                            )}
+                                        </Show>
+                                    </a>
+                                )}
+                            </Show>
                             <Show when={props.userName}>
                                 <button
                                     type="button"

@@ -21,7 +21,7 @@ test('the page is on the first screen; the drawer opens, navigates and closes; E
     expect(box!.y + box!.height).toBeLessThan(812)
     const topbar = page.locator('.app-shell__topbar')
     await expect(topbar).toContainText('Tickets')
-    const menu = page.getByRole('button', { name: 'Menu' })
+    const menu = page.getByRole('button', { name: 'Menu', exact: true })
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
     await expect(page.getByRole('link', { name: 'Documents' })).toBeHidden()
 
@@ -30,7 +30,7 @@ test('the page is on the first screen; the drawer opens, navigates and closes; E
     await expect(menu).toHaveAttribute('aria-expanded', 'true')
     const drawer = page.locator('.app-shell__drawer')
     await expect(drawer.getByRole('link', { name: 'Documents' })).toBeVisible()
-    await expect(drawer.getByRole('link', { name: 'API tokens' })).toBeVisible()
+    await expect(drawer.getByRole('link', { name: 'Settings' })).toBeVisible()
     await expect(drawer.getByRole('button', { name: 'Log out' })).toBeVisible()
     await expect(drawer.locator(':focus')).toHaveCount(1)
     // LAM-147: the drawer is the full rail, never the icon-only one: the theme

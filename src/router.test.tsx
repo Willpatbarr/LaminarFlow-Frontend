@@ -1,5 +1,5 @@
 import { memoryHistory } from '@solidjs/router'
-import { render, screen } from '@solidjs/testing-library'
+import { render, screen, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -149,7 +149,8 @@ describe('app shell', () => {
         await screen.findByRole('heading', { name: 'Tickets' })
         const nav = screen.getByRole('navigation', { name: 'Main' })
         expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
-        expect(nav.querySelectorAll('a')).toHaveLength(8)
+        expect(nav.querySelectorAll('a')).toHaveLength(7)
+        expect(within(nav).queryByRole('link', { name: 'API tokens' })).toBeNull()
         expect(screen.getByRole('link', { name: 'Needs my review' })).toHaveAttribute('href', '/reviews')
         expect(screen.getByRole('link', { name: 'Epics' })).toHaveAttribute('href', '/epics')
         expect(screen.getByRole('link', { name: 'Sprints' })).toHaveAttribute('href', '/sprints')

@@ -73,7 +73,7 @@ test('the actions are there in the collapsed rail, and in the phone drawer', asy
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
     await page.setViewportSize({ width: 375, height: 812 })
-    await page.getByRole('button', { name: 'Menu' }).click()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
     const drawer = page.locator('.app-shell__drawer')
     await expect(drawer.getByRole('button', { name: 'New team' })).toBeVisible()
     await expect(drawer.getByRole('button', { name: /^New project in / })).toBeVisible()

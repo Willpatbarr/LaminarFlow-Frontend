@@ -149,7 +149,7 @@ test.describe('on a phone', () => {
         await expect(topbarSearch).toBeFocused()
 
         // The same button in the drawer.
-        await page.getByRole('button', { name: 'Menu' }).click()
+        await page.getByRole('button', { name: 'Menu', exact: true }).click()
         await page.locator('.app-shell__drawer').getByRole('button', { name: /^Search/ }).click()
         await expect(palette).toBeVisible()
         await page.keyboard.type(title)
