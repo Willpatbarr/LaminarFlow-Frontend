@@ -3,6 +3,8 @@ import { createSignal, For, Show } from 'solid-js'
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { ListBar, ListBars, MetaChip } from '@/components/ui/ListBar'
+import { PageActions, PageLayout } from '@/components/ui/PageLayout'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Select } from '@/components/ui/Select'
 import { session } from '@/features/auth'
@@ -36,10 +38,10 @@ export function HierarchyList(props: { kind: Kind }) {
     const title = () => info().plural[0].toUpperCase() + info().plural.slice(1)
 
     return (
-        <section class="tickets" aria-busy={busy() ? 'true' : undefined}>
-            <header class="tickets__header">
-                <h1 class="t-screen-title">{title()}</h1>
-                <Show when={!busy() && sync.projects.length > 1}>
+        <PageLayout title={<h1 class="t-screen-title">{title()}</h1>}>
+          <section class="tickets" aria-busy={busy() ? 'true' : undefined}>
+            <Show when={!busy() && sync.projects.length > 1}>
+                <div class="tickets__toolbar">
                     <div class="tickets__picker">
                         <Select
                             label="Project"
@@ -50,13 +52,13 @@ export function HierarchyList(props: { kind: Kind }) {
                             onChange={(id) => void selectProject(id)}
                         />
                     </div>
-                </Show>
-                <div class="tickets__actions">
-                    <Button disabled={busy() || !currentProject()} disabledReason={denial('ticket:write', 'create this')} onClick={() => setCreating(true)}>
-                        New {info().singular}
-                    </Button>
                 </div>
-            </header>
+            </Show>
+            <PageActions>
+                <Button disabled={busy() || !currentProject()} disabledReason={denial('ticket:write', 'create this')} onClick={() => setCreating(true)}>
+                    New {info().singular}
+                </Button>
+            </PageActions>
             <Show when={busy()}>
                 <p class="visually-hidden" role="status">
                     Loading {info().plural}…
@@ -92,7 +94,8 @@ export function HierarchyList(props: { kind: Kind }) {
                     </>
                 )}
             </Show>
-        </section>
+          </section>
+        </PageLayout>
     )
 }
 
@@ -100,20 +103,18 @@ type Item = { id: string; name: string }
 
 function ItemList(props: { label: string; kind: Kind; projectId: string; items: Item[] }) {
     return (
-        <ul class="hierarchy__list" aria-label={props.label}>
+        <ListBars label={props.label}>
             <For each={props.items} keyed={(item) => item.id}>
                 {(item) => (
-                    <li class="hierarchy__item">
-                        <a class="t-body" href={`${KINDS[props.kind].path}/${item().id}`}>
-                            {item().name}
-                        </a>
-                        <span class="hierarchy__meta t-meta">
-                            <Summary kind={props.kind} id={item().id} projectId={props.projectId} row={item()} />
-                        </span>
-                    </li>
+                    <ListBar
+                        href={`${KINDS[props.kind].path}/${item().id}`}
+                        title={item().name}
+                        meta={<Summary kind={props.kind} id={item().id} projectId={props.projectId} row={item()} />}
+                        below={<ProgressRow kind={props.kind} id={item().id} projectId={props.projectId} row={item()} />}
+                    />
                 )}
             </For>
-        </ul>
+        </ListBars>
     )
 }
 
@@ -186,8 +187,10 @@ function SprintGroupsView(props: { projectId: string; items: (Item & { start_dat
     )
 }
 
-function Summary(props: { kind: Kind; id: string; projectId: string; row: object }) {
-    const row = () => props.row as { start_date?: string | null; end_date?: string | null; target_date?: string | null }
+type SummaryProps = { kind: Kind; id: string; projectId: string; row: object }
+
+// How far along one epic, sprint or milestone is: its tickets, and how many are in a done status.
+function progressFor(props: SummaryProps) {
     const tickets = () =>
         sync.tickets.filter(
             (ticket) =>
@@ -198,30 +201,39 @@ function Summary(props: { kind: Kind; id: string; projectId: string; row: object
                       ? ticket.milestone_id === props.id
                       : ticket.sprint_ids.includes(props.id)),
         )
-    const progress = () => progressOf(tickets(), doneStatusIds(props.projectId))
+    return () => progressOf(tickets(), doneStatusIds(props.projectId))
+}
+
+const ticketsDone = (progress: { done: number; total: number }) =>
+    `${progress.done} of ${progress.total} ${progress.total === 1 ? 'ticket' : 'tickets'} done`
+
+// The facts beside the title, as chips: dates and how many tickets are done.
+function Summary(props: SummaryProps) {
+    const row = () => props.row as { start_date?: string | null; end_date?: string | null; target_date?: string | null }
+    const progress = progressFor(props)
     return (
         <>
             <Show when={props.kind === 'sprint' && (row().start_date || row().end_date)}>
-                <span>
+                <MetaChip>
                     {formatDay(row().start_date ?? null) || '…'} – {formatDay(row().end_date ?? null) || '…'}
-                </span>
+                </MetaChip>
             </Show>
             <Show when={props.kind === 'milestone' && row().target_date}>
-                <span>Target {formatDay(row().target_date ?? null)}</span>
+                <MetaChip>Target {formatDay(row().target_date ?? null)}</MetaChip>
             </Show>
-            <span>
-                {progress().total === 0
-                    ? 'No tickets'
-                    : `${progress().done} of ${progress().total} ${progress().total === 1 ? 'ticket' : 'tickets'} done`}
-            </span>
-            <span class="hierarchy__row-bar">
-                <ProgressBar
-                    done={progress().done}
-                    total={progress().total}
-                    label={`Progress of ${(props.row as { name?: string }).name ?? props.kind}`}
-                    valueText={`${progress().done} of ${progress().total} ${progress().total === 1 ? 'ticket' : 'tickets'} done`}
-                />
-            </span>
+            <MetaChip>{progress().total === 0 ? 'No tickets' : ticketsDone(progress())}</MetaChip>
         </>
+    )
+}
+
+function ProgressRow(props: SummaryProps) {
+    const progress = progressFor(props)
+    return (
+        <ProgressBar
+            done={progress().done}
+            total={progress().total}
+            label={`Progress of ${(props.row as { name?: string }).name ?? props.kind}`}
+            valueText={ticketsDone(progress())}
+        />
     )
 }

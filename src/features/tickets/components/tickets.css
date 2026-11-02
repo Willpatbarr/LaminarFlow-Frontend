@@ -4,14 +4,18 @@
    * wide child cannot push the page sideways (LAM-182). */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--s-16);
-  max-width: 760px;
 }
 
-.tickets__header {
+/* The page's own title (an h2 under a project's heading) and the project picker. */
+.tickets__toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--s-16);
+}
+
+.tickets__toolbar:not(:has(> *)) {
+  display: none;
 }
 
 /* The list's sections (header, saved-view bar, controls, groups) stacked with
@@ -19,10 +23,6 @@
 .tickets__stack {
   display: grid;
   gap: var(--s-16);
-}
-
-.tickets--list {
-  max-width: 1080px;
 }
 
 /* Epic, sprint and milestone pages (LAM-193): the tickets table has the list's
@@ -38,15 +38,6 @@
 
 .tickets__picker {
   width: 220px;
-}
-
-/* Pushed to the far end, whatever sits between it and the title. */
-.tickets__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-12);
-  margin-left: auto;
 }
 
 /* List | Board (ViewSwitch): the segmented control, with the key for the other

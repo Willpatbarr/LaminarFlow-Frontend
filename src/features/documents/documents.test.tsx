@@ -244,13 +244,15 @@ describe('the project filter is in the address (LAM-170)', () => {
         expect(names()).toEqual(['Loose note'])
     })
 
-    it('the filters, New aspect and New document share one toolbar', async () => {
+    it('the filters are one toolbar; New document is in the page header, at the right edge (LAM-201)', async () => {
         await openApp('/documents', listRoutes([], docs))
         await screen.findByRole('link', { name: 'In project' })
-        const bar = screen.getByRole('group', { name: 'Document filters and actions' })
+        const bar = screen.getByRole('group', { name: 'Document filters' })
         expect(within(bar).getByLabelText('Project')).toBeInTheDocument()
         expect(within(bar).getByLabelText('Type')).toBeInTheDocument()
-        expect(within(bar).getByRole('button', { name: 'New document' })).toBeInTheDocument()
+        const create = screen.getByRole('button', { name: 'New document' })
+        expect(create.closest('.page__header')).not.toBeNull()
+        expect(bar.contains(create)).toBe(false)
     })
 })
 

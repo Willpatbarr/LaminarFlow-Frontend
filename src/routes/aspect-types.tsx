@@ -3,6 +3,7 @@ import { Show } from 'solid-js'
 
 import { AspectTypeEditor } from '@/features/aspects/components/AspectTypeEditor'
 import { AspectTypeList } from '@/features/aspects/components/AspectTypeList'
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { isLoading, sync } from '@/sync'
 import { usePageTitle } from './pageTitle'
@@ -34,6 +35,7 @@ export function AspectTypesPage() {
     const { team, busy } = useTeam()
     const navigate = useNavigate()
     return (
+        <PageLayout>
         <section aria-busy={busy() ? 'true' : undefined}>
             <Show when={!busy()} fallback={<p class="visually-hidden" role="status">Loading aspect types…</p>}>
                 <Show when={team()} fallback={<NoTeam />}>
@@ -58,12 +60,14 @@ export function AspectTypesPage() {
                 </Show>
             </Show>
         </section>
+        </PageLayout>
     )
 }
 
 export function AspectTypePage() {
     const { params, team, busy } = useTeam()
     return (
+        <PageLayout>
         <section aria-busy={busy() ? 'true' : undefined}>
             <Show when={!busy()} fallback={<p class="visually-hidden" role="status">Loading aspect type…</p>}>
                 <Show when={team()} fallback={<NoTeam />}>
@@ -82,5 +86,6 @@ export function AspectTypePage() {
                 </Show>
             </Show>
         </section>
+        </PageLayout>
     )
 }

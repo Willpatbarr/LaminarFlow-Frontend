@@ -1,7 +1,9 @@
 import { useParams } from '@solidjs/router'
 import { Show } from 'solid-js'
 
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
+import { ProjectFrame } from '@/features/tickets/components/ProjectFrame'
 import { Board } from '@/features/tickets/components/Board'
 import { boardById, isLoading, sync } from '@/sync'
 
@@ -31,15 +33,25 @@ export function BoardPage() {
                 <Show
                     when={boardById(params.id)}
                     fallback={
-                        <>
-                            <h1 class="t-screen-title">Board not found</h1>
+                        <PageLayout title={<h1 class="t-screen-title">Board not found</h1>}>
                             <p class="t-body">
                                 This account has no such board. <a href="/">Back to tickets</a>
                             </p>
-                        </>
+                        </PageLayout>
                     }
                 >
-                    {(found) => <Board board={found()} viewer={viewer()} />}
+                    {(found) => (
+                        // The board is a wide view: the whole width, still centred, under the
+                        // same header as the project's list (LAM-201).
+                        <ProjectFrame
+                            projectId={found().project_id}
+                            name={sync.projects.find((candidate) => candidate.id === found().project_id)?.name ?? found().name}
+                            tab="tickets"
+                            size="wide"
+                        >
+                            <Board board={found()} viewer={viewer()} />
+                        </ProjectFrame>
+                    )}
                 </Show>
             </Show>
         </section>

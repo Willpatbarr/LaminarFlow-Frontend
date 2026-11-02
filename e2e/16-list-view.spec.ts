@@ -127,17 +127,23 @@ test('the list header, filter panel, sort menu and row actions are tidy', async 
     await openProject(page, world)
     await expect(page.getByRole('link', { name: /Sign in/ })).toBeVisible()
 
-    // One header row: the title, then the view switch, Edit statuses and New ticket, all on one line.
-    const title = await page.getByRole('heading', { name: 'Tickets', exact: true }).boundingBox()
+    // One header bar (LAM-201): the project's title and the view switch at the left, Edit statuses,
+    // Save view and New ticket at the right edge of the window, all inside the bar.
+    const bar = (await page.locator('.page__header').boundingBox())!
+    const viewport = page.viewportSize()!
     for (const control of [
         page.getByRole('link', { name: 'Board', exact: true }),
         page.getByRole('link', { name: 'Edit statuses' }),
+        page.getByRole('button', { name: 'Save view' }),
         page.getByRole('button', { name: /^New ticket/ }),
     ]) {
         const box = (await control.boundingBox())!
-        expect(Math.abs(box.y + box.height / 2 - (title!.y + title!.height / 2))).toBeLessThan(30)
+        expect(box.y).toBeGreaterThanOrEqual(bar.y - 1)
+        expect(box.y + box.height).toBeLessThanOrEqual(bar.y + bar.height + 1)
     }
-    // Save view sits in its own row above the list controls, not over the list.
+    const newTicket = (await page.getByRole('button', { name: /^New ticket/ }).boundingBox())!
+    expect(viewport.width - (newTicket.x + newTicket.width)).toBeLessThanOrEqual(40)
+    // Save view sits in the header, above the list controls, not over the list.
     const save = (await page.getByRole('button', { name: 'Save view' }).boundingBox())!
     const search = (await page.getByPlaceholder('Search').boundingBox())!
     expect(save.y + save.height).toBeLessThanOrEqual(search.y)

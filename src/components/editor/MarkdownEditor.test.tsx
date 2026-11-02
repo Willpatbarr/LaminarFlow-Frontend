@@ -487,3 +487,29 @@ describe('images (LAM-116)', () => {
         expect(upload).not.toHaveBeenCalled()
     })
 })
+
+// LAM-201: "- [ ] text" used to load as an item with an empty paragraph before its text (the
+// bullet stood alone, the text under it) and was saved back without its marker.
+describe('task lists', () => {
+    it('renders a task item as a checkbox beside its text, with no empty paragraph', async () => {
+        const editor = await mount('* [ ] Walk\n* [x] Slide')
+        const items = [...document.querySelectorAll('.md-editor__content ul[data-type="taskList"] > li')]
+        expect(items).toHaveLength(2)
+        expect(items.map((li) => li.querySelector('div')!.textContent)).toEqual(['Walk', 'Slide'])
+        expect(items.map((li) => li.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked)).toEqual([false, true])
+        expect(editor.getHTML()).not.toContain('<p></p>')
+    })
+
+    it('keeps the markers when it saves', async () => {
+        const onChange = vi.fn()
+        const editor = await mount('- [ ] Walk\n- [x] Slide', { onChange })
+        expect(editor.getMarkdown()).toBe('- [ ] Walk\n- [x] Slide')
+        editor.chain().focus('end').insertContent(' now').run()
+        expect(onChange).toHaveBeenLastCalledWith('- [ ] Walk\n- [x] Slide now')
+    })
+
+    it('still renders a plain list as a list, a nested list inside it', async () => {
+        const editor = await mount('- one\n- two\n  - nested')
+        expect(editor.getHTML()).toBe('<ul><li><p>one</p></li><li><p>two</p><ul><li><p>nested</p></li></ul></li></ul>')
+    })
+})

@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Sw
 
 import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { PageActions, PageLayout, PageSubnav } from '@/components/ui/PageLayout'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
 import { StatusPill } from '@/components/ui/StatusPill'
@@ -61,10 +62,12 @@ type TicketListProps = {
     heading?: 'h1' | 'h2'
 }
 
-// "Tickets", at the level the page needs (one h1 per page).
+// "Tickets", at the level the page needs (one h1 per page). On its own page
+// (h1) the title is the page header's, so this draws only the h2 a project page
+// has under its own heading.
 function ListTitle(props: { heading?: 'h1' | 'h2' }) {
     return (
-        <Show when={props.heading === 'h2'} fallback={<h1 class="t-screen-title">Tickets</h1>}>
+        <Show when={props.heading === 'h2'}>
             <h2 class="t-screen-title">Tickets</h2>
         </Show>
     )
@@ -87,6 +90,14 @@ const headersFor = (columns: string[]) => [...columns.map((field) => fieldLabel(
 // because it is the only thing that knows where those sit. The page does not
 // rearrange when the tickets arrive.
 export function TicketList(props: TicketListProps) {
+    return (
+        <Show when={props.heading === 'h2'} fallback={<PageLayout title={<h1 class="t-screen-title">Tickets</h1>}><TicketListBody {...props} /></PageLayout>}>
+            <TicketListBody {...props} />
+        </Show>
+    )
+}
+
+function TicketListBody(props: TicketListProps) {
     const busy = () => props.loading || isLoading()
     return (
         <section class="tickets tickets--list" aria-busy={busy() ? 'true' : undefined}>
@@ -126,15 +137,13 @@ const TITLE_WIDTHS: SkeletonLength[] = ['62%', '44%', '73%']
 function LoadingTickets(props: { heading?: 'h1' | 'h2' }) {
     return (
         <>
-            <header class="tickets__header">
-                <ListTitle heading={props.heading} />
-                <div class="tickets__actions">
-                    <Button disabled>
-                        <Icon name="new-ticket" size={16} />
-                        New ticket
-                    </Button>
-                </div>
-            </header>
+            <ListTitle heading={props.heading} />
+            <PageActions>
+                <Button disabled>
+                    <Icon name="new-ticket" size={16} />
+                    New ticket
+                </Button>
+            </PageActions>
             {/* The one announcement. It is visually hidden: sighted users have
                 the placeholder itself. */}
             <p class="visually-hidden" role="status">
@@ -394,7 +403,7 @@ function ProjectTickets(props: ProjectTicketsProps) {
                 el.addEventListener('click', openPanel, true)
             }}
         >
-            <header class="tickets__header">
+            <div class="tickets__toolbar">
                 <ListTitle heading={props.heading} />
                 <Show when={sync.projects.length > 1}>
                     <div class="tickets__picker">
@@ -408,22 +417,14 @@ function ProjectTickets(props: ProjectTicketsProps) {
                         />
                     </div>
                 </Show>
-                <div class="tickets__actions">
-                    <Show when={boardsForProject(props.project.id)[0]}>
-                        {(board) => (
-                            <ViewSwitch current="list" projectId={props.project.id} boardId={board().id} filter={view().config.filter} />
-                        )}
-                    </Show>
-                    <a class="button button--ghost" href={`/teams/${props.project.team_id}/settings`}>
-                        Edit statuses
-                    </a>
-                    <Button onClick={() => openDialog()} disabledReason={denial('ticket:write', 'create tickets')}>
-                        <Icon name="new-ticket" size={16} />
-                        New ticket
-                        <ShortcutHint id="ticket.new" />
-                    </Button>
-                </div>
-            </header>
+            </div>
+            <Show when={boardsForProject(props.project.id)[0]}>
+                {(board) => (
+                    <PageSubnav>
+                        <ViewSwitch current="list" projectId={props.project.id} boardId={board().id} filter={view().config.filter} />
+                    </PageSubnav>
+                )}
+            </Show>
 
             <SavedViewBar
                 layout="list"
@@ -435,6 +436,17 @@ function ProjectTickets(props: ProjectTicketsProps) {
                 onSaved={(saved) => belongTo(saved.id)}
                 onRevert={(saved) => navigate(viewUrl(saved), { replace: true })}
             />
+
+            <PageActions>
+                <a class="button button--ghost" href={`/teams/${props.project.team_id}/settings`}>
+                    Edit statuses
+                </a>
+                <Button onClick={() => openDialog()} disabledReason={denial('ticket:write', 'create tickets')}>
+                    <Icon name="new-ticket" size={16} />
+                    New ticket
+                    <ShortcutHint id="ticket.new" />
+                </Button>
+            </PageActions>
 
             <Show
                 when={projectTickets().length > 0}

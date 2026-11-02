@@ -1,0 +1,137 @@
+/* Chip-style list rows (LAM-201). Tokens only: the surface, border, radius,
+ * spacing and hover wash are the design system's. */
+.list-bars {
+  display: grid;
+  gap: var(--s-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-bar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-6) var(--s-16);
+  min-height: calc(var(--row-h) + var(--s-8));
+  padding: var(--s-8) var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background-color: var(--bg-raised);
+  color: var(--text-1);
+}
+
+/* A hover wash that does not touch the border, so the bar does not look as if
+ * it moved. The wash is a layer over the surface, in both themes. */
+.list-bar:hover:has(> .list-bar__text > .list-bar__link),
+.list-bar:has(> .list-bar__text > .list-bar__link:focus-visible) {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+}
+
+.list-bar__text {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.list-bar__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.list-bar__title:is(span) {
+  font-weight: 600;
+}
+
+/* The whole bar is the link: the anchor's own box is the title, and this
+ * stretches its hit area over the bar. */
+.list-bar__link {
+  color: var(--text-1);
+  text-decoration: none;
+}
+
+.list-bar__link:hover {
+  color: var(--text-1);
+}
+
+.list-bar__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* The ring is on the bar, where the eye is, not on the title text. */
+.list-bar__link:focus-visible {
+  outline: none;
+}
+
+.list-bar__link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.list-bar__subtitle {
+  color: var(--text-2);
+}
+
+.list-bar__meta,
+.list-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-6);
+}
+
+/* Facts are read, not clicked: a click on a chip is a click on the bar. */
+.list-bar__meta {
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+/* Their own controls stay above the stretched link. */
+.list-bar__actions {
+  position: relative;
+  z-index: 1;
+}
+
+.list-bar__below {
+  flex: 1 0 100%;
+}
+
+/* A neutral chip: on the overline of the surface, with a hairline so it shows
+ * in light, where raised and overlay are both white. */
+.meta-chip {
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-2);
+}
+
+/* A link that is a chip (Settings' "Team settings"): the same pill, clickable. */
+a.meta-chip {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a.meta-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--accent-hover);
+}
+
+/* Narrow: the chips go under the title instead of squeezing it. */
+@media (max-width: 767px) {
+  .list-bar__meta {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Touch (LAM-186): a bar is a tap target. */
+@media (pointer: coarse) {
+  .list-bar {
+    min-height: var(--touch-target);
+  }
+}

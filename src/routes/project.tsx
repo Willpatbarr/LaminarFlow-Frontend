@@ -1,9 +1,10 @@
 import { useParams } from '@solidjs/router'
 import { createEffect, Show, untrack } from 'solid-js'
 
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { DocumentList } from '@/features/documents/components/DocumentList'
-import { ProjectNameHeading } from '@/features/tickets/components/NameEditor'
+import { ProjectFrame } from '@/features/tickets/components/ProjectFrame'
 import { TicketList } from '@/features/tickets/components/TicketList'
 import { currentProject, isLoading, selectProject, sync } from '@/sync'
 
@@ -35,47 +36,35 @@ export function ProjectPage(props: { tab?: 'tickets' | 'documents' }) {
         <Show
             when={exists() || session.status === 'unknown' || isLoading()}
             fallback={
-                <section>
-                    <h1 class="t-screen-title">Project not found</h1>
+                <PageLayout title={<h1 class="t-screen-title">Project not found</h1>}>
                     <p class="t-body">
                         This account has no such project. <a href="/">Back to tickets</a>
                     </p>
-                </section>
+                </PageLayout>
             }
         >
-            <Show when={sync.projects.find((project) => project.id === params.projectId)}>
-                {(found) => <ProjectNameHeading projectId={found().id} name={found().name} />}
-            </Show>
-            <nav class="project-tabs" aria-label="Project">
-                <a
-                    href={`/projects/${params.projectId}`}
-                    aria-current={props.tab === 'documents' ? undefined : 'page'}
-                >
-                    Tickets
-                </a>{' '}
-                <a
-                    href={`/projects/${params.projectId}/documents`}
-                    aria-current={props.tab === 'documents' ? 'page' : undefined}
-                >
-                    Documents
-                </a>
-            </nav>
-            <Show
-                when={props.tab === 'documents'}
-                fallback={
-                    <TicketList
-                        viewer={viewer()}
-                        heading="h2"
-                        loading={session.status === 'unknown' || !exists() || !picked()}
-                    />
-                }
+            <ProjectFrame
+                projectId={params.projectId}
+                name={sync.projects.find((project) => project.id === params.projectId)?.name}
+                tab={props.tab ?? 'tickets'}
             >
-                <h2 class="t-screen-title">Documents</h2>
-                <DocumentList
-                    projectId={params.projectId}
-                    loading={session.status === 'unknown' || !exists()}
-                />
-            </Show>
+                <Show
+                    when={props.tab === 'documents'}
+                    fallback={
+                        <TicketList
+                            viewer={viewer()}
+                            heading="h2"
+                            loading={session.status === 'unknown' || !exists() || !picked()}
+                        />
+                    }
+                >
+                    <h2 class="t-screen-title">Documents</h2>
+                    <DocumentList
+                        projectId={params.projectId}
+                        loading={session.status === 'unknown' || !exists()}
+                    />
+                </Show>
+            </ProjectFrame>
         </Show>
     )
 }

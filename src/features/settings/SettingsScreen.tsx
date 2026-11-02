@@ -1,6 +1,7 @@
-import { createMemo, For } from 'solid-js'
+import { createMemo, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { ListBar, ListBars } from '@/components/ui/ListBar'
 import { session } from '@/features/auth'
 import { ThemeSwitch } from '@/features/theme'
 import { currentProject, sync } from '@/sync'
@@ -50,21 +51,35 @@ export function SettingsScreen() {
                 <h2 class="t-section" id="settings-teams">
                     Teams
                 </h2>
-                <ul class="settings__teams">
-                    <For each={teams()} fallback={<li class="t-meta">This account has no teams yet.</li>}>
-                        {(team) => (
-                            <li class="settings__team t-body">
-                                <span class="settings__team-name">{team.name}</span>
-                                <a href={`/teams/${team.id}/settings`} aria-label={`Team settings for ${team.name}`}>
-                                    Team settings
-                                </a>
-                                <a href={`/teams/${team.id}/aspect-types`} aria-label={`Aspect types for ${team.name}`}>
-                                    Aspect types
-                                </a>
-                            </li>
-                        )}
-                    </For>
-                </ul>
+                <Show when={teams().length > 0} fallback={<p class="t-meta">This account has no teams yet.</p>}>
+                    <ListBars label="Teams">
+                        <For each={teams()}>
+                            {(team) => (
+                                <ListBar
+                                    title={team.name}
+                                    actions={
+                                        <>
+                                            <a
+                                                class="chip meta-chip"
+                                                href={`/teams/${team.id}/settings`}
+                                                aria-label={`Team settings for ${team.name}`}
+                                            >
+                                                Team settings
+                                            </a>
+                                            <a
+                                                class="chip meta-chip"
+                                                href={`/teams/${team.id}/aspect-types`}
+                                                aria-label={`Aspect types for ${team.name}`}
+                                            >
+                                                Aspect types
+                                            </a>
+                                        </>
+                                    }
+                                />
+                            )}
+                        </For>
+                    </ListBars>
+                </Show>
             </section>
 
             <section class="settings__section" aria-labelledby="settings-tokens">

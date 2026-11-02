@@ -3,6 +3,7 @@ import { createSignal, For, onSettled, Show } from 'solid-js'
 import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { PageActions, PageLayout } from '@/components/ui/PageLayout'
 
 import { describeFailure } from '../failures'
 import { listTokens, revokeToken, type Token } from '../tokens'
@@ -57,11 +58,11 @@ export function TokensScreen() {
     })
 
     return (
+        <PageLayout title={<h1 class="t-screen-title">API tokens</h1>}>
+        <PageActions>
+            <Button onClick={() => setCreating(true)}>Create token</Button>
+        </PageActions>
         <section class="tokens" aria-busy={tokens() === null && loadFailure() === null ? 'true' : undefined}>
-            <div class="tokens__head">
-                <h1 class="t-screen-title">API tokens</h1>
-                <Button onClick={() => setCreating(true)}>Create token</Button>
-            </div>
             <p class="t-body">
                 A token lets a script act as you with only the permissions you give it. Revoke one the
                 moment it is no longer needed.
@@ -131,5 +132,6 @@ export function TokensScreen() {
                 )}
             </Show>
         </section>
+        </PageLayout>
     )
 }

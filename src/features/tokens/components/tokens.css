@@ -1,14 +1,6 @@
 .tokens {
   display: grid;
   gap: var(--s-16);
-  max-width: 960px;
-}
-
-.tokens__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-12);
 }
 
 .tokens__list {

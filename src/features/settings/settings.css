@@ -3,26 +3,6 @@
   margin-inline-start: auto;
 }
 
-.settings__teams {
-  display: grid;
-  gap: var(--s-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.settings__team {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-8) var(--s-22);
-}
-
-.settings__team-name {
-  min-width: 8rem;
-  font-weight: 600;
-}
-
 .settings__facts {
   display: grid;
   grid-template-columns: max-content 1fr;

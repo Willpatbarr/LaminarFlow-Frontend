@@ -1,7 +1,6 @@
 .status-editor {
   display: grid;
   gap: var(--s-16);
-  max-width: 760px;
 }
 
 .status-editor__list {

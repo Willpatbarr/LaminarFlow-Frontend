@@ -51,13 +51,14 @@ test('a dragged card changes status and keeps its place; the move survives a rel
     const views = page.getByRole('navigation', { name: 'View' })
     await expect(views.getByRole('link', { name: 'List', exact: true })).toHaveAttribute('aria-current', 'page')
     await views.getByRole('link', { name: 'Board', exact: true }).click()
-    await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
-    // The same switch is on the board, with the way back to the list.
+    // The same switch is on the board, with the way back to the list. The title is the project's, as on the list (LAM-201).
+    await expect(page).toHaveURL(new RegExp(`/boards/${board.id}`))
+    await expect(page.getByRole('heading', { level: 1, name: world.projectName })).toBeVisible()
     await expect(views.getByRole('link', { name: 'Board', exact: true })).toHaveAttribute('aria-current', 'page')
     await views.getByRole('link', { name: 'List', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/projects/${world.projectId}`))
     await views.getByRole('link', { name: 'Board', exact: true }).click()
-    await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`/boards/${board.id}`))
     await expect.poll(() => cardsIn(page, todoName)).toEqual(['Card one', 'Card two'])
     await expect.poll(() => cardsIn(page, doingName)).toEqual(['Card three'])
 
@@ -212,7 +213,7 @@ test('the column menu is not clipped, closes on Escape and outside click, and on
     await expect(panel(todoName)).toHaveCount(0)
 
     // An outside click closes it.
-    await page.getByRole('heading', { name: board.name }).click()
+    await page.getByRole('heading', { level: 1, name: world.projectName }).click()
     await expect(panel(doingName)).toHaveCount(0)
 })
 
@@ -283,7 +284,7 @@ test('three columns fit at 1024 px, the heading names the project, and search fi
     await signedInAs(context, alice, baseURL!)
     await page.setViewportSize({ width: 1024, height: 768 })
     await page.goto(`/boards/${board.id}`)
-    await expect(page.getByRole('heading', { level: 1, name: `${world.projectName} · ${board.name}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: world.projectName })).toBeVisible()
     await expect(column(page, world.statusNames[0])).toBeVisible()
 
     const overflow = () => page.locator('.board__columns').evaluate((el) => el.scrollWidth - el.clientWidth)

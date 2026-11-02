@@ -1,34 +1,14 @@
 .document {
   display: grid;
   gap: var(--s-16);
-  max-width: 54rem;
 }
 
 /* The page reads as a page, not a form (LAM-150): a heading you type into, the
  * text growing under it, and the controls in a panel beside it. */
-.document--page {
-  max-width: 72rem;
-  grid-template-columns: minmax(0, 1fr) 16rem;
-  align-items: start;
-  gap: var(--s-24, 24px);
-}
-
 .document__main {
   display: grid;
   gap: var(--s-16);
   min-width: 0;
-  max-width: 48rem;
-}
-
-.document__side {
-  position: sticky;
-  top: var(--s-16);
-}
-
-@media (max-width: 767px) {
-  .document--page {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .document__title {
@@ -126,7 +106,6 @@
   display: grid;
   gap: var(--s-16);
   padding: var(--s-12);
-  min-width: 15rem;
 }
 
 .document__actions-title {
@@ -134,7 +113,7 @@
   font-weight: 600;
 }
 
-.document__side .document__actions {
+.page__rail .document__actions {
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
 }
@@ -216,7 +195,6 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--s-12);
-  margin-left: auto;
 }
 
 @media (max-width: 767px) {
@@ -243,38 +221,4 @@
   .doclist__actions > .button {
     flex: 1 1 100%;
   }
-}
-
-.doclist__items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--s-8);
-}
-
-.doclist__item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s-16);
-}
-
-.doclist__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-16);
-  color: var(--text-2);
-}
-
-.project-tabs {
-  display: flex;
-  gap: var(--s-16);
-  margin-bottom: var(--s-16);
-}
-
-.project-tabs a[aria-current='page'] {
-  font-weight: 600;
-  text-decoration: none;
 }

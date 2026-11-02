@@ -42,7 +42,7 @@ test('a filtered board saved as a team view opens from a teammate\'s sidebar; a 
     // Alice filters the board to the first status and saves it for the team.
     await signedInAs(context, alice, baseURL!)
     await page.goto(`/boards/${board.id}`)
-    await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: world.projectName })).toBeVisible()
     await expect.poll(() => cardsIn(page, doingName)).toEqual(['Card three'])
 
     await page.getByText(/^Filter/).click()
@@ -84,7 +84,7 @@ test('a filtered board saved as a team view opens from a teammate\'s sidebar; a 
     await expect(nav.getByRole('link', { name: privateView })).toHaveCount(0)
     await nav.getByRole('link', { name: teamView }).click()
 
-    await expect(bobPage.getByRole('heading', { name: board.name })).toBeVisible()
+    await expect(bobPage.getByRole('heading', { level: 1, name: world.projectName })).toBeVisible()
     await expect.poll(() => cardsIn(bobPage, todoName)).toEqual(['Card one', 'Card two'])
     await expect.poll(() => cardsIn(bobPage, doingName)).toEqual([])
     await expect(bobPage.getByText(/has changed/)).toHaveCount(0)

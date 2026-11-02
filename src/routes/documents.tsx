@@ -1,5 +1,6 @@
 import { useParams } from '@solidjs/router'
 
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { documentById } from '@/sync'
 import { DocumentList } from '@/features/documents/components/DocumentList'
@@ -14,10 +15,9 @@ import { usePageTitle } from './pageTitle'
 export function DocumentsPage() {
     usePageTitle(() => 'Documents')
     return (
-        <section>
-            <h1 class="t-screen-title">Documents</h1>
+        <PageLayout title={<h1 class="t-screen-title">Documents</h1>}>
             <DocumentList loading={session.status === 'unknown'} />
-        </section>
+        </PageLayout>
     )
 }
 

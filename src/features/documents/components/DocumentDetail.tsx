@@ -41,6 +41,7 @@ import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
 import { createReviewTarget } from '../reviewTarget'
 import { DocumentConflictPanel } from './DocumentConflictPanel'
+import { PageLayout, PageRail } from '@/components/ui/PageLayout'
 import { Icon } from '@/components/ui/icons/Icon'
 import './documents.css'
 
@@ -71,13 +72,18 @@ export function DocumentDetail(props: DocumentDetailProps) {
     )
 
     return (
-        <section class="document" aria-busy={busy() ? 'true' : undefined}>
-            <p class="t-meta">
-                <a class="icon-text" href="/documents" aria-label="← Documents">
-                    <Icon name="chevron-left" size={16} />
-                    Documents
-                </a>
-            </p>
+        <PageLayout
+            size="reading"
+            title={
+                <p class="t-meta">
+                    <a class="icon-text" href="/documents" aria-label="← Documents">
+                        <Icon name="chevron-left" size={16} />
+                        Documents
+                    </a>
+                </p>
+            }
+        >
+          <section class="document" aria-busy={busy() ? 'true' : undefined}>
             <div class="document__notice t-body" aria-live="polite" aria-atomic="true">
                 {notice()}
             </div>
@@ -102,7 +108,8 @@ export function DocumentDetail(props: DocumentDetailProps) {
                     {(found) => <DocumentEditor doc={found()} routeId={props.id} accountId={props.accountId} announce={setNotice} />}
                 </Match>
             </Switch>
-        </section>
+          </section>
+        </PageLayout>
     )
 }
 
@@ -458,9 +465,7 @@ function DocumentEditor(props: DocumentEditorProps) {
             </div>
 
             <Show when={!narrow()}>
-                <aside class="document__side" aria-label="Document actions">
-                    {actions()}
-                </aside>
+                <PageRail label="Document actions">{actions()}</PageRail>
             </Show>
         </div>
     )
