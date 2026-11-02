@@ -5,6 +5,7 @@ import { Avatar } from './Avatar'
 import { Icon, ICON_PATHS, type IconName } from './icons/Icon'
 import { Select, type SelectOption } from './Select'
 import { SkeletonCircle, SkeletonLine } from './Skeleton'
+import { Tooltip } from './Tooltip'
 import { NARROW_QUERY, TABLET_QUERY, useMediaQuery } from './useNarrowScreen'
 import './SideNav.css'
 
@@ -67,7 +68,15 @@ type SideNavProps = {
     views?: SideNavLink[]
     /** Things that can be made from anywhere, one button each (LAM-105). Absent
      *  until there is a project to make them in. */
-    create?: { label: string; onClick: () => void; /** The icon of the thing made. */ icon?: IconName }[]
+    create?: {
+        label: string
+        onClick: () => void
+        /** The icon of the thing made. */
+        icon?: IconName
+        /** Why it cannot be used right now (LAM-199). The button stays, disabled, and says so
+         *  in a tooltip and in a line under the list - disabled is not hidden. */
+        disabledReason?: string
+    }[]
     /** The signed-in user. Absent while it is not known yet, which draws an
      *  empty profile slot rather than a different layout. */
     userName?: string
@@ -242,38 +251,22 @@ export function SideNav(props: SideNavProps) {
                                     <For each={props.create}>
                                         {(item) => (
                                             <li>
-                                                <button
-                                                    type="button"
-                                                    class="side-nav__link side-nav__create t-body"
-                                                    title={collapsed() ? item.label : undefined}
-                                                    onClick={() => item.onClick()}
-                                                >
-                                                    <svg
-                                                        class="side-nav__icon"
-                                                        width="20"
-                                                        height="20"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                        aria-hidden="true"
-                                                    >
-                                                        <Show when={item.icon}>
-                                                            {(icon) => (
-                                                                <g transform="scale(0.75)" stroke-width="2.6">
-                                                                    <path d={ICON_PATHS[icon()]} />
-                                                                </g>
+                                                <Show when={item.disabledReason} fallback={<CreateButton item={item} collapsed={collapsed()} />}>
+                                                    {(reason) => (
+                                                        <Tooltip text={reason()}>
+                                                            {(id) => (
+                                                                <CreateButton item={item} collapsed={collapsed()} describedBy={id} />
                                                             )}
-                                                        </Show>
-                                                        <path d={PLUS_BADGE} stroke-width="2" />
-                                                    </svg>
-                                                    <span class="side-nav__label">{item.label}</span>
-                                                </button>
+                                                        </Tooltip>
+                                                    )}
+                                                </Show>
                                             </li>
                                         )}
                                     </For>
                                 </ul>
+                                <Show when={props.create?.find((item) => item.disabledReason)?.disabledReason}>
+                                    {(reason) => <p class="side-nav__empty t-meta">{reason()}</p>}
+                                </Show>
                             </Show>
                             <Show when={props.views !== undefined}>
                                 <hr class="side-nav__divider" aria-hidden="true" />
@@ -342,6 +335,43 @@ export function SideNav(props: SideNavProps) {
                 </div>
             </Show>
         </aside>
+    )
+}
+
+type CreateItem = NonNullable<SideNavProps['create']>[number]
+
+function CreateButton(props: { item: CreateItem; collapsed: boolean; describedBy?: string }) {
+    return (
+        <button
+            type="button"
+            class="side-nav__link side-nav__create t-body"
+            title={props.collapsed && !props.describedBy ? props.item.label : undefined}
+            disabled={props.item.disabledReason !== undefined}
+            aria-describedby={props.describedBy}
+            onClick={() => props.item.onClick()}
+        >
+            <svg
+                class="side-nav__icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <Show when={props.item.icon}>
+                    {(icon) => (
+                        <g transform="scale(0.75)" stroke-width="2.6">
+                            <path d={ICON_PATHS[icon()]} />
+                        </g>
+                    )}
+                </Show>
+                <path d={PLUS_BADGE} stroke-width="2" />
+            </svg>
+            <span class="side-nav__label">{props.item.label}</span>
+        </button>
     )
 }
 

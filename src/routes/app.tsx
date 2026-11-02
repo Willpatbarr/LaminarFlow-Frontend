@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, type RouteSectionProps } from '@solidjs/router'
-import { createEffect, createMemo, createSignal, onSettled, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, onSettled, Show, type ComponentProps } from 'solid-js'
 
 import { AppShell } from '@/components/ui/AppShell'
 import { ConnectionIndicator } from '@/components/ui/ConnectionIndicator'
@@ -7,6 +7,8 @@ import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { can, logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { ThemeSwitch } from '@/features/theme'
+import { contextActions } from '@/features/hierarchy/contextActions'
+import { NewContextDialog } from '@/features/hierarchy/NewContextDialog'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
 import { filteredProjectId } from '@/features/documents/projectFilter'
 import { KINDS, type Kind } from '@/features/hierarchy/kinds'
@@ -63,6 +65,8 @@ export function AppLayout(props: RouteSectionProps) {
     const [confirmingLogout, setConfirmingLogout] = createSignal(false)
     // The epic, sprint or milestone being made from the sidebar (LAM-105).
     const [making, setMaking] = createSignal<Kind | null>(null)
+    // A team, or a project in the team in view, being made from the sidebar (LAM-199).
+    const [makingContext, setMakingContext] = createSignal<'team' | 'project' | null>(null)
     // The ticket being made from the search palette's command (LAM-115).
     const [creatingTicket, setCreatingTicket] = createSignal(false)
     // The keyboard shortcut sheet (`?`, LAM-124).
@@ -205,6 +209,26 @@ export function AppLayout(props: RouteSectionProps) {
             note: view.is_shared ? undefined : 'Private',
         }))
 
+    // The sidebar's create actions: an epic, sprint or milestone in the home project, and
+    // (LAM-199) a team, or a project in the team in view. Each is there for those who may use it.
+    const activeTeam = () => teams().find((t) => t.id === activeTeamId())
+    const createActions = () => {
+        const items: NonNullable<ComponentProps<typeof SideNav>['create']> =
+            homeProject() && can('ticket:write')
+                ? (['epic', 'sprint', 'milestone'] as const).map((kind) => ({
+                      label: `New ${KINDS[kind].singular}`,
+                      icon: kind,
+                      onClick: () => setMaking(kind),
+                  }))
+                : []
+        if (teams().length > 0) {
+            for (const action of contextActions({ can, team: activeTeam(), offline: sync.connection === 'offline' })) {
+                items.push({ label: action.label, icon: action.icon, disabledReason: action.disabledReason, onClick: () => setMakingContext(action.kind) })
+            }
+        }
+        return items.length > 0 ? items : undefined
+    }
+
     // `logout` does not reject: the store is cleared even if the request
     // failed, so landing on /login is unconditional. The guard has already
     // redirected by now, with this page as `returnTo`; going to plain /login
@@ -249,15 +273,7 @@ export function AppLayout(props: RouteSectionProps) {
                         }
                         projects={teams().length > 0 ? projectLinks() : undefined}
                         views={teams().length > 0 ? viewLinks() : undefined}
-                        create={
-                            homeProject() && can('ticket:write')
-                                ? (['epic', 'sprint', 'milestone'] as const).map((kind) => ({
-                                      label: `New ${KINDS[kind].singular}`,
-                                      icon: kind,
-                                      onClick: () => setMaking(kind),
-                                  }))
-                                : undefined
-                        }
+                        create={createActions()}
                         search={{ onClick: openPalette, hint: hintFor('palette.toggle') }}
                         userName={session.me?.display_name}
                         account={<ThemeSwitch />}
@@ -314,6 +330,27 @@ export function AppLayout(props: RouteSectionProps) {
                     onCreated={(row) => navigate(`${KINDS[making()!].path}/${row.id}`)}
                     onClose={() => setMaking(null)}
                 />
+            </Show>
+            <Show when={makingContext() === 'team' && activeTeam()}>
+                {(team) => (
+                    <NewContextDialog
+                        kind="team"
+                        workspaceId={team().workspace_id}
+                        onCreated={(id) => navigate(`/teams/${id}`)}
+                        onClose={() => setMakingContext(null)}
+                    />
+                )}
+            </Show>
+            <Show when={makingContext() === 'project' && activeTeam()}>
+                {(team) => (
+                    <NewContextDialog
+                        kind="project"
+                        teamId={team().id}
+                        teamName={team().name}
+                        onCreated={(id) => navigate(`/projects/${id}`)}
+                        onClose={() => setMakingContext(null)}
+                    />
+                )}
             </Show>
             <Show when={confirmingLogout()}>
                 <LogoutConfirm

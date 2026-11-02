@@ -190,6 +190,27 @@ describe('SideNav', () => {
 
         expect(screen.queryByRole('heading', { name: 'Saved views' })).not.toBeInTheDocument()
     })
+    describe('a create action that cannot be used (LAM-199)', () => {
+        it('stays in the list, disabled, and says why', async () => {
+            const onClick = vi.fn()
+            render(() => (
+                <SideNav
+                    links={[{ label: 'Tickets', href: '/' }]}
+                    create={[{ label: 'New team', icon: 'team', onClick, disabledReason: 'Needs a connection.' }]}
+                    userName="Ada"
+                    onLogout={() => {}}
+                />
+            ))
+            const button = screen.getByRole('button', { name: 'New team' })
+            expect(button).toBeDisabled()
+            expect(button).toHaveAccessibleDescription('Needs a connection.')
+            // Written under the list too, so a touch screen can read it.
+            expect(screen.getAllByText('Needs a connection.').length).toBeGreaterThan(1)
+            await userEvent.setup().click(button)
+            expect(onClick).not.toHaveBeenCalled()
+        })
+    })
+
     describe('collapsed', () => {
         const rail = () => (
             <SideNav

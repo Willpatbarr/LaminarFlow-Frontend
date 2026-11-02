@@ -11,7 +11,7 @@ import type { Viewer } from '../viewer'
 // Said where the button was pressed: these two calls are not queued, so there
 // is no marker or toast to carry the news and the form is the only place it can
 // go. Each kind says what to do next.
-function describeSetupFailure(error: unknown): string {
+export function describeSetupFailure(error: unknown): string {
     switch (classify(error)) {
         case 'network':
             return "Can't reach the server. Check your connection and try again."
@@ -30,7 +30,7 @@ type Stage = 'team' | 'project'
 
 // The server's refusal of a name (422 at body.name), put at the name it is
 // about. Anything else is left to describeSetupFailure.
-function refusedName(error: unknown, noun: string): string | null {
+export function refusedName(error: unknown, noun: string): string | null {
     if (classify(error) !== 'validation') return null
     const detail = (error as { errors?: { location?: string; message?: string }[] }).errors?.find(
         (candidate) => candidate.location === 'body.name',
