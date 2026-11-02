@@ -17,7 +17,8 @@ test('profile menu -> Settings -> Team settings', async ({ page, context, baseUR
 
     await expect(page).toHaveURL(/\/settings$/)
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
-    await page.getByRole('link', { name: /^Team settings for / }).click()
+    // The workspace is shared across specs and holds many teams: pick this spec's own by its link target.
+    await page.locator(`a[href="/teams/${world.teamId}/settings"]`).click()
     await expect(page).toHaveURL(new RegExp(`/teams/${world.teamId}/settings$`))
     await expect(page.getByRole('heading', { name: 'Team settings', level: 1 })).toBeVisible()
 })
