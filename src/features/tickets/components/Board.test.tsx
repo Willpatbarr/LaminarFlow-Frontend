@@ -28,7 +28,7 @@ const TICKETS = [
 
 async function open(extra: Parameters<typeof openApp>[1] = {}) {
     await openApp('/boards/b-1', { ...listRoutes(TICKETS, [], [BOARD]), ...extra })
-    return screen.findByRole('heading', { name: 'Launch · Launch board' })
+    return screen.findByRole('heading', { name: 'Launch' })
 }
 
 const titles = (column: string) =>

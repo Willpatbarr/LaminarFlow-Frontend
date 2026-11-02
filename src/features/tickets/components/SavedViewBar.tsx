@@ -3,6 +3,7 @@ import { createSignal, Show } from 'solid-js'
 import { Banner } from '@/components/ui/Banner'
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
+import { PageActions } from '@/components/ui/PageLayout'
 import { canEditSavedView, createSavedView, savedViewById, updateSavedView, type SavedView } from '@/sync'
 
 import type { ListViewConfig } from '../listView/config'
@@ -70,14 +71,8 @@ export function SavedViewBar(props: SavedViewBarProps) {
 
     return (
         <div class="saved-view-bar">
-            <div class="saved-view-bar__row">
-                <Show when={view()}>
-                    {(found) => (
-                        <p class="saved-view-bar__name t-meta">
-                            Saved view: <strong>{found().name}</strong> ({found().is_shared ? 'team' : 'private'})
-                        </p>
-                    )}
-                </Show>
+            {/* The button is in the page header, at the window's right edge (LAM-201). */}
+            <PageActions>
                 <Button
                     variant="secondary"
                     disabledReason={denial('ticket:write', 'save views')}
@@ -85,7 +80,16 @@ export function SavedViewBar(props: SavedViewBarProps) {
                 >
                     Save view
                 </Button>
-            </div>
+            </PageActions>
+            <Show when={view()}>
+                {(found) => (
+                    <div class="saved-view-bar__row">
+                        <p class="saved-view-bar__name t-meta">
+                            Saved view: <strong>{found().name}</strong> ({found().is_shared ? 'team' : 'private'})
+                        </p>
+                    </div>
+                )}
+            </Show>
             <Show when={changed() ? view() : undefined}>
                 {(found) => (
                     <Banner role="status">

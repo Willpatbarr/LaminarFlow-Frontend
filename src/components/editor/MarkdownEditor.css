@@ -44,6 +44,51 @@
 .md-editor__content ul,
 .md-editor__content ol {
   padding-left: var(--s-24, 24px);
+  /* The marker sits outside the item's text, beside its first line. */
+  list-style-position: outside;
+}
+
+/* A task list ("- [ ] text"): the checkbox is the marker, so no bullet and no list
+ * indent, and the box sits beside the first line of its text. A task list nested in
+ * a task item indents by one box. */
+.md-editor__content ul[data-type='taskList'] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.md-editor__content ul[data-type='taskList'] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+}
+
+.md-editor__content ul[data-type='taskList'] > li > label {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  /* The line is 22px; the box is centred on it. */
+  min-height: 22px;
+  user-select: none;
+}
+
+.md-editor__content ul[data-type='taskList'] > li > label > input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.md-editor__content ul[data-type='taskList'] > li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.md-editor__content ul[data-type='taskList'] > li[data-checked='true'] > div {
+  color: var(--text-2);
+}
+
+/* A list inside a list indents by its own padding, and has no gap above it. */
+.md-editor__content li > ul,
+.md-editor__content li > ol {
+  margin-top: 0;
 }
 
 .md-editor__content blockquote {

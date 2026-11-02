@@ -2,7 +2,9 @@ import { useNavigate, useParams } from '@solidjs/router'
 import { createEffect, createSignal, For, onSettled, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { ListBar, ListBars, MetaChip } from '@/components/ui/ListBar'
 import { Modal } from '@/components/ui/Modal'
+import { PageLayout } from '@/components/ui/PageLayout'
 import { can, session } from '@/features/auth'
 import { ensureMembers, memberName } from '@/features/members/members'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
@@ -43,8 +45,8 @@ export function ViewsPage() {
 
     return (
         <Show when={session.status !== 'unknown'}>
+            <PageLayout title={<h1 class="t-screen-title">Views</h1>}>
             <section aria-busy={busy() ? 'true' : undefined}>
-                <h1 class="t-screen-title">Views</h1>
                 <Show
                     when={views().length > 0}
                     fallback={
@@ -64,67 +66,47 @@ export function ViewsPage() {
                         </div>
                     }
                 >
-                    <table class="views-table">
-                        <thead>
-                            <tr>
-                                <th scope="col" class="t-overline">
-                                    Name
-                                </th>
-                                <th scope="col" class="t-overline">
-                                    Visibility
-                                </th>
-                                <th scope="col" class="t-overline">
-                                    Owner
-                                </th>
-                                <th scope="col" class="t-overline">
-                                    Updated
-                                </th>
-                                <th scope="col" class="t-overline views-table__actions">
-                                    <span class="visually-hidden">Actions</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <For each={views()} keyed={(view) => view.id}>
-                                {(view) => (
-                                    <tr>
-                                        <td class="views-table__name" data-label="Name">
-                                            <a class="t-body" href={`/views/${view().id}`}>
-                                                {view().name}
-                                            </a>
-                                            <span class="t-meta">
-                                                {view().layout === 'board' ? 'Board' : 'List'}
-                                                {teamName(view().team_id) ? ` · ${teamName(view().team_id)}` : ''}
-                                            </span>
-                                        </td>
-                                        <td class="t-body" data-label="Visibility">
-                                            {view().is_shared ? 'Team' : 'Private'}
-                                        </td>
-                                        <td class="t-body" data-label="Owner">
-                                            {ownerName(view())}
-                                        </td>
-                                        <td class="t-body" data-label="Updated">
-                                            <Show when={view().updated_at} fallback="—">
-                                                {(at) => <RelativeTime at={at()} />}
-                                            </Show>
-                                        </td>
-                                        <td class="views-table__actions">
-                                            <Show when={can('ticket:write') && canEditSavedView(view(), viewer().accountId)}>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    aria-label={`Delete ${view().name}`}
-                                                    onClick={() => setDeleting(view())}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            </Show>
-                                        </td>
-                                    </tr>
-                                )}
-                            </For>
-                        </tbody>
-                    </table>
+                    <ListBars label="All views">
+                        <For each={views()} keyed={(view) => view.id}>
+                            {(view) => (
+                                <ListBar
+                                    href={`/views/${view().id}`}
+                                    title={view().name}
+                                    subtitle={`${view().layout === 'board' ? 'Board' : 'List'}${teamName(view().team_id) ? ` · ${teamName(view().team_id)}` : ''}`}
+                                    meta={
+                                        <>
+                                            <MetaChip>
+                                                <span class="visually-hidden">Visibility: </span>
+                                                {view().is_shared ? 'Team' : 'Private'}
+                                            </MetaChip>
+                                            <MetaChip>
+                                                <span class="visually-hidden">Owner: </span>
+                                                {ownerName(view())}
+                                            </MetaChip>
+                                            <MetaChip>
+                                                <span class="visually-hidden">Updated: </span>
+                                                <Show when={view().updated_at} fallback="—">
+                                                    {(at) => <RelativeTime at={at()} />}
+                                                </Show>
+                                            </MetaChip>
+                                        </>
+                                    }
+                                    actions={
+                                        <Show when={can('ticket:write') && canEditSavedView(view(), viewer().accountId)}>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                aria-label={`Delete ${view().name}`}
+                                                onClick={() => setDeleting(view())}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </Show>
+                                    }
+                                />
+                            )}
+                        </For>
+                    </ListBars>
                 </Show>
                 <Show when={deleting()} keyed>
                     {(view) => (
@@ -146,6 +128,7 @@ export function ViewsPage() {
                     )}
                 </Show>
             </section>
+            </PageLayout>
         </Show>
     )
 }
@@ -184,6 +167,7 @@ export function ViewPage() {
 
     return (
         <Show when={session.status !== 'unknown'}>
+          <PageLayout>
             <section aria-busy={busy() ? 'true' : undefined}>
                 <Show
                     when={!busy() && !view()}
@@ -200,6 +184,7 @@ export function ViewPage() {
                     </p>
                 </Show>
             </section>
+          </PageLayout>
         </Show>
     )
 }

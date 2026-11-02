@@ -106,6 +106,11 @@
   --row-h: 34px;
   --row-hover: light-dark(rgba(0, 0, 0, 0.028), rgba(255, 255, 255, 0.028));
 
+  /* Page widths (LAM-201): the one place a page's width is decided. */
+  --page-max: 68rem;
+  --page-max-reading: 48rem;
+  --rail-w: 16rem;
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 }

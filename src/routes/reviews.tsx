@@ -1,6 +1,7 @@
 import '@/features/review/review.css'
 import { createEffect, For, Show } from 'solid-js'
 
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { loadMembers, memberName } from '@/features/members/members'
 import { loadNeedsMine, needsMine } from '@/features/review/feed'
@@ -22,6 +23,7 @@ export function ReviewsPage() {
         },
     )
     return (
+        <PageLayout>
         <section class="reviews-page">
             <h1 class="t-screen-title">Needs my review</h1>
             <Show when={needsMine().length > 0} fallback={<p class="t-body">Nothing is waiting for your review.</p>}>
@@ -44,5 +46,6 @@ export function ReviewsPage() {
                 </ul>
             </Show>
         </section>
+        </PageLayout>
     )
 }

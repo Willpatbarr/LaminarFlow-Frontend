@@ -17,8 +17,9 @@ type TableProps = {
     children: JSX.Element
 }
 
-// From the "Table Row" specimen: a raised card, a 28px overline header, rows at
-// --row-h. The row height is a token because the whole list layout is built on
+// From the "Table Row" specimen: a 28px overline header and rows at --row-h. Since
+// LAM-201 (Will's call) each row is its own rounded bar on a surface, like the other
+// lists (ListBar), not one joined card. The row height is a token because the whole list layout is built on
 // it - a row that grows with its content makes a long list unscannable.
 //
 // It is a list of links, not a <table>: every row here is one destination, and

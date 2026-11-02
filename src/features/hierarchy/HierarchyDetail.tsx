@@ -5,6 +5,7 @@ import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { PageLayout } from '@/components/ui/PageLayout'
 import { TextArea } from '@/components/ui/TextArea'
 import { session } from '@/features/auth'
 import {
@@ -55,13 +56,17 @@ export function HierarchyDetail(props: { kind: Kind; id: string; viewer: Viewer 
     const busy = () => session.status === 'unknown' || isLoading()
     const row = createMemo(() => lookup(props.kind, props.id))
     return (
-        <section class="tickets tickets--list tickets--scoped" aria-busy={busy() ? 'true' : undefined}>
-            <p class="t-meta">
-                <a class="icon-text" href={KINDS[props.kind].path} aria-label={`← ${KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}`}>
-                    <Icon name="chevron-left" size={16} />
-                    {KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}
-                </a>
-            </p>
+        <PageLayout
+            title={
+                <p class="t-meta">
+                    <a class="icon-text" href={KINDS[props.kind].path} aria-label={`← ${KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}`}>
+                        <Icon name="chevron-left" size={16} />
+                        {KINDS[props.kind].plural[0].toUpperCase() + KINDS[props.kind].plural.slice(1)}
+                    </a>
+                </p>
+            }
+        >
+        <section class="tickets tickets--scoped" aria-busy={busy() ? 'true' : undefined}>
             <Show
                 when={row()}
                 fallback={
@@ -85,6 +90,7 @@ export function HierarchyDetail(props: { kind: Kind; id: string; viewer: Viewer 
                 {(found) => <Loaded kind={props.kind} row={found()} viewer={props.viewer} />}
             </Show>
         </section>
+        </PageLayout>
     )
 }
 

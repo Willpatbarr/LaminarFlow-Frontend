@@ -125,7 +125,6 @@
 .reviews-page {
   display: grid;
   gap: var(--s-16);
-  max-width: 54rem;
 }
 
 .reviews-page__list {

@@ -3,7 +3,6 @@
 .settings {
   display: grid;
   gap: var(--s-22);
-  max-width: 54rem;
 }
 
 .settings__title {

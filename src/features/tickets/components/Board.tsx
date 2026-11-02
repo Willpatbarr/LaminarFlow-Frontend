@@ -48,6 +48,7 @@ import { ListControls } from './ListControls'
 import { SavedViewBar } from './SavedViewBar'
 import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
+import { PageSubnav } from '@/components/ui/PageLayout'
 import { ViewSwitch } from './ViewSwitch'
 import { Icon } from '@/components/ui/icons/Icon'
 import './board.css'
@@ -291,16 +292,10 @@ export function Board(props: BoardProps) {
 
     return (
         <section class="board" ref={(el) => (root = el)}>
-            <header class="board__header">
-                <p class="t-body">
-                    <a class="icon-text" href={`/projects/${props.board.project_id}`} aria-label={`← ${project()?.name ?? 'Tickets'}`}>
-                        <Icon name="chevron-left" size={16} />
-                        {project()?.name ?? 'Tickets'}
-                    </a>
-                </p>
-                <h1 class="t-screen-title">{project() ? `${project()!.name} · ${props.board.name}` : props.board.name}</h1>
+            {/* The title, the tabs and the List | Board switch are the page's header (ProjectFrame, LAM-201). */}
+            <PageSubnav>
                 <ViewSwitch current="board" projectId={props.board.project_id} boardId={props.board.id} filter={config().filter} />
-            </header>
+            </PageSubnav>
 
             <Show when={project()} keyed>
                 {(found) => (

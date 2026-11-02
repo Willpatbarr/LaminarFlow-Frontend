@@ -5,6 +5,8 @@ import { api } from '@/api/client'
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/icons/Icon'
+import { ListBar, ListBars, MetaChip } from '@/components/ui/ListBar'
+import { PageActions } from '@/components/ui/PageLayout'
 import { Select } from '@/components/ui/Select'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { isLoading, sync, type Doc } from '@/sync'
@@ -109,7 +111,7 @@ export function DocumentList(props: DocumentListProps) {
 
     return (
         <div class="doclist" aria-busy={busy() ? 'true' : undefined}>
-            <div class="doclist__toolbar" role="group" aria-label="Document filters and actions">
+            <div class="doclist__toolbar" role="group" aria-label="Document filters">
                 <Show when={props.projectId === undefined}>
                     <div class="doclist__select">
                         <Select
@@ -151,6 +153,8 @@ export function DocumentList(props: DocumentListProps) {
                         </Button>
                     </Show>
                 </div>
+            </div>
+            <PageActions>
                 <div class="doclist__actions">
                     <Show when={Object.keys(aspectNames()).length > 0}>
                         <div class="doclist__select">
@@ -179,8 +183,8 @@ export function DocumentList(props: DocumentListProps) {
                         <Icon name="file-add" size={16} />
                         New document
                     </Button>
-                </div>
-            </div>
+                    </div>
+            </PageActions>
             <Show when={busy()}>
                 <p class="visually-hidden" role="status">
                     Loading documents…
@@ -195,30 +199,31 @@ export function DocumentList(props: DocumentListProps) {
                         </p>
                     }
                 >
-                    <ul class="doclist__items" aria-label="Documents">
+                    <ListBars label="Documents">
                         <For each={shown()} keyed={(document) => document.id}>
                             {(document) => (
-                                <li class="doclist__item">
-                                    <a class="t-body" href={`/documents/${document().id}`}>
-                                        {docTitle(document())}
-                                    </a>
-                                    <span class="doclist__meta t-meta">
-                                        <Show when={props.projectId === undefined}>
-                                            <span>{projectName(document().project_id) ?? 'Team-wide'}</span>
-                                        </Show>
-                                        <span>
-                                            {document().type === 'aspect'
-                                                ? (aspectNames()[document().aspect_type_id ?? ''] ?? 'Aspect')
-                                                : 'Document'}
-                                        </span>
-                                        <span>
-                                            Updated <RelativeTime at={document().updated_at} />
-                                        </span>
-                                    </span>
-                                </li>
+                                <ListBar
+                                    href={`/documents/${document().id}`}
+                                    title={docTitle(document())}
+                                    meta={
+                                        <>
+                                            <Show when={props.projectId === undefined}>
+                                                <MetaChip>{projectName(document().project_id) ?? 'Team-wide'}</MetaChip>
+                                            </Show>
+                                            <MetaChip>
+                                                {document().type === 'aspect'
+                                                    ? (aspectNames()[document().aspect_type_id ?? ''] ?? 'Aspect')
+                                                    : 'Document'}
+                                            </MetaChip>
+                                            <MetaChip>
+                                                Updated <RelativeTime at={document().updated_at} />
+                                            </MetaChip>
+                                        </>
+                                    }
+                                />
                             )}
                         </For>
-                    </ul>
+                    </ListBars>
                 </Show>
             </Show>
         </div>

@@ -1,5 +1,6 @@
 import { useParams } from '@solidjs/router'
 
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { ticketById } from '@/sync'
 import { TicketDetail } from '@/features/tickets/components/TicketDetail'
@@ -15,5 +16,9 @@ export function TicketPage() {
         const found = ticketById(params.id)
         return found ? found.title.trim() || 'Untitled ticket' : undefined
     })
-    return <TicketDetail id={params.id} viewer={viewer()} loading={session.status === 'unknown'} />
+    return (
+        <PageLayout>
+            <TicketDetail id={params.id} viewer={viewer()} loading={session.status === 'unknown'} />
+        </PageLayout>
+    )
 }

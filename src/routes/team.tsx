@@ -1,6 +1,8 @@
 import { useParams } from '@solidjs/router'
 import { For, Show } from 'solid-js'
 
+import { ListBar, ListBars } from '@/components/ui/ListBar'
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { isLoading, sync } from '@/sync'
 import { usePageTitle } from './pageTitle'
@@ -14,6 +16,7 @@ export function TeamPage() {
     usePageTitle(() => (team() ? team()!.name : undefined))
     const busy = () => session.status === 'unknown' || isLoading()
     return (
+        <PageLayout>
         <section aria-busy={busy() ? 'true' : undefined}>
             <Show
                 when={!busy()}
@@ -41,22 +44,21 @@ export function TeamPage() {
                                 <a href={`/teams/${found().id}/settings`}>Team settings</a>
                             </p>
                             <h2 class="t-body">Projects</h2>
-                            <ul>
-                                <For
-                                    each={projects()}
-                                    fallback={<li class="t-body">This team has no projects yet.</li>}
-                                >
-                                    {(project) => (
-                                        <li>
-                                            <a href={`/projects/${project.id}`}>{project.name}</a>
-                                        </li>
-                                    )}
-                                </For>
-                            </ul>
+                            <Show
+                                when={projects().length > 0}
+                                fallback={<p class="t-body">This team has no projects yet.</p>}
+                            >
+                                <ListBars label="Projects">
+                                    <For each={projects()}>
+                                        {(project) => <ListBar href={`/projects/${project.id}`} title={project.name} />}
+                                    </For>
+                                </ListBars>
+                            </Show>
                         </>
                     )}
                 </Show>
             </Show>
         </section>
+        </PageLayout>
     )
 }

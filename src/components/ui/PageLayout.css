@@ -1,0 +1,128 @@
+/* The page frame (LAM-201). The header bar spans the content area; the body is
+ * centred under it; the rail sits at the right edge. The widths are tokens in
+ * src/index.css (--page-max, --page-max-reading, --rail-w). Pages set none of
+ * their own. */
+.page {
+  display: grid;
+  gap: var(--s-16);
+  min-width: 0;
+  container: page / inline-size;
+}
+
+.page--default {
+  --page-width: var(--page-max);
+}
+
+.page--reading {
+  --page-width: var(--page-max-reading);
+}
+
+.page--wide {
+  --page-width: 100%;
+}
+
+.page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-12) var(--s-16);
+  min-width: 0;
+}
+
+.page__title {
+  display: grid;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+/* Nothing in the slot, nothing on screen. */
+.page__subnav:empty {
+  display: none;
+}
+
+.page__subnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8) var(--s-16);
+}
+
+.page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-12);
+  /* Pushed to the window's edge when the title is short. */
+  margin-left: auto;
+}
+
+.page__actions:empty {
+  display: none;
+}
+
+/* What <Portal> wraps its children in must not become one big flex item. */
+.page__actions > div,
+.page__subnav > div {
+  display: contents;
+}
+
+.page__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-16) var(--s-22);
+  min-width: 0;
+}
+
+.page__body {
+  width: 100%;
+  max-width: var(--page-width);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.page__rail {
+  min-width: 0;
+}
+
+.page__rail:empty {
+  display: none;
+}
+
+.page__rail > div {
+  display: contents;
+}
+
+/* Beside the body, from 768px up: the body takes what the rail leaves. */
+@container page (min-width: 44rem) {
+  .page__main:has(> .page__rail:not(:empty)) {
+    grid-template-columns: minmax(0, 1fr) var(--rail-w);
+    align-items: start;
+  }
+
+  .page__main:has(> .page__rail:not(:empty)) > .page__rail {
+    position: sticky;
+    top: var(--s-16);
+  }
+}
+
+/* Wide enough for the body to be centred in the whole width with the rail at
+ * the edge: a spacer as wide as the rail on the left, the body, then the rail. */
+@container page (min-width: 84rem) {
+  .page__main:has(> .page__rail:not(:empty)) {
+    grid-template-columns: minmax(var(--rail-w), 1fr) minmax(0, var(--page-width)) minmax(var(--rail-w), 1fr);
+  }
+
+  .page__main:has(> .page__rail:not(:empty)) > .page__body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .page__main:has(> .page__rail:not(:empty)) > .page__rail {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    width: var(--rail-w);
+  }
+}

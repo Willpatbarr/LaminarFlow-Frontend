@@ -1,6 +1,7 @@
 import { useParams } from '@solidjs/router'
 import { Show, untrack } from 'solid-js'
 
+import { PageLayout } from '@/components/ui/PageLayout'
 import { session } from '@/features/auth'
 import { TeamNameField } from '@/features/tickets/components/NameEditor'
 import { LabelEditor } from '@/features/tickets/components/LabelEditor'
@@ -25,6 +26,7 @@ export function TeamSettingsPage() {
     const labelsOpen = untrack(() => !narrow())
     const busy = () => session.status === 'unknown' || isLoading()
     return (
+        <PageLayout>
         <section aria-busy={busy() ? 'true' : undefined}>
             <Show
                 when={!busy()}
@@ -90,5 +92,6 @@ export function TeamSettingsPage() {
                 </Show>
             </Show>
         </section>
+        </PageLayout>
     )
 }

@@ -1,0 +1,10 @@
+/* The project's tabs (Tickets | Documents), in the page header's row under the title. */
+.project-tabs {
+  display: flex;
+  gap: var(--s-16);
+}
+
+.project-tabs a[aria-current='page'] {
+  font-weight: 600;
+  text-decoration: none;
+}

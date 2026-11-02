@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
 import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
 import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
@@ -173,6 +174,11 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                 }),
                 LinkOrChip.configure({ openOnClick: false, protocols: LINK_PROTOCOLS, autolink: true }),
                 Markdown,
+                // "- [ ] text" is Markdown (GFM) and arrives from API clients. Without these it loaded as
+                // an item with an empty paragraph before its text and was saved back without its
+                // marker (LAM-201).
+                TaskList,
+                TaskItem.configure({ nested: true }),
                 InternalLink,
                 LinkSuggest.configure({ onSession: setSession, onKey: onLinkKey }),
                 MarkdownPaste,

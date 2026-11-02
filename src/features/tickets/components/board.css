@@ -4,16 +4,6 @@
   min-width: 0;
 }
 
-.board__header {
-  display: grid;
-  gap: var(--s-4);
-}
-
-.board__header .view-switch {
-  justify-self: start;
-  margin-top: var(--s-8);
-}
-
 .board__problem {
   color: var(--rust-fg);
 }
