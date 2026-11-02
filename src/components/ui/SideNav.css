@@ -24,6 +24,40 @@
   padding: 0 var(--s-8);
 }
 
+/* The profile as a button that opens the account menu (LAM-200): it fills the
+ * block and looks like the plain profile until hovered. */
+.side-nav__account {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s-8);
+  min-width: 0;
+  min-height: var(--s-32);
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: var(--r-card);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.side-nav__account:hover,
+.side-nav__account[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--text-1) 10%, transparent);
+}
+
+.side-nav__account:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.side-nav--collapsed .side-nav__account {
+  flex: none;
+  justify-content: center;
+}
+
 /* TopNavBar's profile circle. */
 .side-nav__monogram {
   display: inline-flex;
@@ -93,7 +127,8 @@
   background: transparent;
 }
 
-.side-nav__link[aria-current='page'] {
+.side-nav__link[aria-current='page'],
+.side-nav__settings[data-active] {
   color: var(--text-1);
 }
 
@@ -278,7 +313,8 @@
     height: var(--touch-target);
   }
 
-  .side-nav__profile {
+  .side-nav__profile,
+  .side-nav__account {
     min-height: var(--touch-target);
   }
 

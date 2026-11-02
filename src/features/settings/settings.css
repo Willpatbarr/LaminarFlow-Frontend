@@ -1,0 +1,50 @@
+/* LAM-200: the key beside "Settings" in the account menu, pushed to the end of the row. */
+.row-menu__item > .shortcut-hint {
+  margin-inline-start: auto;
+}
+
+.settings__teams {
+  display: grid;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings__team {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8) var(--s-22);
+}
+
+.settings__team-name {
+  min-width: 8rem;
+  font-weight: 600;
+}
+
+.settings__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s-4) var(--s-22);
+  margin: 0;
+}
+
+.settings__facts dt {
+  color: var(--text-2);
+}
+
+.settings__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A link as a menu row looks like the button rows: no underline, the row's own colour. */
+a.row-menu__item {
+  color: var(--text-1);
+  text-decoration: none;
+}
+
+a.row-menu__item .shortcut-hint {
+  text-decoration: none;
+}

@@ -7,6 +7,8 @@ import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { SideNav, type SideNavLink } from '@/components/ui/SideNav'
 import { can, logout, RequireAuth, SessionExpiredBanner, SessionUnreachable, session } from '@/features/auth'
 import { ThemeSwitch } from '@/features/theme'
+import { AccountMenuItems } from '@/features/settings/AccountMenuItems'
+import { LeaveContext } from '@/features/settings/leave'
 import { contextActions } from '@/features/hierarchy/contextActions'
 import { NewContextDialog } from '@/features/hierarchy/NewContextDialog'
 import { NewHierarchyDialog } from '@/features/hierarchy/NewHierarchyDialog'
@@ -38,7 +40,6 @@ const LINKS: SideNavLink[] = [
     { label: 'Documents', href: '/documents', icon: 'document' },
     { label: 'Needs my review', href: '/reviews', icon: 'review' },
     { label: 'Views', href: '/views', icon: 'views' },
-    { label: 'API tokens', href: '/settings/tokens', icon: 'key' },
 ]
 
 // The layout every signed-in route renders inside; login and sign-up are
@@ -160,6 +161,7 @@ export function AppLayout(props: RouteSectionProps) {
     useShortcut('help.open', () => setHelping(true))
     useShortcut('nav.tickets', () => navigate('/'))
     useShortcut('nav.documents', () => navigate('/documents'))
+    useShortcut('nav.settings', () => navigate('/settings'))
     useShortcut(
         'nav.board',
         () => navigate(`/boards/${homeBoard()!.id}`),
@@ -189,6 +191,8 @@ export function AppLayout(props: RouteSectionProps) {
             const owner = found && sync.projects.find((p) => p.id === found.project_id)
             return owner ? `${owner.name} · Board` : 'Board'
         }
+        if (path === '/settings/tokens') return 'API tokens'
+        if (path === '/settings') return 'Settings'
         if (path.startsWith('/tickets/')) return 'Ticket'
         if (path.startsWith('/teams/')) return 'Team'
         return 'LaminarFlow'
@@ -277,6 +281,11 @@ export function AppLayout(props: RouteSectionProps) {
                         search={{ onClick: openPalette, hint: hintFor('palette.toggle') }}
                         userName={session.me?.display_name}
                         account={<ThemeSwitch />}
+                        settings={{
+                            href: '/settings',
+                            hint: hintFor('nav.settings'),
+                        }}
+                        menu={<AccountMenuItems onLogout={askToLeave} />}
                         loading={stillAsking()}
                         status={
                             <Show when={sync.active && !narrow()}>{statusRows()}</Show>
@@ -304,9 +313,11 @@ export function AppLayout(props: RouteSectionProps) {
                     </Show>
                 }
             >
-                <Show when={unreachable()} fallback={props.children}>
-                    <SessionUnreachable />
-                </Show>
+                <LeaveContext value={askToLeave}>
+                    <Show when={unreachable()} fallback={props.children}>
+                        <SessionUnreachable />
+                    </Show>
+                </LeaveContext>
             </AppShell>
             <CommandPalette
                 documentTarget={() => ({ projectId: projectInView() })}

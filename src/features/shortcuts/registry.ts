@@ -61,6 +61,7 @@ export const SHORTCUTS = [
     { id: 'help.open', keys: '?', label: 'Show keyboard shortcuts', scope: 'global' },
     { id: 'nav.tickets', keys: 'g t', label: 'Go to tickets', scope: 'global' },
     { id: 'nav.documents', keys: 'g d', label: 'Go to documents', scope: 'global' },
+    { id: 'nav.settings', keys: 'g s', label: 'Go to settings', scope: 'global' },
     { id: 'nav.board', keys: 'g b', label: 'Go to the board', scope: 'global' },
     { id: 'ticket.new', keys: 'c', label: 'New ticket', scope: 'global', permission: 'ticket:write' },
     { id: 'ticket.create', keys: 'mod+enter', label: 'Create the ticket, from any field of the New ticket dialog', scope: 'global', permission: 'ticket:write', local: true },
