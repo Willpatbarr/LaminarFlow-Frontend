@@ -22,6 +22,7 @@ test('a second team and a project in it are made from the sidebar and survive a 
     await teamDialog.getByLabel('Name').press('Enter')
     await expect(teamDialog).toBeHidden()
     await expect(page).toHaveURL(/\/teams\/[^/]+$/)
+    const teamUrl = page.url()
     await expect(rail.getByRole('combobox', { name: 'Team' })).toContainText(teamName)
 
     // The project goes into the team in view, and the button says which.
@@ -33,13 +34,14 @@ test('a second team and a project in it are made from the sidebar and survive a 
     await expect(page).toHaveURL(/\/projects\/[^/]+$/)
     await expect(rail.getByRole('link', { name: projectName })).toBeVisible()
 
-    // On the server, in the right team.
-    const teams = async () => (await account.api.POST('/api/v1/teams/list', { body: {} })).data?.items ?? []
-    await expect.poll(async () => (await teams()).some((t) => t.name === teamName)).toBe(true)
-    const team = (await teams()).find((t) => t.name === teamName)!
+    // On the server, in the right team. Read by id: a list is paged and the workspace is shared.
+    const teamId = /\/teams\/([^/]+)$/.exec(teamUrl)![1]
+    const projectId = /\/projects\/([^/]+)$/.exec(page.url())![1]
+    const team = (await account.api.GET('/api/v1/teams/{id}', { params: { path: { id: teamId } } })).data!
+    expect(team.name).toBe(teamName)
     expect(team.statuses).toHaveLength(3)
-    const projects = (await account.api.POST('/api/v1/projects/list', { body: {} })).data?.items ?? []
-    expect(projects.find((p) => p.name === projectName)?.team_id).toBe(team.id)
+    const project = (await account.api.GET('/api/v1/projects/{id}', { params: { path: { id: projectId } } })).data!
+    expect(project).toMatchObject({ name: projectName, team_id: teamId })
 
     // A name already taken is shown on the field and the dialog stays.
     await rail.getByRole('button', { name: 'New team' }).click()

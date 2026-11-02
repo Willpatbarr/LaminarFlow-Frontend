@@ -1119,9 +1119,10 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
 
     // A team or project this client has not heard of arrives whole (LAM-199): created by someone
     // else, or by the MCP tools. A team brings its seeded statuses with it, since no status.*
-    // frame is sent for them. The frame is enough to show the row at once; a hydration is then
-    // asked for, which also brings a new project's board (the frame carries only its id) and
-    // repairs a list that was on the wire before the row existed.
+    // frame is sent for them. The frame is enough to show the row at once. Never a
+    // hydration: that re-lists the whole workspace, which a busy workspace answers slowly, and it
+    // would run once per frame. A new project's board (the frame carries only its id and
+    // columns) is the one thing fetched, and only that board.
     async function addContext(kind: 'team' | 'project', body: Record<string, unknown>): Promise<boolean> {
         if (!isRunning()) return false
         const id = body.id as string
@@ -1155,9 +1156,29 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         })
         if (added && isRunning()) {
             notify()
-            void hydrate()
+            if (kind === 'project' && typeof body.board_id === 'string') void fetchBoard(id, body.board_id)
         }
         return added
+    }
+
+    // The board seeded with a project made elsewhere, read and applied as a board.updated would
+    // be (so a board this client already holds, or has edits queued for, is handled as that
+    // frame is). A failure is left for the next hydration to repair.
+    async function fetchBoard(projectId: string, boardId: string): Promise<void> {
+        try {
+            const { data } = await deps.api.GET('/api/v1/boards/{id}', { params: { path: { id: boardId } } })
+            if (!data || !isRunning()) return
+            await applyRemote({
+                type: 'board.updated',
+                actor_id: '',
+                at: new Date().toISOString(),
+                project_id: projectId,
+                board_id: boardId,
+                board: data,
+            })
+        } catch {
+            // Offline or refused: nothing is lost, a hydration brings the board.
+        }
     }
 
     // team.updated / project.updated: a known id takes the name only (a rename's project carries

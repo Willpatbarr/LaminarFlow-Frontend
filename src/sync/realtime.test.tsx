@@ -12,6 +12,7 @@ import {
     manualConnectivity,
     manualTimer,
     manualVisibility,
+    BOARD,
     ME,
     page,
     ticket,
@@ -341,21 +342,25 @@ describe('a team or project created elsewhere (LAM-199)', () => {
         const teams = [{ id: 'team-1', workspace_id: 'ws-1', name: 'Team' }] as Record<string, unknown>[]
         const projects = [{ id: 'p-1', team_id: 'team-1', name: 'Project' }] as Record<string, unknown>[]
         const base = listRoutes([ticket()])
-        await open({
+        const board = { ...BOARD, id: 'b-2', project_id: 'p-2', name: 'Runtime board', columns: [] }
+        const { lists } = await open({
             ...base,
             'POST /api/v1/teams/list': () => page(teams),
             'POST /api/v1/projects/list': () => page(projects),
+            'GET /api/v1/boards/b-2': () => ok(board),
         })
         await settled(() => expect(sync.hydrated).toBe(true))
         FakeWebSocket.last.hello()
         const known = sync.teams.length
+        // Going live catches up with a hydration of its own; let that finish before counting.
+        await settled(() => expect(sync.connection).toBe('live'))
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        const passes = lists()
 
         const statuses = [
             { id: 'st-a', name: 'To Do', color: 'slate', position: 1, category: 'not_started' },
             { id: 'st-b', name: 'Done', color: 'green', position: 2, category: 'done' },
         ]
-        // The server commits before it announces, so its next list already has the rows.
-        teams.push({ id: 'team-2', workspace_id: 'ws-1', name: 'Growth', statuses })
         FakeWebSocket.last.receive({
             type: 'team.updated',
             team_id: 'team-2',
@@ -367,7 +372,6 @@ describe('a team or project created elsewhere (LAM-199)', () => {
         expect(sync.teams.find((t) => t.id === 'team-2')).toMatchObject({ workspace_id: 'ws-1', name: 'Growth' })
         await settled(() => expect(sync.statuses.filter((st) => st.team_id === 'team-2').map((st) => st.id).sort()).toEqual(['st-a', 'st-b']))
 
-        projects.push({ id: 'p-2', team_id: 'team-2', name: 'Runtime' })
         FakeWebSocket.last.receive({
             type: 'project.updated',
             project_id: 'p-2',
@@ -377,5 +381,9 @@ describe('a team or project created elsewhere (LAM-199)', () => {
             project: { id: 'p-2', team_id: 'team-2', name: 'Runtime', board_id: 'b-2', columns: [] },
         })
         await settled(() => expect(sync.projects.find((p) => p.id === 'p-2')).toMatchObject({ team_id: 'team-2', name: 'Runtime' }))
+        // Its board is fetched alone, and nothing is re-listed: a hydration of a busy workspace
+        // is slow, and one ran per frame.
+        await settled(() => expect(sync.boards.find((b) => b.id === 'b-2')).toMatchObject({ project_id: 'p-2', name: 'Runtime board' }))
+        expect(lists()).toBe(passes)
     })
 })
