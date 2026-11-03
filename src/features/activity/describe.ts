@@ -13,7 +13,8 @@ import type { ActivityEntry } from "@/sync";
 // (a deleted label, say) is said as "one that was removed", not guessed at.
 // A status change also carries the status names as they were at the time (LAM-137):
 // those win, then the live name (rows from before names were stored), then "a deleted
-// status".
+// status". Sprint entries (LAM-204) carry the sprint's name as it was at the time and
+// no live lookup is needed: the name is always stored.
 
 export type Names = {
   /** The viewer's own account id: said as "You". */
@@ -73,6 +74,10 @@ export function describe(entry: ActivityEntry, names: Names): string {
       return `${who} added the label ${lookup(names.label, after, "one that was removed")}`;
     case "label_removed":
       return `${who} removed the label ${lookup(names.label, before, "one that was removed")}`;
+    case "sprint_added":
+      return `${who} added this to sprint ${entry.name_after ?? "a deleted sprint"}`;
+    case "sprint_removed":
+      return `${who} removed this from sprint ${entry.name_before ?? "a deleted sprint"}`;
     case "aspect_type_changed":
       if (after === null) return `${who} made this a normal document`;
       return before === null

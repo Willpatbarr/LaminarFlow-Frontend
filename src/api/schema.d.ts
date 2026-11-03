@@ -1431,7 +1431,7 @@ export interface paths {
         put?: never;
         /**
          * Put a ticket in a sprint
-         * @description The ticket must be a live ticket of the sprint's project, or a 422 `ticket_not_found` at `body.ticket_id`. A ticket can be in a sprint and an epic at once, and in several sprints. Joining is a change to the ticket: its `version` rises by one and it is announced as `ticket.updated`. A ticket that is already in the sprint is a success that writes and announces nothing.
+         * @description The ticket must be a live ticket of the sprint's project, or a 422 `ticket_not_found` at `body.ticket_id`. A ticket can be in a sprint and an epic at once, and in several sprints. Joining is a change to the ticket: its `version` rises by one and it is announced as `ticket.updated`, followed by an `activity.created` for a `sprint_added` entry in the ticket's history (the sprint's id and its name at the time). A ticket that is already in the sprint is a success that writes and announces nothing.
          */
         post: operations["add-ticket-to-sprint"];
         delete?: never;
@@ -1452,7 +1452,7 @@ export interface paths {
         post?: never;
         /**
          * Take a ticket out of a sprint
-         * @description A ticket that is not in the sprint is a success that writes and announces nothing. Leaving is a change to the ticket: its `version` rises by one and it is announced as `ticket.updated` (an archived ticket is taken out without either).
+         * @description A ticket that is not in the sprint is a success that writes and announces nothing. Leaving is a change to the ticket: its `version` rises by one and it is announced as `ticket.updated`, followed by `activity.created` for a `sprint_removed` history entry (an archived ticket is taken out without any of these).
          */
         delete: operations["remove-ticket-from-sprint"];
         options?: never;
@@ -1777,17 +1777,17 @@ export interface components {
             field: string | null;
             id: string;
             /**
-             * @description What happened. Document entries are only created, archived, unarchived, aspect_type_changed and field_changed.
+             * @description What happened. sprint_added and sprint_removed (LAM-204) are ticket-only. Document entries are only created, archived, unarchived, aspect_type_changed and field_changed.
              * @enum {string}
              */
-            kind: "created" | "status_changed" | "assignee_changed" | "parent_changed" | "label_added" | "label_removed" | "archived" | "unarchived" | "aspect_type_changed" | "field_changed";
-            /** @description Only for status_changed: the name of the status in summary_after, in the same form. */
+            kind: "created" | "status_changed" | "assignee_changed" | "parent_changed" | "label_added" | "label_removed" | "archived" | "unarchived" | "aspect_type_changed" | "field_changed" | "sprint_added" | "sprint_removed";
+            /** @description For status_changed the name of the status in summary_after, for sprint_added the name of the sprint, in the same form. */
             name_after: string | null;
-            /** @description Only for status_changed: the name of the status in summary_before as it was when the change happened (a later rename does not change it). Null for other kinds, for no status, and for old entries whose status was already deleted before names were stored. */
+            /** @description For status_changed the name of the status in summary_before, for sprint_removed the name of the sprint, as it was when the change happened (a later rename does not change it). Null for other kinds, for no status, and for old entries whose status was already deleted before names were stored. */
             name_before: string | null;
-            /** @description The value after the change, in the same form. label_added carries the label id here. */
+            /** @description The value after the change, in the same form. label_added carries the label id here, sprint_added the sprint id. */
             summary_after: string | null;
-            /** @description The value before the change; null for none. status_changed, assignee_changed, parent_changed (the epic), label_removed, aspect_type_changed and milestone carry the id of the thing, so they stay true after a rename. title and description carry the text, cut to 200 characters. A document's fields carry the sorted ids of the fields that had a value. */
+            /** @description The value before the change; null for none. status_changed, assignee_changed, parent_changed (the epic), label_removed, aspect_type_changed and milestone carry the id of the thing, so they stay true after a rename. sprint_removed carries the sprint id here. title and description carry the text, cut to 200 characters. A document's fields carry the sorted ids of the fields that had a value. */
             summary_before: string | null;
         };
         AddColumnInputBody: {
