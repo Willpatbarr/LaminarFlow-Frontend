@@ -23,7 +23,8 @@ import './activity.css'
 // change feed put new lines at the top. Offline, or when the history cannot be
 // had, it says so (with Retry) and the page carries on. Until the first answer
 // there is a placeholder, so a slow load is not mistaken for an empty history
-// (LAM-168); "No activity yet" is said only once the server has answered. The log stores ids; names are
+// (LAM-168); while the row is still under a temporary id (nothing to ask for) it says
+// when the history will appear, instead of leaving the heading bare (LAM-208); "No activity yet" is said only once the server has answered. The log stores ids; names are
 // looked up in the local stores and the member list. The entity's history is
 // hidden by the server while it is archived (404), which reads as "no history".
 
@@ -160,6 +161,9 @@ export function ActivityFeed(props: ActivityFeedProps) {
                     <SkeletonLine width="55%" />
                     <SkeletonLine width="62%" />
                 </div>
+            </Show>
+            <Show when={isTempId(entityId())}>
+                <p class="activity__none t-meta">History appears once this ticket is saved.</p>
             </Show>
             <Show when={entries().length > 0}>
                 <ol class="activity__list">
