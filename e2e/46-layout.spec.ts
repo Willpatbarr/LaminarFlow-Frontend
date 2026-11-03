@@ -99,7 +99,15 @@ test('at 1818px the body is centred and the page buttons are at the right edge, 
     const pages: [string, () => Promise<void>, string | null][] = [
         [`/projects/${world.projectId}`, () => expect(page.getByRole('button', { name: /^New ticket/ })).toBeEnabled(), 'New ticket'],
         [`/boards/${boardId}`, () => expect(page.getByRole('button', { name: /^New ticket/ })).toBeEnabled(), 'New ticket'],
-        ['/documents', () => expect(page.getByRole('button', { name: 'New document' })).toBeEnabled(), 'New document'],
+        [
+            '/documents',
+            async () => {
+                await expect(page.getByRole('button', { name: 'New document' })).toBeEnabled()
+                // The aspect types arrive after the page; the caret is part of the split button.
+                await expect(page.getByRole('button', { name: 'New aspect: choose a type' })).toBeVisible()
+            },
+            'New document',
+        ],
         ['/epics', () => expect(page.getByRole('heading', { level: 1, name: 'Epics' })).toBeVisible(), 'New epic'],
         ['/settings', () => expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible(), null],
     ]
@@ -109,7 +117,12 @@ test('at 1818px the body is centred and the page buttons are at the right edge, 
         const { left, right, padding } = await margins(page)
         expect(Math.abs(left - right), `${address}: body margins ${left} / ${right}`).toBeLessThanOrEqual(2)
         if (button) {
-            const found = (await page.locator('main').getByRole('button', { name: new RegExp(`^${button}`) }).first().boundingBox())!
+            // New document is a split button (the button plus its aspect-type caret): the whole of it must reach the edge.
+            const target =
+                button === 'New document'
+                    ? page.locator('main .doclist__split')
+                    : page.locator('main').getByRole('button', { name: new RegExp(`^${button}`) }).first()
+            const found = (await target.boundingBox())!
             const main = await box(page, 'main')
             expect(main.x + main.width - padding - (found.x + found.width), `${address}: ${button}`).toBeLessThanOrEqual(2)
         }
