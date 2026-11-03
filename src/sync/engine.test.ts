@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
 import type { SyncChange } from './engine'
-import { deferred, docBody, listRoutes, ME, page, startEngine, ticket } from './testing/harness'
+import { deferred, docBody, listRoutes, manualConnectivity, manualTimer, ME, page, startEngine, ticket } from './testing/harness'
 import type { Ticket } from './types'
 
 afterEach(() => {
@@ -752,6 +752,49 @@ describe('when a send fails', () => {
             await engine.idle()
         }
         expect(delays).toEqual([1_000, 2_000, 4_000, 4_000, 4_000])
+    })
+
+    // LAM-228. The deadline can fall due between the worker's last look at the
+    // clock and the line that sets the wake-up. That wake-up used to be dropped,
+    // and nothing else would have tried the entry again.
+    it('still retries when the backoff ends between the last check and setting the wake-up', async () => {
+        let attempts = 0
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'PUT /api/v1/tickets/t-1': () => {
+                attempts += 1
+                if (attempts === 1) throw new TypeError('Failed to fetch')
+                return ok(ticket({ title: 'Edited', version: 4 }))
+            },
+        })
+        const clock = manualTimer()
+        const net = manualConnectivity()
+        // isOnline() is read by the worker's check before the send, by settle()
+        // (the failure), then by the check that finds the backoff still
+        // running - the third. The clock passes the end
+        // of the backoff right after that check: the worker has decided to stop
+        // and has not yet set its wake-up.
+        let reads = -1
+        const connectivity = {
+            ...net.connectivity,
+            isOnline: () => {
+                if (reads >= 0 && ++reads === 3) clock.advanceSilently(1_000)
+                return true
+            },
+        }
+        const { engine, db } = await startEngine({ timer: clock.timer, connectivity, backoff: { baseMs: 1_000, maxMs: 4_000 } })
+        reads = 0
+        await engine.updateTicket('t-1', { title: 'Edited' })
+        await engine.idle()
+
+        // The deadline has passed on the clock, yet the retry is still owed.
+        // It goes out as soon as a timer of zero length fires - never needing
+        // the clock to move again.
+        expect(clock.nextDelay()).toBe(0)
+        clock.advance(0)
+        await engine.idle()
+        expect(attempts).toBe(2)
+        expect((await local(db)).outbox).toEqual([])
     })
 
     it('retries as soon as the network comes back, without waiting out the backoff', async () => {

@@ -67,6 +67,10 @@ export type RigOptions = {
 
 let dbCount = 0
 
+// The rigs that are running, so that a timed-out `eventually` can say what each
+// one was doing (LAM-228: a CI failure that only said "timed out" was not enough).
+const running = new Set<Rig>()
+
 export async function startClient(account: Account, options: RigOptions = {}): Promise<Rig> {
   const db = options.db ?? (await openSyncDb(`sync-test-${++dbCount}-${Math.random().toString(36).slice(2)}`))
   const net = manualConnectivity()
@@ -166,7 +170,7 @@ export async function startClient(account: Account, options: RigOptions = {}): P
     await engine.idle()
   }
 
-  return {
+  const self: Rig = {
     engine,
     db,
     socket,
@@ -191,11 +195,14 @@ export async function startClient(account: Account, options: RigOptions = {}): P
       return { reached: seen, release }
     },
     async stop() {
+      running.delete(self)
       socket?.stop()
       await engine.stop()
       db.close()
     },
   }
+  running.add(self)
+  return self
 }
 
 // ── reading the local side ──────────────────────────────────────────────────
@@ -216,7 +223,28 @@ export async function eventually<T>(label: string, read: () => Promise<T | undef
   for (;;) {
     const value = await read()
     if (value !== undefined && value !== false) return value
-    if (Date.now() > deadline) throw new Error(`timed out after ${ms}ms waiting for: ${label}`)
+    if (Date.now() > deadline) throw new Error(`timed out after ${ms}ms waiting for: ${label}\n${await describeRigs()}`)
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
+}
+
+/** What every running client was doing: its outbox and its last requests. */
+async function describeRigs(): Promise<string> {
+  const parts: string[] = []
+  let n = 0
+  for (const rig of running) {
+    n += 1
+    try {
+      const entries = (await rig.db.snapshot()).outbox.map(
+        (e) => `#${e.id} ${e.kind} ${e.entity}/${e.entity_id} state=${e.state} attempts=${e.attempts}${e.error ? ` error=${JSON.stringify(e.error)}` : ''}`,
+      )
+      const recent = rig.requests.slice(-10).map((r) => `${r.method} ${r.path}${r.idempotencyKey ? ` key=${r.idempotencyKey}` : ''}${r.ifMatch ? ` if-match=${r.ifMatch}` : ''}`)
+      parts.push(
+        `client ${n} (${rig.requests.length} requests, socket ${rig.connection()}):\n  outbox: ${entries.length ? '\n    ' + entries.join('\n    ') : 'empty'}\n  last requests: ${recent.length ? '\n    ' + recent.join('\n    ') : 'none'}`,
+      )
+    } catch (error) {
+      parts.push(`client ${n}: could not be read (${String(error)})`)
+    }
+  }
+  return parts.length ? parts.join('\n') : 'no client running'
 }
