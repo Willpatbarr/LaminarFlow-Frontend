@@ -50,7 +50,16 @@
 
 .view-switch .segmented__option {
   flex: none;
+  gap: var(--s-6);
   padding-inline: var(--s-12);
+}
+
+/* Phone width has no room for the keys beside the switch: they would push New
+ * ticket onto a second row. (Touch devices hide hints anyway.) */
+@media (max-width: 767px) {
+  .view-switch .shortcut-hint {
+    display: none;
+  }
 }
 
 .tickets__group {
@@ -365,6 +374,19 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--s-12);
+}
+
+/* Group, Sort and the direction wrap as one, so "Descending" is never left alone
+ * on a second row (LAM-214). */
+.list-controls__order {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: var(--s-12);
+}
+
+.list-controls__order:empty {
+  display: none;
 }
 
 /* Fixed widths for the two buttons whose text changes, and room kept for

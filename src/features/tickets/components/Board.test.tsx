@@ -52,6 +52,17 @@ describe('the board page', () => {
         expect(screen.getByPlaceholderText('Search')).toHaveValue('Sec')
     })
 
+    it('has the list header: New ticket (C), Save view and Edit statuses, and C opens the dialog (LAM-214)', async () => {
+        const user = userEvent.setup()
+        await open()
+        const button = await screen.findByRole('button', { name: 'New ticket' })
+        expect(button).toHaveTextContent('C')
+        expect(screen.getByRole('button', { name: 'Save view' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Edit statuses' })).toBeInTheDocument()
+        await user.click(button)
+        expect(await screen.findByRole('dialog', { name: /new ticket/i })).toBeInTheDocument()
+    })
+
     it('says so for a board the account does not have', async () => {
         await openApp('/boards/nope', listRoutes(TICKETS, [], [BOARD]))
         expect(await screen.findByRole('heading', { name: 'Board not found' })).toBeInTheDocument()
