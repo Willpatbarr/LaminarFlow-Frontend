@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { BoardColumn, Ticket } from '@/sync'
 
-import { cardsOf, inOrder, moveColumn, positionAt, renameColumn, setVisible, shownNames, statusFor, suggestedColumn, unmappedStatuses, withStatusIn } from './board'
+import { cardsOf, dropIndex, inOrder, moveColumn, positionAt, renameColumn, setVisible, shownNames, statusFor, suggestedColumn, unmappedStatuses, withStatusIn } from './board'
 
 const col = (id: string, position: number, status_ids: string[], extra: Partial<BoardColumn> = {}): BoardColumn => ({
     id,
@@ -14,6 +14,40 @@ const col = (id: string, position: number, status_ids: string[], extra: Partial<
 })
 const card = (id: string, status_id: string | null, position: number) => ({ id, status_id, position }) as Ticket
 
+describe('dropIndex', () => {
+    // Three cards, 100 tall with a 10 gap: middles at 50, 160, 270.
+    const column = [{ top: 0, height: 100 }, { top: 110, height: 100 }, { top: 220, height: 100 }]
+    it('puts the top half of the first card in the top slot', () => {
+        expect(dropIndex(column, 0)).toBe(0)
+        expect(dropIndex(column, 20)).toBe(0)
+        expect(dropIndex(column, 50)).toBe(0)
+    })
+    it('reads the top half as before and the bottom half as after, in every slot', () => {
+        expect(dropIndex(column, 51)).toBe(1)
+        expect(dropIndex(column, 159)).toBe(1)
+        expect(dropIndex(column, 161)).toBe(2)
+        expect(dropIndex(column, 269)).toBe(2)
+        expect(dropIndex(column, 271)).toBe(3)
+        expect(dropIndex(column, 900)).toBe(3)
+    })
+    it('works across columns: an empty one is slot 0, another keeps its own boxes', () => {
+        expect(dropIndex([], 40)).toBe(0)
+        const other = [{ top: 30, height: 60 }, { top: 100, height: 60 }]
+        expect(dropIndex(other, 40)).toBe(0)
+        expect(dropIndex(other, 70)).toBe(1)
+        expect(dropIndex(other, 140)).toBe(2)
+    })
+    it('gives a top-slot position that the server accepts, however often a card goes there', () => {
+        let cards = [{ position: 1024 }, { position: 2048 }, { position: 3072 }]
+        for (let i = 0; i < 8; i++) {
+            const top = positionAt(cards, dropIndex(column, 10))
+            expect(top).toBeGreaterThanOrEqual(0)
+            expect(top).toBeLessThan(cards[0].position)
+            cards = [{ position: top }, ...cards]
+        }
+    })
+})
+
 describe('positionAt', () => {
     const others = [{ position: 1024 }, { position: 2048 }, { position: 3072 }]
     it('takes the midpoint between neighbours', () => {
@@ -21,13 +55,14 @@ describe('positionAt', () => {
         expect(positionAt(others, 2)).toBe(2560)
     })
     it('goes a step beyond either end, and starts an empty column at one step', () => {
-        expect(positionAt(others, 0)).toBe(0)
+        expect(positionAt(others, 0)).toBe(512)
+        expect(positionAt([{ position: 5000 }, { position: 6000 }], 0)).toBe(3976)
         expect(positionAt(others, 3)).toBe(4096)
         expect(positionAt([], 0)).toBe(1024)
     })
     it('clamps an index outside the column', () => {
         expect(positionAt(others, 99)).toBe(4096)
-        expect(positionAt(others, -4)).toBe(0)
+        expect(positionAt(others, -4)).toBe(512)
     })
     it('lands on the lower neighbour when no whole number fits (the server renumbers)', () => {
         expect(positionAt([{ position: 5 }, { position: 6 }], 1)).toBe(5)

@@ -31,6 +31,7 @@ import {
     inOrder,
     lookStatus,
     moveColumn,
+    dropIndex,
     positionAt,
     renameColumn,
     setVisible,
@@ -212,10 +213,7 @@ export function Board(props: BoardProps) {
         const cardEls = [...(list?.querySelectorAll<HTMLElement>('[data-card-id]') ?? [])].filter(
             (el) => el.dataset.cardId !== now.ticketId,
         )
-        const index = cardEls.filter((el) => {
-            const box = el.getBoundingClientRect()
-            return event.clientY > box.top + box.height / 2
-        }).length
+        const index = dropIndex(cardEls.map((el) => el.getBoundingClientRect()), event.clientY)
         steer({ columnId: column.id, index })
     }
 
