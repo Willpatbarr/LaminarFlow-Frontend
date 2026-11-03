@@ -35,9 +35,11 @@ test('create a token, use it, revoke it', async ({ page, context, baseURL }) => 
     await create.click()
 
     const shown = page.getByRole('dialog', { name: 'Copy your token' })
-    await expect(shown.getByText("You won't see this again.")).toBeVisible()
+    await expect(shown.getByText(/You won't see this again\./)).toBeVisible()
     const token = await shown.getByLabel('Token').inputValue()
     expect(token).toMatch(/^lam_/)
+    await shown.getByRole('button', { name: 'Copy token' }).click()
+    await expect(shown.getByRole('button', { name: 'Copied' })).toBeVisible()
     await shown.getByRole('button', { name: 'Done' }).click()
     await expect(shown).toHaveCount(0)
 

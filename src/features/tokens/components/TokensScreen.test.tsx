@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { refresh } from '@/features/auth'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
+import { COPIED_MS } from './CreateTokenDialog'
 import { TokensScreen } from './TokensScreen'
 
 const me = {
@@ -66,7 +67,7 @@ describe('TokensScreen', () => {
         await user.click(create())
 
         expect(await screen.findByLabelText('Token')).toHaveValue('lam_abc_secret')
-        expect(screen.getByText("You won't see this again.")).toBeInTheDocument()
+        expect(screen.getByText(/You won't see this again\./)).toBeInTheDocument()
         const post = fetchMock.mock.calls.find(([req]) => (req as Request).url.endsWith('/auth/tokens'))!
         expect(await bodyOf(post[0])).toEqual({ label: 'Deploy', scopes: ['ticket:write'], expires_at: null })
         expect(dialog).toBeDefined()
@@ -81,6 +82,40 @@ describe('TokensScreen', () => {
         await user.click(screen.getByRole('button', { name: 'Done' }))
         expect(screen.queryByDisplayValue('lam_abc_secret')).toBeNull()
         expect(document.body.textContent).not.toContain('lam_abc_secret')
+    })
+
+    it('shows Copied on the Copy button for a few seconds, then reverts, with no toast', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        try {
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+            const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+            stubFetch({
+                'POST /api/v1/auth/tokens/list': () => ok({ tokens: [] }),
+                'POST /api/v1/auth/tokens': () => ok({ ...existing, id: 't4', token: 'lam_copyme' }, 201),
+            })
+            render(() => <TokensScreen />)
+            await user.click(await screen.findByRole('button', { name: 'Create token' }))
+            await user.type(screen.getByLabelText('Name'), 'Copy')
+            await user.click(screen.getByLabelText('Tickets and content Read (ticket:read)'))
+            await user.click(screen.getAllByRole('button', { name: 'Create token' }).at(-1)!)
+
+            // The warning is an amber callout, not subtitle text.
+            const warning = (await screen.findByText(/You won't see this again\./)).closest('.banner')!
+            expect(warning).toHaveAttribute('data-hue', 'amber')
+
+            await user.click(screen.getByRole('button', { name: 'Copy token' }))
+            expect(writeText).toHaveBeenCalledWith('lam_copyme')
+            expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+            expect(screen.getByText('Token copied to clipboard.')).toBeInTheDocument()
+            // No separate toast: the button is the confirmation.
+            expect(screen.queryByText('The token is on your clipboard.')).toBeNull()
+
+            await vi.advanceTimersByTimeAsync(COPIED_MS + 100)
+            expect(screen.getByRole('button', { name: 'Copy token' })).toBeInTheDocument()
+            expect(screen.queryByText('Token copied to clipboard.')).toBeNull()
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it('describes scopes, keeps Write separate from Read, and asks twice for account:delete', async () => {
