@@ -3,7 +3,7 @@ import type { JSX } from '@solidjs/web'
 import { createEffect, Show, untrack } from 'solid-js'
 
 import { safeReturnTo, loginPathFor } from './returnTo'
-import { session } from './session'
+import { session, wasExplicitLogout } from './session'
 
 /*
 ┌─ auth ──────────────────────────────────────────
@@ -35,14 +35,24 @@ export function RequireAuth(props: RequireAuthProps) {
     const navigate = useNavigate()
     const location = useLocation()
 
+    // Depends on the path as well as the status: pressing Back from /login
+    // after a logout is a navigation to a protected URL with the status already
+    // `anonymous`, and the children are not rendered, so without this the user
+    // would be left on an empty page.
     createEffect(
-        () => session.status,
-        (status) => {
+        () => [session.status, location.pathname] as const,
+        ([status]) => {
             if (status !== 'anonymous') return
-            // Read in the apply half on purpose: only the status should re-run
-            // this, not every later navigation. `untrack` says so out loud -
-            // without it Solid's dev build warns STRICT_READ_UNTRACKED, since
-            // a bare reactive read here usually means a forgotten dependency.
+            // After a deliberate logout the page they left is not where they
+            // want to come back to: plain /login. A visit that simply had no
+            // session keeps its returnTo.
+            if (wasExplicitLogout()) {
+                navigate('/login', { replace: true })
+                return
+            }
+            // Read in the apply half on purpose: only the status and path
+            // should re-run this, not the query string or hash. `untrack` says
+            // so out loud (Solid's dev build warns STRICT_READ_UNTRACKED).
             const here = untrack(() => location.pathname + location.search + location.hash)
             navigate(loginPathFor(here), { replace: true })
         },

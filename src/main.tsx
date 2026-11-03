@@ -1,7 +1,7 @@
 import { render } from '@solidjs/web'
 import './index.css'
 import { applyTheme } from '@/features/theme'
-import { refresh, watchExpiredSession } from '@/features/auth'
+import { refresh, watchExpiredSession, watchLogoutElsewhere } from '@/features/auth'
 import { connectSyncToSession } from '@/sync'
 import { router as Router } from './router'
 
@@ -21,6 +21,10 @@ connectSyncToSession()
 // A "signed out" banner that is wrong (the 401 was a blip, or the user signed
 // in in another tab) is re-checked when the tab or the network comes back.
 watchExpiredSession()
+
+// Back after "Log out" can restore a frozen page that still thinks it is signed
+// in; a logout in another tab is the same news. Treated as signed out, not expired.
+watchLogoutElsewhere()
 
 // Ask the server who the cookie belongs to. Not awaited: the screen renders
 // with status `unknown` and fills in when the answer lands. A failure (server

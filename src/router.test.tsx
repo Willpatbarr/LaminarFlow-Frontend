@@ -200,6 +200,21 @@ describe('logout', () => {
         expect(history.get()).toBe('/login')
     })
 
+    it('Back to the page you logged out from goes to plain /login, with no expiry banner', async () => {
+        const history = mount('/missing/42')
+        await screen.findByRole('heading', { name: 'Page not found' })
+        stubFetch({ 'POST /api/v1/auth/logout': () => new Response(null, { status: 204 }) })
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Log out' }))
+        expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+
+        history.set({ value: '/missing/42' })
+
+        await vi.waitFor(() => expect(history.get()).toBe('/login'))
+        expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+        expect(screen.queryByText(/You've been signed out/)).not.toBeInTheDocument()
+        expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument()
+    })
+
     it('still ends at login, without a returnTo, when the request fails with a network error', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {})
         const history = mount('/missing/42')
