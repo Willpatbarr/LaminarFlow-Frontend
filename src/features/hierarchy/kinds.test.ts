@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { fromSearch, toSearch } from '../tickets/listView/config'
-import { formatDay, groupSprints, localToday, progressOf, scopeConfig } from './kinds'
+import { addDays, defaultSprintEnd, defaultSprintStart, formatDay, groupSprints, localToday, progressOf, scopeConfig } from './kinds'
 
 describe('progressOf', () => {
     it('counts the tickets in a done status, and is 0 of 0 for none', () => {
@@ -73,5 +73,32 @@ describe('localToday', () => {
     it("is the local calendar day, not UTC's", () => {
         expect(localToday(new Date(2026, 9, 29, 23, 59))).toBe('2026-10-29')
         expect(localToday(new Date(2026, 0, 5, 0, 1))).toBe('2026-01-05')
+    })
+})
+
+describe('default sprint dates (LAM-222)', () => {
+    it('adds days across month, year and leap-day boundaries', () => {
+        expect(addDays('2026-11-03', 14)).toBe('2026-11-17')
+        expect(addDays('2026-12-25', 14)).toBe('2027-01-08')
+        expect(addDays('2028-02-20', 14)).toBe('2028-03-05')
+    })
+
+    it('starts today, or the day after the latest end if that is later', () => {
+        expect(defaultSprintStart([], '2026-11-03')).toBe('2026-11-03')
+        expect(defaultSprintStart([{ end_date: null }], '2026-11-03')).toBe('2026-11-03')
+        expect(defaultSprintStart([{ end_date: '2026-11-03' }], '2026-11-03')).toBe('2026-11-04')
+        expect(defaultSprintStart([{ end_date: '2026-10-01' }, { end_date: '2026-11-20' }], '2026-11-03')).toBe('2026-11-21')
+        expect(defaultSprintStart([{ end_date: '2026-10-01' }], '2026-11-03')).toBe('2026-11-03')
+    })
+
+    it('ends start + length days later, 14 by default', () => {
+        expect(defaultSprintEnd('2026-11-03')).toBe('2026-11-16')
+        expect(defaultSprintEnd('2026-11-03', 7)).toBe('2026-11-09')
+        expect(defaultSprintEnd('2026-11-03', 1)).toBe('2026-11-03')
+    })
+
+    it('chains back to back: the next start is the day after the previous end', () => {
+        const end = defaultSprintEnd('2026-11-03')
+        expect(defaultSprintStart([{ end_date: end }], '2026-11-03')).toBe('2026-11-17')
     })
 })

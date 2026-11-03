@@ -83,6 +83,33 @@ export function localToday(now: Date = new Date()): string {
     return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`
 }
 
+/** `YYYY-MM-DD` plus a whole number of days, done in UTC so a daylight-saving
+ *  change cannot move it by a day. */
+export function addDays(day: string, days: number): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(day)
+    if (!match) return ''
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days)).toISOString().slice(0, 10)
+}
+
+/** How many days a sprint runs when the team has no `sprint.length_days`. */
+export const DEFAULT_SPRINT_DAYS = 14
+
+/** The start a new sprint is offered: today, or the day after the latest existing
+ *  sprint ends if that is later. */
+export function defaultSprintStart(sprints: readonly { end_date?: string | null }[], today: string): string {
+    const ends = sprints.map((sprint) => sprint.end_date?.slice(0, 10) ?? '').filter(Boolean)
+    const latest = ends.reduce((a, b) => (b > a ? b : a), '')
+    const after = latest ? addDays(latest, 1) : ''
+    return after > today ? after : today
+}
+
+/** The end a new sprint is offered. The start day counts, so `lengthDays` days
+ *  from 3 Nov end on the 16th: start + length - 1. The next sprint then starts the
+ *  day after this end (`defaultSprintStart`), with no overlap and no gap. */
+export function defaultSprintEnd(start: string, lengthDays: number = DEFAULT_SPRINT_DAYS): string {
+    return addDays(start, lengthDays - 1)
+}
+
 export type SprintGroups<T> = { current: T[]; upcoming: T[]; past: T[]; undated: T[] }
 
 /** Sorts sprints into Current (start ≤ today ≤ end, both ends inclusive, so a

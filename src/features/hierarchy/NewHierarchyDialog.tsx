@@ -1,12 +1,14 @@
-import { createSignal, Show } from 'solid-js'
+import { createEffect, createSignal, Show, untrack } from 'solid-js'
 
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { TextArea } from '@/components/ui/TextArea'
-import { createEpic, createMilestone, createSprint } from '@/sync'
+import { createEpic, createMilestone, createSprint, sprintsForProject, sync } from '@/sync'
 
 import { descriptionCount, nameCount, overMessage } from '../tickets/limits'
-import { KINDS, type Kind } from './kinds'
+import { DateField } from './DateField'
+import { DEFAULT_SPRINT_DAYS, defaultSprintEnd, defaultSprintStart, KINDS, localToday, type Kind } from './kinds'
+import { sprintLengthDays } from './sprintLength'
 
 type Created = { id: string; name: string }
 
@@ -29,8 +31,29 @@ export function NewHierarchyDialog(props: NewHierarchyDialogProps) {
     const info = () => KINDS[props.kind]
     const [name, setName] = createSignal('')
     const [description, setDescription] = createSignal('')
-    const [start, setStart] = createSignal('')
-    const [end, setEnd] = createSignal('')
+    // A new sprint opens with dates (LAM-222): the start is today, or the day after
+    // the latest sprint ends; the end is the start plus the team's sprint length.
+    // The end follows the start until the user sets the end themselves.
+    const [length, setLength] = createSignal(DEFAULT_SPRINT_DAYS)
+    // Read once, as the dialog opens: sprints made while it is open do not move the start.
+    const [start, setStart] = createSignal(
+        untrack(() => (props.kind === 'sprint' ? defaultSprintStart(sprintsForProject(props.projectId), localToday()) : '')),
+    )
+    const [endChosen, setEnd] = createSignal<string | null>(null)
+    const end = () => endChosen() ?? (props.kind === 'sprint' && start() ? defaultSprintEnd(start(), length()) : '')
+    createEffect(
+        () => (props.kind === 'sprint' ? sync.projects.find((project) => project.id === props.projectId)?.team_id : undefined),
+        (teamId) => {
+            if (!teamId) return
+            let current = true
+            void sprintLengthDays(teamId).then((days) => {
+                if (current) setLength(days)
+            })
+            return () => {
+                current = false
+            }
+        },
+    )
     const [target, setTarget] = createSignal('')
     const [saving, setSaving] = createSignal(false)
 
@@ -83,11 +106,11 @@ export function NewHierarchyDialog(props: NewHierarchyDialogProps) {
                 />
             </Show>
             <Show when={props.kind === 'sprint'}>
-                <Input label="Start date" type="date" value={start()} onInput={setStart} />
-                <Input label="End date" type="date" value={end()} onInput={setEnd} error={datesBackwards()} />
+                <DateField label="Start date" value={start()} onInput={setStart} />
+                <DateField label="End date" value={end()} onInput={setEnd} error={datesBackwards()} />
             </Show>
             <Show when={props.kind === 'milestone'}>
-                <Input label="Target date" type="date" value={target()} onInput={setTarget} />
+                <DateField label="Target date" value={target()} onInput={setTarget} />
             </Show>
         </Modal>
     )

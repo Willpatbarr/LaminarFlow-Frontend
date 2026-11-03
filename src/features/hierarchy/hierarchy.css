@@ -61,3 +61,26 @@
 .list-bar__below .progress-bar {
   max-width: 360px;
 }
+
+.hierarchy__date {
+  display: grid;
+  gap: var(--s-4);
+  align-content: start;
+}
+
+.hierarchy__date-text {
+  color: var(--text-2);
+  min-height: 1.5em;
+}
+
+.hierarchy__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-8);
+}
+
+.hierarchy__add-body {
+  display: grid;
+  gap: var(--s-8);
+}

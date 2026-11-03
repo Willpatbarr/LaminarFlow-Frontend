@@ -51,6 +51,7 @@ test('a sprint made in the UI holds tickets from two epics, and a ticket with no
     const sprint = (await serverSprints())[0]
 
     // Add one ticket from each epic through the picker.
+    await page.getByRole('button', { name: 'Add tickets' }).click()
     const search_ = page.getByLabel('Search this project’s tickets')
     for (const title of ['Pay button', 'Query box']) {
         await search_.fill(title)
