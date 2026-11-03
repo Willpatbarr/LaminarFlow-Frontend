@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, onSettled, Show, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { SkeletonLine } from '@/components/ui/Skeleton'
@@ -8,7 +8,8 @@ import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { isTempId, onActivityEvent, resolveId, sync, type ActivityEntry } from '@/sync'
 
 import { listActivity } from './api'
-import { describe, type Names } from './describe'
+import { describeGroup, type Names } from './describe'
+import { groupActivity, type ActivityGroup } from './group'
 import './activity.css'
 
 /*
@@ -147,6 +148,16 @@ export function ActivityFeed(props: ActivityFeedProps) {
         aspectType: (id) => aspectNames()[id],
     })
 
+    const groups = createMemo(() => groupActivity(entries()))
+    // Groups opened to their individual times, by the id of the group's newest entry.
+    const [opened, setOpened] = createSignal<ReadonlySet<string>>(new Set())
+    const toggle = (id: string) =>
+        setOpened((held) => {
+            const next = new Set(held)
+            if (!next.delete(id)) next.add(id)
+            return next
+        })
+
     return (
         <section class="activity" aria-labelledby="activity-title" aria-busy={loading() ? 'true' : undefined}>
             <h2 id="activity-title" class="t-section" tabindex="-1">
@@ -167,10 +178,32 @@ export function ActivityFeed(props: ActivityFeedProps) {
             </Show>
             <Show when={entries().length > 0}>
                 <ol class="activity__list">
-                    <For each={entries()} keyed={(entry) => entry.id}>
-                        {(entry) => (
-                            <li class="activity__item t-meta" data-activity-kind={entry().kind}>
-                                {describe(entry(), names())} · <RelativeTime at={entry().created_at} />
+                    <For each={groups()} keyed={(group: ActivityGroup) => group.entry.id}>
+                        {(group) => (
+                            <li class="activity__item t-meta" data-activity-kind={group().entry.kind}>
+                                {describeGroup(group(), names())} · <RelativeTime at={group().entry.created_at} />
+                                <Show when={group().members.length > 1}>
+                                    {' '}
+                                    <button
+                                        type="button"
+                                        class="button button--ghost button--sm"
+                                        aria-expanded={opened().has(group().entry.id) ? 'true' : 'false'}
+                                        onClick={() => toggle(group().entry.id)}
+                                    >
+                                        {opened().has(group().entry.id) ? 'Hide times' : 'Show times'}
+                                    </button>
+                                    <Show when={opened().has(group().entry.id)}>
+                                        <ul class="activity__times">
+                                            <For each={group().members}>
+                                                {(member) => (
+                                                    <li>
+                                                        <RelativeTime at={member.created_at} />
+                                                    </li>
+                                                )}
+                                            </For>
+                                        </ul>
+                                    </Show>
+                                </Show>
                             </li>
                         )}
                     </For>

@@ -1,5 +1,7 @@
 import type { ActivityEntry } from "@/sync";
 
+import type { ActivityGroup } from "./group";
+
 /*
 ┌─ activity ──────────────────────────────────────
 │  one plain sentence per activity entry (LAM-114)
@@ -31,6 +33,12 @@ export function actorName(entry: ActivityEntry, names: Names): string {
   if (entry.actor_id === null) return "Someone";
   if (entry.actor_id === names.me && names.me !== "") return "You";
   return names.person(entry.actor_id) ?? "Someone";
+}
+
+/** A line for a group (LAM-224): several description edits read "edited ... (4×)"; anything else as one entry. */
+export function describeGroup(group: ActivityGroup, names: Names): string {
+  if (group.members.length < 2) return describe(group.entry, names);
+  return `${actorName(group.entry, names)} edited the description (${group.members.length}×)`;
 }
 
 const quoted = (text: string | null) =>
