@@ -1,6 +1,6 @@
 import { Extension, type Editor, type Range } from '@tiptap/core'
 import { exitSuggestion, Suggestion } from '@tiptap/suggestion'
-import { PluginKey } from '@tiptap/pm/state'
+import { PluginKey, type EditorState } from '@tiptap/pm/state'
 
 import { editorLinks, type LinkTarget } from './internalLinks'
 
@@ -85,6 +85,15 @@ type Options = {
     onKey: (event: KeyboardEvent) => boolean
 }
 
+/** Whether the caret is in code: a `codeBlock` node or the inline `code` mark.
+ *  `@` is plain text there (LAM-209). */
+export function inCode(state: EditorState): boolean {
+    const { $from } = state.selection
+    if ($from.parent.type.name === 'codeBlock') return true
+    const marks = state.storedMarks ?? $from.marks()
+    return marks.some((mark) => mark.type.name === 'code')
+}
+
 function insertChip(editor: Editor, range: Range, target: LinkTarget) {
     const after = editor.state.doc.textBetween(range.to, Math.min(range.to + 1, editor.state.doc.content.size), '\n', '\0')
     const content: object[] = [{ type: 'internalLink', attrs: { kind: target.kind, id: target.id, label: target.title } }]
@@ -104,6 +113,7 @@ function trigger(editor: Editor, options: Options, name: string, char: string, a
         // `@` only at the start of a word, so an address like a@b.c is just text.
         allowedPrefixes: anywhere ? null : [' ', '\n', '\t'],
         allow: ({ state, range }) => {
+            if (inCode(state)) return false
             const query = state.doc.textBetween(range.from + char.length, range.to, '\n', '\0')
             return !queryEnded(query, editorLinks()?.targets() ?? [])
         },
