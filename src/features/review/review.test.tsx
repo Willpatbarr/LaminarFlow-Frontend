@@ -8,7 +8,7 @@ import { doc, listRoutes, ME } from '@/sync/testing/harness'
 import { openApp, startAnonymous } from '@/testing/app'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
-import { clearReviewFeed } from './feed'
+import { clearReviewFeed, needsMine, remember } from './feed'
 import { RequestReviewDialog } from './RequestReviewDialog'
 
 // Review requests through the real route tree, store and engine, with only
@@ -288,6 +288,24 @@ describe('Needs my review', () => {
         expect(link).toHaveAttribute('href', '/documents/d-1')
         expect(await screen.findByText(/asked by Sam Ortiz/)).toBeInTheDocument()
         await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /Needs my review/ })).toHaveTextContent('1'))
+    })
+
+    it('drops the count as soon as I decide, and brings it back when the request reopens', async () => {
+        // The list keeps answering "pending": nothing but my own decision can clear the badge here.
+        await openApp(
+            '/documents/d-1',
+            withRequest(request(), {
+                'PUT /api/v1/review-requests/rr-1': () => ok(request({ review_status: 'approved', decided_by: ME, updated_at: '2026-01-02T00:00:00Z' })),
+            }),
+        )
+        const badge = () => within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /Needs my review/ })
+        await waitFor(() => expect(badge()).toHaveAccessibleName('Needs my review 1'))
+        await userEvent.setup().click(await screen.findByRole('button', { name: 'Approve' }))
+        await waitFor(() => expect(badge()).toHaveAccessibleName('Needs my review'))
+        expect(needsMine()).toHaveLength(0)
+        // Stale-on-edit: the request goes back to pending with a newer stamp.
+        remember([request({ review_status: 'pending', updated_at: '2026-01-03T00:00:00Z' }) as never])
+        await waitFor(() => expect(badge()).toHaveAccessibleName('Needs my review 1'))
     })
 
     it('asks the server for the signed-in account only', async () => {
