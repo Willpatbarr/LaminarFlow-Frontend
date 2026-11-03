@@ -45,6 +45,11 @@ test('convert a document to a Class aspect, fill two fields, and reload', async 
     const first = page.getByRole('textbox', { name: 'Purpose' })
     await expect(first).toContainText('Existing words')
     await expect(page.getByRole('textbox', { name: 'Invariants' })).toBeVisible()
+    // LAM-216: the confirmation is a toast, and an empty field is a visible box at least two lines tall.
+    await expect(page.getByRole('status').filter({ hasText: 'Made this an Aspect.' })).toBeVisible()
+    const box = page.locator('.md-editor__box').filter({ has: page.getByRole('textbox', { name: 'Invariants' }) })
+    await expect(box).toHaveCSS('border-top-color', /^(?!rgba\(0, 0, 0, 0\))/)
+    expect((await box.boundingBox())!.height).toBeGreaterThanOrEqual(56)
 
     await first.click()
     await page.keyboard.press('Control+End')

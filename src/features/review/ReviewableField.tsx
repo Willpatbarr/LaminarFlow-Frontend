@@ -102,6 +102,7 @@ export function ReviewableField(props: Props) {
     return (
         <div
             class="reviewable"
+            data-field={props.fieldId !== null ? '' : undefined}
             data-open={count() > 0 ? 'true' : undefined}
             data-decided={count() === 0 && props.decided.length > 0 ? 'true' : undefined}
         >

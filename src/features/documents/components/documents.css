@@ -142,6 +142,29 @@
   min-height: 14em;
 }
 
+/* An aspect field is a box of its own (LAM-216): the editor's own border and
+ * raised background, kept at rest (the plain text above hides them), so you can see
+ * where a field ends and where to click. Two lines tall when empty, growing with
+ * the text. The label sits directly over its box. Read-only fields stay as
+ * the editor styles them (LAM-215). */
+.document--page .reviewable[data-field] .md-editor__box {
+  border-color: var(--border);
+  background: var(--bg-raised);
+}
+
+.document--page .reviewable[data-field] .md-editor__box:focus-within {
+  border-color: var(--accent);
+}
+
+.document--page .reviewable[data-field] .md-editor:not([data-readonly='true']) .md-editor__content {
+  min-height: 4em;
+}
+
+.document--page .reviewable[data-field] .input__label {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
 .document__failure {
   display: grid;
   gap: var(--s-8);
