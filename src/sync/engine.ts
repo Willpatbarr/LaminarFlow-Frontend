@@ -481,9 +481,15 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         const rules = rulesFor(entity)
         const id = newId(rules.tempPrefix)
         const row = await db.write(async (tx) => {
+            // A ticket made under an epic, sprint, milestone or label that was
+            // answered while this write waited its turn: see `update`. The read
+            // resolves only after the writes ahead of this one, so `swapped` is
+            // current after it.
+            await tx.outbox.forEntity(id)
+            const given = unalias(input as object) as typeof input
             // Through the row and back, so the entry carries what the entity
             // keeps of the input and nothing the caller happened to pass along.
-            const payload = rules.copyOf(rules.fromCreate(id, input, { at: stamp(), accountId }))
+            const payload = rules.copyOf(rules.fromCreate(id, given, { at: stamp(), accountId }))
             await tx.outbox.add({
                 kind: 'create',
                 entity,
