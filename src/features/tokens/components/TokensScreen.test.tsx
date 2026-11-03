@@ -102,6 +102,9 @@ describe('TokensScreen', () => {
             // The warning is an amber callout, not subtitle text.
             const warning = (await screen.findByText(/You won't see this again\./)).closest('.banner')!
             expect(warning).toHaveAttribute('data-hue', 'amber')
+            expect(screen.getByRole('dialog', { name: 'Copy your token' })).toHaveAccessibleDescription(
+                /You won't see this again\./,
+            )
 
             await user.click(screen.getByRole('button', { name: 'Copy token' }))
             expect(writeText).toHaveBeenCalledWith('lam_copyme')

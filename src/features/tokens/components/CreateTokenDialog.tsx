@@ -204,12 +204,13 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
                 <Modal
                     title="Copy your token"
                     confirm="Done"
+                    describedBy="token-once-warning"
                     persistent
                     onConfirm={props.onClose}
                     onCancel={props.onClose}
                 >
                     <div class="tokens__once">
-                        <Banner hue="amber">
+                        <Banner id="token-once-warning" hue="amber">
                             You won't see this again. Copy the token now and keep it somewhere safe; once you press Done
                             it can't be shown again.
                         </Banner>

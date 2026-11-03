@@ -9,6 +9,9 @@ type ModalProps = {
     /** The consequence, not the question restated: "2 tickets move to To Do"
      *  is what the reader needs in order to answer. */
     consequence?: string
+    /** The id of other content in the body that describes the dialog, used when
+     *  there is no `consequence` line. */
+    describedBy?: string
     /** Anything the answer needs besides yes or no - a field to fill in. */
     children?: JSX.Element
     confirm: string
@@ -110,7 +113,7 @@ export function Modal(props: ModalProps) {
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby={titleId}
-                    aria-describedby={props.consequence ? consequenceId : undefined}
+                    aria-describedby={props.consequence ? consequenceId : props.describedBy}
                     onKeyDown={props.onKeyDown}
                     onSubmit={(event) => {
                         event.preventDefault()
