@@ -173,7 +173,8 @@ describe('a detail page', () => {
             }),
         )
         const user = userEvent.setup()
-        await user.click(await screen.findByRole('button', { name: 'Delete epic' }))
+        await user.click(await screen.findByRole('button', { name: 'Actions for Checkout' }))
+        await user.click(await screen.findByRole('menuitem', { name: 'Delete epic' }))
         const dialog = await screen.findByRole('dialog')
         expect(dialog).toHaveTextContent('2 tickets stay, with no epic')
         await user.click(within(dialog).getByRole('button', { name: 'Delete epic' }))
@@ -208,7 +209,9 @@ describe('sprints', () => {
         await user.click(await pageButton('New sprint'))
         const dialog = await screen.findByRole('dialog')
         await user.type(within(dialog).getByLabelText('Name'), 'Sprint 2')
+        await user.clear(within(dialog).getByLabelText('Start date'))
         await user.type(within(dialog).getByLabelText('Start date'), '2026-04-01')
+        await user.clear(within(dialog).getByLabelText('End date'))
         await user.type(within(dialog).getByLabelText('End date'), '2026-04-14')
         await user.click(within(dialog).getByRole('button', { name: 'Create sprint' }))
 
@@ -255,7 +258,9 @@ describe('sprints', () => {
         await user.click(await pageButton('New sprint'))
         const dialog = await screen.findByRole('dialog')
         await user.type(within(dialog).getByLabelText('Name'), 'Backwards')
+        await user.clear(within(dialog).getByLabelText('Start date'))
         await user.type(within(dialog).getByLabelText('Start date'), '2026-04-14')
+        await user.clear(within(dialog).getByLabelText('End date'))
         await user.type(within(dialog).getByLabelText('End date'), '2026-04-01')
         expect(within(dialog).getByText('The end cannot be before the start.')).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Create sprint' })).toBeDisabled()
@@ -275,6 +280,12 @@ describe('sprints', () => {
             }),
         )
         const user = userEvent.setup()
+        // The sprint's own tickets come first; the picker opens from "Add tickets".
+        const addTickets = await screen.findByRole('button', { name: 'Add tickets' })
+        expect(addTickets).toHaveAttribute('aria-expanded', 'false')
+        const heading = screen.getByRole('heading', { name: 'Tickets' })
+        expect(heading.compareDocumentPosition(addTickets) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        await user.click(addTickets)
         await user.type(await screen.findByLabelText('Search this project’s tickets'), 'loose')
         const results = screen.getByRole('list', { name: 'Tickets that can be added' })
         await user.click(await within(results).findByRole('button', { name: 'Add Loose end to this sprint' }))

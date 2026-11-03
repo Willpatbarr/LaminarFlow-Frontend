@@ -2,10 +2,10 @@ import { useNavigate } from '@solidjs/router'
 import { createMemo, createSignal, Show } from 'solid-js'
 
 import { can, denial } from '@/features/auth'
-import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { RowMenu, RowMenuItem } from '@/components/ui/RowMenu'
 import { TextArea } from '@/components/ui/TextArea'
 import { session } from '@/features/auth'
 import {
@@ -34,6 +34,7 @@ import { descriptionCount, nameCount, overMessage } from '../tickets/limits'
 import type { Viewer } from '../tickets/viewer'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { AddTicketsToSprint } from './AddTicketsToSprint'
+import { DateField } from './DateField'
 import { KINDS, scopeConfig, type Kind } from './kinds'
 import { progressFor, scopedTickets, ScopedTickets } from './ScopedTickets'
 import { Icon } from '@/components/ui/icons/Icon'
@@ -196,7 +197,14 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
 
     return (
         <>
-            <h1 class="t-screen-title">{props.row.name}</h1>
+            <div class="hierarchy__head">
+                <h1 class="t-screen-title">{props.row.name}</h1>
+                <RowMenu label={`Actions for ${props.row.name}`}>
+                    <RowMenuItem destructive disabledReason={denial('ticket:write', 'delete this')} onSelect={() => setDeleting(true)}>
+                        Delete {info().singular}
+                    </RowMenuItem>
+                </RowMenu>
+            </div>
 
             <div class="hierarchy__progress">
                 <ProgressBar
@@ -215,11 +223,11 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
             <div class="hierarchy__fields">
                 <Input label="Name" readOnly={!can('ticket:write')} value={name.value()} onInput={name.input} onBlur={saveName} count={nameCount(name.value())} error={nameOver()} />
                 <Show when={props.kind === 'sprint'}>
-                    <Input label="Start date" readOnly={!can('ticket:write')} type="date" value={start.value()} onInput={start.input} onBlur={saveDates} />
-                    <Input label="End date" readOnly={!can('ticket:write')} type="date" value={end.value()} onInput={end.input} onBlur={saveDates} error={backwards()} />
+                    <DateField label="Start date" readOnly={!can('ticket:write')} value={start.value()} onInput={start.input} onBlur={saveDates} />
+                    <DateField label="End date" readOnly={!can('ticket:write')} value={end.value()} onInput={end.input} onBlur={saveDates} error={backwards()} />
                 </Show>
                 <Show when={props.kind === 'milestone'}>
-                    <Input label="Target date" readOnly={!can('ticket:write')} type="date" value={target.value()} onInput={target.input} onBlur={saveTarget} />
+                    <DateField label="Target date" readOnly={!can('ticket:write')} value={target.value()} onInput={target.input} onBlur={saveTarget} />
                 </Show>
             </div>
             <Show when={props.kind !== 'sprint'}>
@@ -246,10 +254,6 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
                 )}
             </Show>
 
-            <Show when={props.kind === 'sprint'}>
-                <AddTicketsToSprint sprintId={id()} projectId={projectId()} />
-            </Show>
-
             <h2 class="t-section">Tickets</h2>
             <ScopedTickets
                 projectId={projectId()}
@@ -259,11 +263,9 @@ function Loaded(props: { kind: Kind; row: Row; viewer: Viewer }) {
                 empty={`No tickets are in this ${info().singular}.`}
             />
 
-            <div>
-                <Button variant="danger" disabledReason={denial('ticket:write', 'delete this')} onClick={() => setDeleting(true)}>
-                    Delete {info().singular}
-                </Button>
-            </div>
+            <Show when={props.kind === 'sprint'}>
+                <AddTicketsToSprint sprintId={id()} projectId={projectId()} />
+            </Show>
             <Show when={deleting()}>
                 <Modal
                     title={`Delete “${props.row.name}”?`}

@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons/Icon'
 import { Input } from '@/components/ui/Input'
 import { sync, ticketSyncState, updateTicket } from '@/sync'
 
@@ -20,6 +21,8 @@ const SHOWN = 20
 // seen without unsent changes. If the server cannot be asked, the local answer
 // stands.
 export function AddTicketsToSprint(props: { sprintId: string; projectId: string }) {
+    // Collapsed, never hidden: the sprint's own tickets come first, and the picker opens from here.
+    const [open, setOpen] = createSignal(false)
     const [query, setQuery] = createSignal('')
     const text = () => query().trim()
     const filter = (): FilterGroup | undefined =>
@@ -57,7 +60,19 @@ export function AddTicketsToSprint(props: { sprintId: string; projectId: string 
 
     return (
         <section class="hierarchy__add" aria-label="Add tickets">
-            <h2 class="t-section">Add tickets</h2>
+            <h2 class="t-section">
+                <button
+                    type="button"
+                    class="hierarchy__group-toggle"
+                    aria-expanded={open() ? 'true' : 'false'}
+                    aria-controls="sprint-add-tickets"
+                    onClick={() => setOpen(!open())}
+                >
+                    <Icon name={open() ? 'caret-down' : 'caret-right'} size={16} /> Add tickets
+                </button>
+            </h2>
+            <div id="sprint-add-tickets" class="hierarchy__add-body">
+                <Show when={open()}>
             <Input label="Search this project’s tickets" value={query()} onInput={setQuery} />
             <ul class="hierarchy__results" aria-label="Tickets that can be added">
                 <For each={found().slice(0, SHOWN)} keyed={(ticket) => ticket.id}>
@@ -86,6 +101,8 @@ export function AddTicketsToSprint(props: { sprintId: string; projectId: string 
             <Show when={found().length > SHOWN}>
                 <p class="t-meta hierarchy__empty">Showing {SHOWN} of {found().length}. Type to narrow it down.</p>
             </Show>
+                </Show>
+            </div>
         </section>
     )
 }
