@@ -152,6 +152,22 @@ describe('Create more', () => {
         await waitFor(() => expect(history.get()).toBe('/tickets/t-1'))
     })
 
+    it('merges several tickets made with Create more into one toast', async () => {
+        const { user, dialog, created, title, history } = await openDialog()
+        await user.click(within(dialog).getByLabelText('Create more'))
+        await user.click(title)
+        for (const [i, name] of ['A', 'B', 'C'].entries()) {
+            await user.type(title, `${name}{Enter}`)
+            await waitFor(() => expect(created).toHaveLength(i + 1))
+        }
+        await user.keyboard('{Escape}')
+
+        expect(await screen.findByText('Created 3 tickets')).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'Open ticket' })).toHaveLength(1)
+        await user.click(screen.getByRole('button', { name: 'Open ticket' }))
+        await waitFor(() => expect(history.get()).toBe('/tickets/t-3'))
+    })
+
     it('is remembered on this device, and off by default', async () => {
         const first = await openDialog()
         const box = within(first.dialog).getByLabelText('Create more')

@@ -27,7 +27,7 @@ export function MadeAspectToast() {
     )
     return (
         <Show when={shown() > 0}>
-            <Toast hue="green" mark="check" title="Made this an Aspect." onDismiss={clearMadeAspect} />
+            <Toast hue="green" mark="check" title={shown() > 1 ? `Made this an Aspect (${shown()} times).` : 'Made this an Aspect.'} onDismiss={clearMadeAspect} />
         </Show>
     )
 }

@@ -106,3 +106,7 @@
     margin: calc((22px - var(--touch-target)) / 2) calc(-1 * var(--s-12)) calc((22px - var(--touch-target)) / 2) 0;
   }
 }
+
+.toast[hidden] {
+  display: none;
+}
