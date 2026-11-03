@@ -59,6 +59,22 @@
   cursor: not-allowed;
 }
 
+/* Only the filled variant greys out as a block. A ghost or danger button has no
+ * fill when enabled, so a filled disabled one read as pressed (an arrow at the
+ * end of a reorder list, LAM-221): it stays unfilled and fades instead. A
+ * secondary one keeps its outline, also unfilled. */
+.button--ghost:disabled,
+.button--danger:disabled,
+.button--secondary:disabled {
+  background: transparent;
+  opacity: 0.55;
+}
+
+.button--ghost:disabled,
+.button--danger:disabled {
+  border-color: transparent;
+}
+
 /* A shortcut hint on a filled button takes its own colours: the page-level
  * hint is grey, which vanished on the accent fill (LAM-141). */
 .button--primary .shortcut-hint {

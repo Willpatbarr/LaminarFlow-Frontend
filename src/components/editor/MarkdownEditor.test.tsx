@@ -183,6 +183,8 @@ describe('internal links as chips', () => {
         return event.defaultPrevented
     }
     const typeText = (editor: Editor, text: string) => editor.view.dispatch(editor.state.tr.insertText(text))
+    // A list that should not open is checked after a beat, so a late one would show.
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
     const options = () => screen.queryAllByRole('option').map((o) => o.textContent)
 
     it('opens a listbox at the caret on @ at the start of a word and keeps focus in the editor', async () => {
@@ -380,6 +382,40 @@ describe('internal links as chips', () => {
         expect(editor.state.doc.childCount).toBe(2)
         expect(editor.getMarkdown()).not.toContain('lf://')
         expect(editor.getText()).toContain('meet @ noon')
+        setEditorLinks(null)
+    })
+
+    it('does not open the list inside a code block, and keeps @foo literal in the Markdown', async () => {
+        register()
+        const editor = await mount('```\nx\n```')
+        editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+        expect(editor.state.selection.$from.parent.type.name).toBe('codeBlock')
+        typeText(editor, ' @foo')
+        await settle()
+        expect(screen.queryByRole('listbox')).toBeNull()
+        expect(editor.getMarkdown().trim()).toBe('```\nx @foo\n```')
+        expect(editor.getMarkdown()).not.toContain('lf://')
+        setEditorLinks(null)
+    })
+
+    it('does not open the list inside inline code, and keeps @foo literal in the Markdown', async () => {
+        register()
+        const editor = await mount('a `x` b')
+        editor.commands.setTextSelection(4)
+        expect(editor.state.selection.$from.marks().some((m) => m.type.name === 'code')).toBe(true)
+        typeText(editor, ' @foo')
+        await settle()
+        expect(screen.queryByRole('listbox')).toBeNull()
+        expect(editor.getMarkdown().trim()).toBe('a `x @foo` b')
+        setEditorLinks(null)
+    })
+
+    it('still opens the list in a normal paragraph', async () => {
+        register()
+        const editor = await mount('```\nx\n```\n\nhello')
+        editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+        typeText(editor, ' @')
+        await screen.findByRole('listbox')
         setEditorLinks(null)
     })
 

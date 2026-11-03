@@ -40,6 +40,16 @@
   margin-top: var(--s-8);
 }
 
+.tokens__copied {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.tokens__once {
+  margin-bottom: var(--s-8);
+}
+
 .tokens__error {
   color: var(--rust-fg);
   margin: var(--s-4) 0 0;
@@ -128,4 +138,10 @@
   .tokens__code {
     font-size: 12px;
   }
+}
+
+/* Back link above the heading, with room between them. */
+.tokens__head {
+  display: grid;
+  gap: var(--s-8);
 }

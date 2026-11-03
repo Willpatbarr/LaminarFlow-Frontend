@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/icons/Icon'
 import { ListBar, ListBars, MetaChip } from '@/components/ui/ListBar'
 import { PageActions } from '@/components/ui/PageLayout'
+import { Popover } from '@/components/ui/Popover'
+import { RowMenuItem } from '@/components/ui/RowMenu'
 import { Select } from '@/components/ui/Select'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
 import { isLoading, sync, type Doc } from '@/sync'
@@ -78,6 +80,12 @@ export function DocumentList(props: DocumentListProps) {
                 return true
             })
             .toSorted((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    )
+
+    const aspectTypes = createMemo(() =>
+        Object.entries(aspectNames())
+            .map(([value, label]) => ({ value, label }))
+            .toSorted((a, b) => a.label.localeCompare(b.label)),
     )
 
     const aspectOptions = createMemo(() => {
@@ -156,34 +164,50 @@ export function DocumentList(props: DocumentListProps) {
             </div>
             <PageActions>
                 <div class="doclist__actions">
-                    <Show when={Object.keys(aspectNames()).length > 0}>
-                        <div class="doclist__select">
-                            <Select
+                    {/* A split button: New document, and beside it a menu of aspect
+                        types to start one from. The menu is shown whenever there is
+                        a type to pick, so nothing is hidden, only folded in. */}
+                    <div class="doclist__split">
+                        <Button
+                            variant="primary"
+                            disabled={busy() || creating()}
+                            disabledReason={denial('ticket:write', 'create documents')}
+                            onClick={() => void create(null)}
+                        >
+                            <Icon name="file-add" size={16} />
+                            New document
+                        </Button>
+                        <Show when={aspectTypes().length > 0}>
+                            <Popover
                                 label="New aspect"
-                                value=""
-                                disabled={busy() || creating() || !can('ticket:write')}
-                                onChange={(value) => {
-                                    if (value) void create(value)
-                                }}
-                                options={[
-                                    { value: '', label: 'Choose a type…' },
-                                    ...Object.entries(aspectNames())
-                                        .map(([value, label]) => ({ value, label }))
-                                        .toSorted((a, b) => a.label.localeCompare(b.label)),
-                                ]}
-                            />
-                        </div>
-                    </Show>
-                    <Button
-                        variant="primary"
-                        disabled={busy() || creating()}
-                        disabledReason={denial('ticket:write', 'create documents')}
-                        onClick={() => void create(null)}
-                    >
-                        <Icon name="file-add" size={16} />
-                        New document
-                    </Button>
+                                role="menu"
+                                presentation="auto"
+                                trigger={(trigger) => (
+                                    <button
+                                        type="button"
+                                        class="button button--primary doclist__more"
+                                        aria-label="New aspect: choose a type"
+                                        disabled={busy() || creating() || !can('ticket:write')}
+                                        {...trigger}
+                                    >
+                                        <Icon name="caret-down" size={16} />
+                                    </button>
+                                )}
+                            >
+                                <div class="row-menu">
+                                    <p class="row-menu__head t-overline">New aspect</p>
+                                    <For each={aspectTypes()} keyed={(entry) => entry.value}>
+                                        {(entry) => (
+                                            <RowMenuItem onSelect={() => void create(entry().value)}>
+                                                {entry().label}
+                                            </RowMenuItem>
+                                        )}
+                                    </For>
+                                </div>
+                            </Popover>
+                        </Show>
                     </div>
+                </div>
             </PageActions>
             <Show when={busy()}>
                 <p class="visually-hidden" role="status">
@@ -194,9 +218,23 @@ export function DocumentList(props: DocumentListProps) {
                 <Show
                     when={shown().length > 0}
                     fallback={
-                        <p class="t-body">
-                            {sync.documents.length === 0 ? 'No documents yet.' : 'No documents match these filters.'}
-                        </p>
+                        <div class="doclist__empty">
+                            <Show
+                                when={sync.documents.length === 0}
+                                fallback={
+                                    <>
+                                        <p class="t-section">No documents match these filters</p>
+                                        <p class="t-body">Change or clear the filters to see more.</p>
+                                    </>
+                                }
+                            >
+                                <p class="t-section">No documents yet</p>
+                                <p class="t-body">
+                                    Create the first one with “New document”
+                                    {aspectTypes().length > 0 ? ', or start an aspect from the arrow beside it.' : '.'}
+                                </p>
+                            </Show>
+                        </div>
                     }
                 >
                     <ListBars label="Documents">

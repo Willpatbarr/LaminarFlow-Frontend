@@ -122,7 +122,8 @@ test('create a document directly as an aspect', async ({ page, context, baseURL 
     await signedInAs(context, account, baseURL!)
 
     await page.goto('/documents')
-    await page.getByLabel('New aspect').selectOption({ label: name })
+    await page.getByRole('button', { name: 'New aspect: choose a type' }).click()
+    await page.getByRole('menuitem', { name }).click()
     await expect(page).toHaveURL(UUID)
     const id = page.url().split('/').pop()!
     const notes = page.getByRole('textbox', { name: 'Notes' })

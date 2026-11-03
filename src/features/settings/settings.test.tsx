@@ -31,10 +31,10 @@ const open = (url: string) => openApp(url, {
 })
 
 describe('the Settings page', () => {
-    it('has a section for the account, appearance, teams, API tokens and sign out', async () => {
+    it('has a section for the account, appearance, teams, API tokens and log out', async () => {
         await open('/settings')
         await screen.findByRole('heading', { name: 'Settings', level: 1 })
-        for (const name of ['Account', 'Appearance', 'Teams', 'API tokens', 'Sign out']) {
+        for (const name of ['Account', 'Appearance', 'Teams', 'API tokens', 'Log out']) {
             expect(screen.getByRole('heading', { name, level: 2 })).toBeInTheDocument()
         }
         const account = screen.getByRole('region', { name: 'Account' })
@@ -57,9 +57,11 @@ describe('the Settings page', () => {
         expect(screen.getByRole('link', { name: 'Manage API tokens' })).toHaveAttribute('href', '/settings/tokens')
     })
 
-    it('signs out from the bottom section', async () => {
+    it('logs out from the bottom section', async () => {
         const history = await open('/settings')
-        await user().click(await screen.findByRole('button', { name: 'Sign out' }))
+        // The rail has a Log out button too; this is the one in the page's own section.
+        const section = await screen.findByRole('region', { name: 'Log out' })
+        await user().click(within(section).getByRole('button', { name: 'Log out' }))
         await waitFor(() => expect(history.get()).toBe('/login'))
     })
 })
@@ -100,7 +102,7 @@ describe('the account menu', () => {
         expect(settings).toHaveTextContent('G then S')
         expect(within(menu).getByRole('menuitem', { name: 'API tokens' })).toHaveAttribute('href', '/settings/tokens')
         expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual(['Light', 'Dark', 'System'])
-        expect(within(menu).getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument()
+        expect(within(menu).getByRole('menuitem', { name: 'Log out' })).toBeInTheDocument()
         await user().click(settings)
         await waitFor(() => expect(history.get()).toBe('/settings'))
         expect(screen.queryByRole('menu')).toBeNull()
@@ -122,10 +124,10 @@ describe('the account menu', () => {
         expect(trigger).toHaveFocus()
     })
 
-    it('Sign out in the menu signs out', async () => {
+    it('Log out in the menu logs out', async () => {
         const history = await open('/')
         await user().click(await screen.findByRole('button', { name: 'Account menu' }))
-        await user().click(screen.getByRole('menuitem', { name: 'Sign out' }))
+        await user().click(screen.getByRole('menuitem', { name: 'Log out' }))
         await waitFor(() => expect(history.get()).toBe('/login'))
     })
 })

@@ -28,3 +28,13 @@ a.row-menu__item {
 a.row-menu__item .shortcut-hint {
   text-decoration: none;
 }
+
+/* Compact: the control is as wide as its three options, not the page. */
+.settings__appearance {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.settings__appearance .segmented__option {
+  flex: 0 0 auto;
+}

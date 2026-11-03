@@ -7,6 +7,8 @@ import './Banner.css'
 export type NoticeHue = 'amber' | 'slate' | 'rust' | 'green' | 'blue'
 
 type BannerProps = {
+    /** Lets a dialog point `aria-describedby` at the banner. */
+    id?: string
     /** Defaults to `amber`: a banner says "this needs a moment of your
      *  attention", not "something broke". */
     hue?: NoticeHue
@@ -40,6 +42,7 @@ type BannerProps = {
 export function Banner(props: BannerProps) {
     return (
         <div
+            id={props.id}
             class="banner"
             data-hue={props.hue ?? 'amber'}
             role={props.role ?? 'status'}
