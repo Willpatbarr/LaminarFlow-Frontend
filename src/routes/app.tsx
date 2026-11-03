@@ -293,6 +293,7 @@ export function AppLayout(props: RouteSectionProps) {
                             <Show when={sync.active && !narrow()}>{statusRows()}</Show>
                         }
                         onLogout={askToLeave}
+                        route={location.pathname}
                     />
                 }
                 banners={

@@ -343,3 +343,21 @@
     gap: 0;
   }
 }
+
+/* The rail's tooltip (LAM-218): beside the row it names, centred on it. Fixed, so
+ * the rail's scrolling does not clip it; it ignores the pointer so it never
+ * gets in the way of the next row. */
+.side-nav__tip {
+  position: fixed;
+  z-index: 20;
+  max-width: 260px;
+  padding: 5px var(--s-8);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  background: var(--bg-overlay);
+  color: var(--text-1);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+  pointer-events: none;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
