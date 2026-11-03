@@ -26,6 +26,10 @@
   outline: none;
 }
 
+.md-editor[data-readonly='true'] .md-editor__content {
+  min-height: 0;
+}
+
 .md-editor__content > * + * {
   margin-top: var(--s-8);
 }

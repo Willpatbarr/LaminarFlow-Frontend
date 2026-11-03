@@ -110,14 +110,15 @@ test('Request changes asks for a note, confirms in place, and the requester sees
     const note = bobPage.getByRole('textbox', { name: /What would help/ })
     await note.fill('Could this be one shorter sentence?')
     const card = bobPage.locator('.review__card')
-    const before = await card.boundingBox()
+    // Measured from the panel's heading, not the viewport: a shorter page lets the browser scroll back.
+    const pageY = () => card.evaluate((el) => el.getBoundingClientRect().top - document.getElementById('review-title')!.getBoundingClientRect().top)
+    const before = await pageY()
     await bobPage.locator('form.review__reply').getByRole('button', { name: 'Request changes' }).click()
 
     // Confirmation is in the same card, in place.
     await expect(card.locator('.review__outcome')).toHaveText('You requested changes')
     await expect(card.getByTestId('decision-note')).toHaveText('Could this be one shorter sentence?')
-    const after = await card.boundingBox()
-    expect(Math.abs(after!.y - before!.y)).toBeLessThan(2)
+    expect(Math.abs((await pageY()) - before)).toBeLessThan(2)
 
     // Alice sees the outcome, who, and the note, live; the note she wrote is not "(edited)".
     await expect(page.getByRole('region', { name: /Review requests/ })).toContainText(`${bob.displayName} requested changes`)

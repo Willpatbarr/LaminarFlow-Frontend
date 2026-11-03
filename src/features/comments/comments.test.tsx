@@ -252,5 +252,20 @@ describe('the thread on the document page', () => {
         await user.click(within(region).getByRole('button', { name: 'Comment' }))
         await waitFor(() => expect(posts).toEqual([{ document_id: 'd-1', body: 'Agreed' }]))
     })
+
+    it('does not list a review request again: its note is on the review card (LAM-215)', async () => {
+        await openApp('/documents/d-1', {
+            ...listRoutes([], [doc({ id: 'd-1' })], [], {
+                comments: [
+                    comment({ id: 'c-d', ticket_id: null, document_id: 'd-1', body: 'On the doc' }),
+                    comment({ id: 'c-r', ticket_id: null, document_id: 'd-1', body: 'Is this tone right?', review_status: 'pending' }),
+                ],
+            }),
+        })
+        const region = await thread()
+        expect(await within(region).findByText('On the doc')).toBeInTheDocument()
+        expect(within(region).queryByText('Is this tone right?')).not.toBeInTheDocument()
+        expect(within(region).getByRole('heading', { name: /Comments.?\(1\)/ })).toBeInTheDocument()
+    })
 })
 
