@@ -178,4 +178,20 @@ describe('activity feed', () => {
         })
         expect(await screen.findByText(/archived this ticket/)).toBeInTheDocument()
     })
+
+    it('groups description edits, lets a live edit join, and expands to the times', async () => {
+        const edit = (id: string, minute: number) =>
+            entry({ id, actor_id: null, kind: 'field_changed', field: 'description', created_at: `2026-01-01T12:0${minute}:00Z` })
+        const mine = (id: string, minute: number) => ({ ...edit(id, minute), actor_id: 'acc-me' })
+        await openApp(
+            '/tickets/t-1',
+            routes(() => page([mine('a-3', 2), mine('a-2', 1), entry({ id: 'a-1' })])),
+        )
+        expect(await screen.findByText(/edited the description \(2×\)/)).toBeInTheDocument()
+        publishActivityFrame({ type: 'activity.created', ticket_id: 't-1', activity: mine('a-4', 3) })
+        expect(await screen.findByText(/edited the description \(3×\)/)).toBeInTheDocument()
+        const toggle = screen.getByRole('button', { name: 'Show times' })
+        await userEvent.click(toggle)
+        expect(screen.getByRole('button', { name: 'Hide times' })).toHaveAttribute('aria-expanded', 'true')
+    })
 })
