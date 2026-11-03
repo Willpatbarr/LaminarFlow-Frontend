@@ -166,6 +166,15 @@ describe('the change feed', () => {
         expect((await db.snapshot()).boards).toEqual([])
     })
 
+    it('adds a column the device has not seen yet from board.column.updated (a new status gets one, LAM-202)', async () => {
+        const { engine, db } = await started()
+        const added = { id: 'c-review', board_id: 'b-1', name: 'In Review', position: 4, is_visible: true, status_ids: ['s-review'] }
+        const next = { ...BOARD, columns: [...BOARD.columns, added] }
+
+        expect(await engine.applyRemote(frame('board.column.updated', next, { column_id: 'c-review', column: added }))).toBe(true)
+        expect(named(await columnsOf(db))).toEqual(['To Do', 'In Progress', 'Done', 'In Review'])
+    })
+
     it('ignores a frame whose board is not the one it names', async () => {
         const { engine } = await started()
         expect(await engine.applyRemote(frame('board.updated', BOARD, { board_id: 'b-other' }))).toBe(false)

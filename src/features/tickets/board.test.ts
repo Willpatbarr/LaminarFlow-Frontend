@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { BoardColumn, Ticket } from '@/sync'
 
-import { cardsOf, inOrder, moveColumn, positionAt, renameColumn, setVisible, statusFor, withStatusIn } from './board'
+import { cardsOf, inOrder, moveColumn, positionAt, renameColumn, setVisible, shownNames, statusFor, suggestedColumn, unmappedStatuses, withStatusIn } from './board'
 
 const col = (id: string, position: number, status_ids: string[], extra: Partial<BoardColumn> = {}): BoardColumn => ({
     id,
@@ -87,5 +87,24 @@ describe('editing columns', () => {
         expect(next.map((c) => c.status_ids)).toEqual([['s1', 's2'], [], ['s3']])
         expect(withStatusIn(columns, 'a', 's1', true)).toBeNull()
         expect(withStatusIn(next, 'a', 's2', false)!.map((c) => c.status_ids)).toEqual([['s1'], [], ['s3']])
+    })
+})
+
+describe('statuses no column holds (LAM-202)', () => {
+    const st = (id: string, category: string) => ({ id, name: id, category }) as never
+    const statuses = [st('a', 'not_started'), st('b', 'in_progress'), st('c', 'in_progress'), st('d', 'done')]
+    const board = { columns: [col('x', 1, ['a']), col('y', 2, ['b']), col('z', 3, ['d'])] }
+
+    it('finds the used statuses that sit in no column', () => {
+        expect(unmappedStatuses(board, [{ status_id: 'c' }, { status_id: 'a' }, { status_id: null }], statuses).map((s) => s.id)).toEqual(['c'])
+    })
+
+    it('suggests the column holding the same category, else the first', () => {
+        expect(suggestedColumn(board, statuses[2], statuses)?.id).toBe('y')
+        expect(suggestedColumn({ columns: [col('x', 1, ['a'])] }, statuses[2], statuses)?.id).toBe('x')
+    })
+
+    it('lists the names a column shows', () => {
+        expect(shownNames(col('q', 1, ['b', 'zz', 'c']), statuses)).toEqual(['b', 'c'])
     })
 })

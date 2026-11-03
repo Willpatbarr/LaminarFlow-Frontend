@@ -3,6 +3,7 @@ import { createMemo, createSignal, For, Show, untrack } from 'solid-js'
 
 import { can, denial } from '@/features/auth'
 import { useScope } from '@/features/shortcuts/registry'
+import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -33,7 +34,9 @@ import {
     positionAt,
     renameColumn,
     setVisible,
+    shownNames,
     statusFor,
+    unmappedStatuses,
     withStatusIn,
 } from '../board'
 import { nameCount, overMessage } from '../limits'
@@ -43,6 +46,7 @@ import { boardSearch, VIEW_PARAM, viewUrl } from '../savedViews/savedView'
 import { hueFor, isStarted } from '../statusLook'
 import type { Viewer } from '../viewer'
 import { AssigneeMarker } from './AssigneeMarker'
+import { MapStatuses } from './MapStatuses'
 import { LabelChips } from './LabelChips'
 import { ListControls } from './ListControls'
 import { SavedViewBar } from './SavedViewBar'
@@ -92,6 +96,7 @@ export function Board(props: BoardProps) {
     const [lift, setLift] = createSignal<Lift | null>(null)
     const [said, say] = createSignal('')
     const [editingStatuses, setEditingStatuses] = createSignal(false)
+    const [mapping, setMapping] = createSignal(false)
     let root: HTMLElement | undefined
     // The card keys below are handled on the card itself; this makes the help
     // sheet list them (they are declared in the shortcut registry).
@@ -328,10 +333,13 @@ export function Board(props: BoardProps) {
             </Show>
 
             <Show when={unplaced() > 0}>
-                <p class="board__note t-meta">
+                <Banner
+                    action={columns().length > 0 && can('ticket:write') ? 'Map now' : undefined}
+                    onAction={() => setMapping(true)}
+                >
                     {unplaced()} {unplaced() === 1 ? 'ticket is' : 'tickets are'} not on this board: no column holds{' '}
-                    {unplaced() === 1 ? 'its' : 'their'} status. Map statuses from a column’s menu.
-                </p>
+                    {unplaced() === 1 ? 'its' : 'their'} status.
+                </Banner>
             </Show>
 
             <Show when={hidden().length > 0}>
@@ -428,6 +436,15 @@ export function Board(props: BoardProps) {
             <p class="visually-hidden" role="status" aria-live="assertive">
                 {said()}
             </p>
+
+            <Show when={mapping() && unmappedStatuses(props.board, tickets(), statuses()).length > 0}>
+                <MapStatuses
+                    board={props.board}
+                    unmapped={unmappedStatuses(props.board, tickets(), statuses())}
+                    statuses={statuses()}
+                    onClose={() => setMapping(false)}
+                />
+            </Show>
 
             <Show when={editingStatuses() && project()} keyed>
                 {(found) => (
@@ -667,6 +684,9 @@ function ColumnMenu(props: ColumnMenuProps) {
                             Hide
                         </Button>
                     </div>
+                    <p class="board__shows t-meta">
+                        Shows: {shownNames(props.column, statuses()).join(', ') || 'no statuses'}
+                    </p>
                     <fieldset class="board__statuses">
                         <legend class="t-meta">Statuses shown in this column</legend>
                         <For each={statuses()} keyed={(status) => status.id}>

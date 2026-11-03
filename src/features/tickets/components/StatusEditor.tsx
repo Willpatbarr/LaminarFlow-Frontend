@@ -21,6 +21,7 @@ import {
     type Status,
 } from '@/sync'
 
+import { columnOfStatus } from '../board'
 import { COLOURS, hueFor, isStarted } from '../statusLook'
 import { nameCount, overMessage } from '../limits'
 import { Icon } from '@/components/ui/icons/Icon'
@@ -137,6 +138,7 @@ export function StatusEditor(props: StatusEditorProps) {
                         status={status}
                         choices={statuses().filter((other) => other.id !== status.id && !isTempId(other.id))}
                         count={using(status.id)}
+                        teamId={props.teamId}
                         fallback={neighbour(status.id)}
                         onClose={() => setDeleting(null)}
                     />
@@ -340,8 +342,25 @@ type DeleteDialogProps = {
     /** The team's other statuses: where the tickets may go. */
     choices: Status[]
     count: number
+    teamId: string
     fallback: string | null
     onClose: () => void
+}
+
+// Where the moved tickets show up (LAM-202): on each board of a project that has tickets
+// in the status, the column that holds the status they move to. Deleting the status does
+// not re-point it, so a board whose columns do not hold the target hides them.
+function landings(statusId: string, targetId: string, teamId: string): string[] {
+    const projects = sync.projects.filter(
+        (project) => project.team_id === teamId && sync.tickets.some((ticket) => ticket.project_id === project.id && ticket.status_id === statusId),
+    )
+    const boards = sync.boards.filter((board) => projects.some((project) => project.id === board.project_id))
+    const several = boards.length > 1
+    return boards.map((board) => {
+        const column = columnOfStatus(board, targetId)
+        const where = several ? `On “${board.name}”: ` : 'On the board: '
+        return column ? `${where}the “${column.name}” column.` : `${where}no column holds that status, so they will not show until you map it.`
+    })
 }
 
 function DeleteDialog(props: DeleteDialogProps) {
@@ -370,6 +389,11 @@ function DeleteDialog(props: DeleteDialogProps) {
                     options={props.choices.map((choice) => ({ value: choice.id, label: choice.name }))}
                     onChange={setTarget}
                 />
+                <Show when={target() && landings(props.status.id, target(), props.teamId).length > 0}>
+                    <ul class="status-editor__landing t-meta" aria-label="Where the tickets land on the board">
+                        <For each={landings(props.status.id, target(), props.teamId)}>{(line) => <li>{line}</li>}</For>
+                    </ul>
+                </Show>
             </Show>
         </Modal>
     )
