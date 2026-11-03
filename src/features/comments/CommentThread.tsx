@@ -67,7 +67,10 @@ function refusal(error: EntryError): string {
 }
 
 export function CommentThread(props: CommentThreadProps) {
-    const comments = createMemo(() => commentsFor(parentId(props.parent)))
+    const comments = createMemo(() =>
+        // A review request is a comment row too (LAM-113); the review card shows its note, so it is not listed twice.
+        commentsFor(parentId(props.parent)).filter((comment) => comment.review_status === null),
+    )
     const unsent = () => isTempId(resolveId(parentId(props.parent)))
     const noun = () => (props.parent.ticketId !== undefined ? 'ticket' : 'document')
 

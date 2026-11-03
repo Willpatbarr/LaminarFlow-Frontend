@@ -230,6 +230,9 @@ function RequestCard(props: PanelProps & { request: Comment }) {
         <>
             <span class="review__author">Review requested by {props.request.author_id === props.accountId ? 'you' : who(props.request.author_id)}</span>
             <RelativeTime at={props.request.created_at} />
+            <Show when={asked().length > 0}>
+                <span>Asked: {asked().map((id) => (id === props.accountId ? 'you' : who(id))).join(', ')}</span>
+            </Show>
         </>
     )
 
@@ -259,9 +262,6 @@ function RequestCard(props: PanelProps & { request: Comment }) {
                 <p class="t-meta">The text has changed since this was requested.</p>
             </Show>
             <MarkdownEditor label="Note" labelHidden readOnly value={props.request.body} onChange={() => {}} />
-            <Show when={asked().length > 0}>
-                <p class="t-meta">Asked: {asked().map((id) => (id === props.accountId ? 'you' : who(id))).join(', ')}</p>
-            </Show>
         </>
     )
 
