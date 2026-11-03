@@ -272,3 +272,42 @@ describe('list polish (LAM-155)', () => {
         expect(screen.getAllByRole('button', { name: /^Archive / })[0]).toHaveAccessibleDescription('Archive ticket')
     })
 })
+
+// LAM-212: at phone width the header is one slim bar. New ticket is an icon
+// button with its name, Save view and Edit statuses are in a ⋯ menu, and
+// Group, Sort, Filter and Columns are in a "View" sheet beside the search.
+describe('on a phone', () => {
+    beforeEach(() => {
+        vi.stubGlobal('matchMedia', (query: string) => ({
+            matches: query === '(max-width: 767px)',
+            media: query,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+        }))
+    })
+
+    it('folds the actions into a ⋯ menu and the view controls into a sheet', async () => {
+        await open('/')
+        const user = userEvent.setup()
+        await screen.findByRole('region', { name: 'To Do' })
+
+        expect(screen.getByRole('button', { name: 'New ticket' })).toHaveTextContent('')
+        expect(screen.getByPlaceholderText('Search')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Save view' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Edit statuses' })).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('Group by')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        expect(screen.getByRole('menuitem', { name: 'Save view' })).toBeInTheDocument()
+        expect(screen.getByRole('menuitem', { name: 'Edit statuses' })).toBeInTheDocument()
+        await user.keyboard('{Escape}')
+
+        await user.click(await screen.findByRole('button', { name: 'View' }))
+        const sheet = await screen.findByRole('dialog', { name: 'View' })
+        await user.selectOptions(within(sheet).getByLabelText('Group by'), 'Epic')
+        expect(within(sheet).getByLabelText('Sort by')).toBeInTheDocument()
+        expect(within(sheet).getByText(/^Filter/)).toBeInTheDocument()
+        expect(within(sheet).getByText('Columns')).toBeInTheDocument()
+        await screen.findByRole('region', { name: 'Checkout' })
+    })
+})

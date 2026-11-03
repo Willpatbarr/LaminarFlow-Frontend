@@ -34,6 +34,11 @@ type SavedViewBarProps = {
     projectId: string
     /** The board on screen; set exactly for `layout: board`. */
     boardId?: string
+    /** Controlled use: the owner puts "Save view" where it likes (the phone's ⋯
+     *  menu, LAM-212) and opens the dialog by setting this. Omit both for the
+     *  bar to draw its own "Save view" button in the page header. */
+    saving?: boolean
+    onSavingChange?: (saving: boolean) => void
     /** A new view was saved: the screen now belongs to it. */
     onSaved: (view: SavedView) => void
     /** Put the screen back to what the view saved. */
@@ -41,7 +46,10 @@ type SavedViewBarProps = {
 }
 
 export function SavedViewBar(props: SavedViewBarProps) {
-    const [saving, setSaving] = createSignal(false)
+    const [ownSaving, setOwnSaving] = createSignal(false)
+    const controlled = () => props.onSavingChange !== undefined
+    const saving = () => (controlled() ? props.saving === true : ownSaving())
+    const setSaving = (next: boolean) => (controlled() ? props.onSavingChange?.(next) : setOwnSaving(next))
 
     // A view of the other kind of screen (or another board) is not this
     // screen's to compare with.
@@ -72,15 +80,17 @@ export function SavedViewBar(props: SavedViewBarProps) {
     return (
         <div class="saved-view-bar">
             {/* The button is in the page header, at the window's right edge (LAM-201). */}
-            <PageActions>
-                <Button
-                    variant="secondary"
-                    disabledReason={denial('ticket:write', 'save views')}
-                    onClick={() => setSaving(true)}
-                >
-                    Save view
-                </Button>
-            </PageActions>
+            <Show when={!controlled()}>
+                <PageActions>
+                    <Button
+                        variant="secondary"
+                        disabledReason={denial('ticket:write', 'save views')}
+                        onClick={() => setSaving(true)}
+                    >
+                        Save view
+                    </Button>
+                </PageActions>
+            </Show>
             <Show when={view()}>
                 {(found) => (
                     <div class="saved-view-bar__row">
@@ -99,7 +109,9 @@ export function SavedViewBar(props: SavedViewBarProps) {
                                 type="button"
                                 class="saved-view-bar__link"
                                 onClick={() =>
-                                    void updateSavedView(found().id, { config: toSavedConfig(props.config, props.layout) })
+                                    void updateSavedView(found().id, {
+                                        config: toSavedConfig(props.config, props.layout),
+                                    })
                                 }
                             >
                                 Save changes
@@ -112,7 +124,11 @@ export function SavedViewBar(props: SavedViewBarProps) {
                 )}
             </Show>
             <Show when={saving()}>
-                <SaveViewDialog layout={props.layout} onSave={(input) => void save(input)} onCancel={() => setSaving(false)} />
+                <SaveViewDialog
+                    layout={props.layout}
+                    onSave={(input) => void save(input)}
+                    onCancel={() => setSaving(false)}
+                />
             </Show>
         </div>
     )

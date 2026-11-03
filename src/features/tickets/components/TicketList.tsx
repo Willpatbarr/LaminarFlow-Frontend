@@ -1,9 +1,8 @@
 import { useLocation, useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch } from 'solid-js'
 
-import { denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
-import { PageActions, PageLayout, PageSubnav } from '@/components/ui/PageLayout'
+import { PageLayout, PageSubnav } from '@/components/ui/PageLayout'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
 import { StatusPill } from '@/components/ui/StatusPill'
@@ -39,10 +38,10 @@ import { serverMatches } from '../listView/serverRun'
 import { VIEW_PARAM, viewUrl } from '../savedViews/savedView'
 import { hueFor, isStarted } from '../statusLook'
 import { tickets as ticketCount } from '@/features/syncstatus/components/plural'
-import { ShortcutHint } from '@/features/shortcuts/ShortcutHint'
 import { useScope, useShortcut } from '@/features/shortcuts/registry'
 import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
+import { ListHeaderActions } from './ListHeaderActions'
 import { ListControls } from './ListControls'
 import { NewTicketDialog } from './NewTicketDialog'
 import { SavedViewBar } from './SavedViewBar'
@@ -91,7 +90,14 @@ const headersFor = (columns: string[]) => [...columns.map((field) => fieldLabel(
 // rearrange when the tickets arrive.
 export function TicketList(props: TicketListProps) {
     return (
-        <Show when={props.heading === 'h2'} fallback={<PageLayout title={<h1 class="t-screen-title">Tickets</h1>}><TicketListBody {...props} /></PageLayout>}>
+        <Show
+            when={props.heading === 'h2'}
+            fallback={
+                <PageLayout title={<h1 class="t-screen-title tickets__heading">Tickets</h1>}>
+                    <TicketListBody {...props} />
+                </PageLayout>
+            }
+        >
             <TicketListBody {...props} />
         </Show>
     )
@@ -138,12 +144,7 @@ function LoadingTickets(props: { heading?: 'h1' | 'h2' }) {
     return (
         <>
             <ListTitle heading={props.heading} />
-            <PageActions>
-                <Button disabled>
-                    <Icon name="new-ticket" size={16} />
-                    New ticket
-                </Button>
-            </PageActions>
+            <ListHeaderActions loading />
             {/* The one announcement. It is visually hidden: sighted users have
                 the placeholder itself. */}
             <p class="visually-hidden" role="status">
@@ -170,6 +171,7 @@ type ProjectTicketsProps = {
 
 function ProjectTickets(props: ProjectTicketsProps) {
     const [creating, setCreating] = createSignal(false)
+    const [savingView, setSavingView] = createSignal(false)
     const navigate = useNavigate()
     const location = useLocation()
     // The side panel: `/?ticket=<id>`. Plain data in the address, so a reload or
@@ -421,7 +423,12 @@ function ProjectTickets(props: ProjectTicketsProps) {
             <Show when={boardsForProject(props.project.id)[0]}>
                 {(board) => (
                     <PageSubnav>
-                        <ViewSwitch current="list" projectId={props.project.id} boardId={board().id} filter={view().config.filter} />
+                        <ViewSwitch
+                            current="list"
+                            projectId={props.project.id}
+                            boardId={board().id}
+                            filter={view().config.filter}
+                        />
                     </PageSubnav>
                 )}
             </Show>
@@ -433,20 +440,17 @@ function ProjectTickets(props: ProjectTicketsProps) {
                 accountId={props.viewer.accountId}
                 teamId={props.project.team_id}
                 projectId={props.project.id}
+                saving={savingView()}
+                onSavingChange={setSavingView}
                 onSaved={(saved) => belongTo(saved.id)}
                 onRevert={(saved) => navigate(viewUrl(saved), { replace: true })}
             />
 
-            <PageActions>
-                <a class="button button--ghost" href={`/teams/${props.project.team_id}/settings`}>
-                    Edit statuses
-                </a>
-                <Button onClick={() => openDialog()} disabledReason={denial('ticket:write', 'create tickets')}>
-                    <Icon name="new-ticket" size={16} />
-                    New ticket
-                    <ShortcutHint id="ticket.new" />
-                </Button>
-            </PageActions>
+            <ListHeaderActions
+                teamId={props.project.team_id}
+                onNew={openDialog}
+                onSaveView={() => setSavingView(true)}
+            />
 
             <Show
                 when={projectTickets().length > 0}
@@ -506,7 +510,14 @@ function ProjectTickets(props: ProjectTicketsProps) {
                                                 onClick={() => toggleGroup(group().key)}
                                             >
                                                 <span class="tickets__chevron" aria-hidden="true">
-                                                    <Icon name={view().collapsed.includes(group().key) ? 'caret-right' : 'caret-down'} size={16} />
+                                                    <Icon
+                                                        name={
+                                                            view().collapsed.includes(group().key)
+                                                                ? 'caret-right'
+                                                                : 'caret-down'
+                                                        }
+                                                        size={16}
+                                                    />
                                                 </span>
                                                 <Show
                                                     when={view().config.group === 'status'}
