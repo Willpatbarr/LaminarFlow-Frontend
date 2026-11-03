@@ -42,6 +42,10 @@ export function manualTimer(start = Date.parse('2026-01-01T00:00:00Z')) {
                 t.fn()
             }
         },
+        /** Moves the clock forward without firing anything: time passing while code runs. */
+        advanceSilently(ms: number) {
+            now += ms
+        },
         /** How long until the next timer, or null when none is set. */
         nextDelay() {
             if (pending.size === 0) return null

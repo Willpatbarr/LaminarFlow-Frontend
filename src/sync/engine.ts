@@ -1241,6 +1241,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     function pickNext(): Promise<OutboxEntry | null> {
         return db.write(async (tx) => {
             const now = timer.now()
+            decidedAt = now
             const headSeen = new Set<string>()
             for (const head of await tx.outbox.all()) {
                 if (headSeen.has(head.entity_id)) continue
@@ -1279,12 +1280,16 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         })
     }
 
-    const canSend = () =>
-        isRunning() &&
-        !paused &&
-        !hydrateWanted &&
-        connectivity.isOnline() &&
-        timer.now() >= networkRetryAt
+    // The clock reading the worker last decided by (canSend, pickNext). A
+    // deadline that is later than this reading was not yet due when the worker
+    // decided to stop, so it must still get a wake-up even if the clock has
+    // since passed it (see scheduleWake).
+    let decidedAt = Number.NEGATIVE_INFINITY
+
+    const canSend = () => {
+        decidedAt = timer.now()
+        return isRunning() && !paused && !hydrateWanted && connectivity.isOnline() && decidedAt >= networkRetryAt
+    }
 
     // A new engine means a session that works: whatever an earlier run parked
     // for a 401 (the tab was closed, or reloaded, before the user signed in)
@@ -1356,17 +1361,24 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         wake = null
         if (!isRunning() || paused) return
 
+        // Deadlines are compared with the reading the worker decided by, not
+        // with the clock now: one that fell due between that decision and this
+        // line would otherwise be dropped, and nothing would ever try again.
+        // It is fired at once (delay 0). A deadline that was already due when
+        // the worker decided is not here: the worker sent, or has a reason not
+        // to, so this cannot spin.
         const now = timer.now()
+        const since = Math.min(decidedAt, now)
         const times = [...waits.values(), networkRetryAt]
         if (hydration === 'failed') times.push(hydrateRetryAt)
-        const next = Math.min(...times.filter((time) => time > now))
+        const next = Math.min(...times.filter((time) => time > since))
         if (!Number.isFinite(next)) return
 
         wake = timer.set(() => {
             wake = null
             if (hydration === 'failed' && timer.now() >= hydrateRetryAt) hydrateWanted = true
             kick()
-        }, next - now)
+        }, Math.max(0, next - now))
     }
 
     async function idle() {
