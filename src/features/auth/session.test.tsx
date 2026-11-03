@@ -1,11 +1,22 @@
 import { render, screen } from '@solidjs/testing-library'
-import { Show } from 'solid-js'
+import { flush, Show } from 'solid-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiProblem } from '@/api/problem'
 import { bodyOf, ok, problem, stubFetch } from '@/testing/fetch'
 
-import { can, login, logout, onLogout, refresh, register, session } from './session'
+import {
+    can,
+    login,
+    loggedOutElsewhere,
+    logout,
+    markExpired,
+    onLogout,
+    refresh,
+    register,
+    session,
+    wasExplicitLogout,
+} from './session'
 
 const me = {
     account_id: 'acc-1',
@@ -23,6 +34,7 @@ afterEach(() => {
 // The store is module state, so every test starts by asking the (stubbed)
 // server and getting "nobody".
 beforeEach(async () => {
+    localStorage.clear()
     stubFetch({ 'GET /api/v1/auth/me': () => problem(401, 'unauthorized') })
     await refresh()
 })
@@ -249,5 +261,73 @@ describe('can', () => {
         await logout()
 
         expect(screen.queryByRole('button', { name: 'New ticket' })).not.toBeInTheDocument()
+    })
+})
+
+describe('an explicit logout is not an expiry (LAM-205)', () => {
+    async function signedIn() {
+        stubFetch({ 'GET /api/v1/auth/me': () => ok(me) })
+        await refresh()
+    }
+
+    it('a 401 reported after logout does not raise the expired banner', async () => {
+        await signedIn()
+        stubFetch({ 'POST /api/v1/auth/logout': () => new Response(null, { status: 204 }) })
+        await logout()
+
+        markExpired()
+        flush()
+
+        expect(session.expired).toBe(false)
+        expect(wasExplicitLogout()).toBe(true)
+    })
+
+    it('asks /auth/me past the HTTP cache, so Back cannot hand a page the old signed-in answer', async () => {
+        const fetchMock = stubFetch({ 'GET /api/v1/auth/me': () => ok(me) })
+        await refresh()
+        const request = fetchMock.mock.calls.at(-1)![0] as Request
+        expect(request.cache).toBe('no-store')
+    })
+
+    it('a real expiry still raises it', async () => {
+        await signedIn()
+        markExpired()
+        flush()
+        expect(session.expired).toBe(true)
+        expect(session.status).toBe('authenticated')
+        expect(wasExplicitLogout()).toBe(false)
+    })
+
+    it('a page restored after a logout elsewhere becomes anonymous, not expired', async () => {
+        await signedIn()
+        localStorage.setItem('lf:logged-out', '1')
+
+        loggedOutElsewhere()
+
+        expect(session.status).toBe('anonymous')
+        expect(session.expired).toBe(false)
+        expect(wasExplicitLogout()).toBe(true)
+    })
+
+    it('leaves a signed-in page alone when nobody logged out', async () => {
+        await signedIn()
+        loggedOutElsewhere()
+        expect(session.status).toBe('authenticated')
+    })
+
+    it('signing in again forgets the logout', async () => {
+        await signedIn()
+        stubFetch({ 'POST /api/v1/auth/logout': () => new Response(null, { status: 204 }) })
+        await logout()
+        stubFetch({
+            'POST /api/v1/auth/login': () => ok({ account_id: 'acc-1' }),
+            'GET /api/v1/auth/me': () => ok(me),
+        })
+        await login('ada@example.com', 'correct horse battery')
+
+        expect(wasExplicitLogout()).toBe(false)
+        markExpired()
+        flush()
+        expect(session.expired).toBe(true)
     })
 })

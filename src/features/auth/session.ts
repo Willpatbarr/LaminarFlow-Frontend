@@ -16,6 +16,8 @@ import type { components } from '@/api/schema'
 ║      login        POST /auth/login, then refresh
 ║      register     POST /auth/register, then refresh
 ║      logout       POST /auth/logout, then clear - clears even if the request fails
+║      loggedOutElsewhere  a page restored from Back/forward after a logout: drop the stale session
+║      wasExplicitLogout   did this page's user log out on purpose (the guard skips returnTo)
 ║      onLogout     register a function to run after the store is cleared
 ║      can          does the signed-in account hold this permission
 ╠═ reached from ════════════════════════════════════════════════════════════════════════
@@ -42,6 +44,41 @@ export type SessionState = {
     /** Why the first /auth/me did not answer, while `status` is still
      *  `unknown`. The shell shows "can't reach the server" with a retry. */
     loadFailure: 'network' | 'server' | null
+}
+
+// Set by an explicit logout, in localStorage so that a page frozen in the
+// back/forward cache (whose JS state still says "signed in") and other tabs can
+// learn that the session is gone on purpose, not expired. Cleared by the next
+// sign-in. Best effort: storage can be blocked, and then the old behaviour
+// (a 401 reads as an expiry) is what remains.
+const LOGGED_OUT_KEY = 'lf:logged-out'
+
+function markLoggedOutMarker(on: boolean) {
+    try {
+        if (on) localStorage.setItem(LOGGED_OUT_KEY, String(Date.now()))
+        else localStorage.removeItem(LOGGED_OUT_KEY)
+    } catch {
+        // Storage unavailable: nothing to remember it in.
+    }
+}
+
+function loggedOutMarker(): boolean {
+    try {
+        return localStorage.getItem(LOGGED_OUT_KEY) !== null
+    } catch {
+        return false
+    }
+}
+
+// True in the document where the user chose to log out, until they sign in
+// again. In memory on purpose: a fresh visit in a new document with no session
+// is a genuine signed-out visit and keeps its returnTo (LAM-63).
+let explicitLogout = false
+
+/** Did the user log out on purpose in this page. The route guard reads it so the
+ *  page they left is not offered as the place to come back to. */
+export function wasExplicitLogout(): boolean {
+    return explicitLogout
 }
 
 // The browser holds the session cookie (HttpOnly, so this code could not read
@@ -71,6 +108,10 @@ function set(status: SessionStatus, me: Me | null) {
         draft.expired = false
         draft.loadFailure = null
     })
+    if (status === 'authenticated') {
+        explicitLogout = false
+        markLoggedOutMarker(false)
+    }
     flush()
 }
 
@@ -82,6 +123,9 @@ export function markExpired(): void {
     // the read is a one-off check and the write is picked up by the flush that
     // is already running.
     if (untrack(() => state.status !== 'authenticated' || state.expired)) return
+    // A 401 after the user logged out (a send that was in flight, a page
+    // restored from the back/forward cache) is the logout, not an expiry.
+    if (explicitLogout || loggedOutMarker()) return
     setState((draft) => {
         draft.expired = true
     })
@@ -101,7 +145,7 @@ export function recheckExpired(): Promise<void> {
     if (untrack(() => !state.expired)) return Promise.resolve()
     rechecking = (async () => {
         try {
-            const { data } = await api.GET('/api/v1/auth/me')
+            const { data } = await api.GET('/api/v1/auth/me', { cache: 'no-store' })
             // The user may have signed in through the banner, or logged out,
             // while this was on the wire; either already settled it.
             if (data && untrack(() => state.expired)) set('authenticated', data)
@@ -117,8 +161,13 @@ export function recheckExpired(): Promise<void> {
 // 401 is an answer ("nobody is logged in"), so it resolves. Anything else - a
 // 500, a dropped connection - is not an answer, so it throws and leaves the
 // state as it was rather than logging a signed-in user out on a blip.
+//
+// `cache: 'no-store'`: "who is signed in" must never come from the browser's
+// HTTP cache. On Back/forward the browser reuses cached responses whatever
+// their age, so after a logout the page would be handed the old signed-in
+// answer, draw the shell, and then meet a 401 on its first sync (LAM-205).
 export async function refresh(): Promise<void> {
-    const { data, error, response } = await api.GET('/api/v1/auth/me').catch((failure: unknown) => {
+    const { data, error, response } = await api.GET('/api/v1/auth/me', { cache: 'no-store' }).catch((failure: unknown) => {
         noteLoadFailure('network')
         throw failure
     })
@@ -185,6 +234,10 @@ export function onLogout(fn: () => void | Promise<void>): () => void {
 // can sign them straight back in on the next load; that is logged, not hidden.
 // It does not reject, so a caller can navigate to /login unconditionally.
 export async function logout(): Promise<void> {
+    // First, before anything is awaited: a request that fails with 401 while
+    // this runs must not read as the session expiring.
+    explicitLogout = true
+    markLoggedOutMarker(true)
     try {
         const { error, response } = await api.POST('/api/v1/auth/logout')
         if (error && classify(response) !== 'unauthorized') throw toProblem(response, error)
@@ -200,6 +253,16 @@ export async function logout(): Promise<void> {
     for (const result of results) {
         if (result.status === 'rejected') console.error('a logout hook failed', result.reason)
     }
+}
+
+/** A page that was kept in the back/forward cache (or another tab) still thinks
+ *  it is signed in, but the user logged out elsewhere on purpose. Treats the
+ *  session as gone - not expired - so the guard sends it to /login. The local
+ *  data was already wiped by the tab that logged out. Does nothing otherwise. */
+export function loggedOutElsewhere(): void {
+    if (untrack(() => state.status !== 'authenticated') || !loggedOutMarker()) return
+    explicitLogout = true
+    set('anonymous', null)
 }
 
 // Hides actions; it does not guard them. The server re-checks every request,

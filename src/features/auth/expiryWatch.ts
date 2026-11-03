@@ -1,4 +1,4 @@
-import { recheckExpired } from './session'
+import { loggedOutElsewhere, recheckExpired } from './session'
 
 /*
 ┌─ auth ──────────────────────────────────────────
@@ -44,5 +44,23 @@ export function watchExpiredSession(triggers: Triggers = browserTriggers): () =>
     return () => {
         offVisible()
         offOnline()
+    }
+}
+
+/** Starts listening for a logout this page did not see: Back/forward restoring
+ *  a page from the browser's cache (`pageshow` with `persisted`), and another
+ *  tab logging out (`storage`). Either way a page that still believes it is
+ *  signed in drops to anonymous, so the guard redirects instead of showing the
+ *  shell and, later, an "expired" banner. Returns the function that stops. */
+export function watchLogoutElsewhere(): () => void {
+    const onShow = (event: PageTransitionEvent) => {
+        if (event.persisted) loggedOutElsewhere()
+    }
+    const onStorage = () => loggedOutElsewhere()
+    window.addEventListener('pageshow', onShow)
+    window.addEventListener('storage', onStorage)
+    return () => {
+        window.removeEventListener('pageshow', onShow)
+        window.removeEventListener('storage', onStorage)
     }
 }

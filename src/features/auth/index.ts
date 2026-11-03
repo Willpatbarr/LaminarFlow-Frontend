@@ -6,11 +6,13 @@ export {
     logout,
     onLogout,
     markExpired,
+    loggedOutElsewhere,
+    wasExplicitLogout,
     recheckExpired,
     can,
     denial,
 } from './session'
-export { watchExpiredSession } from './expiryWatch'
+export { watchExpiredSession, watchLogoutElsewhere } from './expiryWatch'
 export type { Me, SessionState, SessionStatus } from './session'
 export { RequireAuth, useRedirectIfAuthenticated } from './guards'
 export { safeReturnTo, withReturnTo, loginPathFor } from './returnTo'
