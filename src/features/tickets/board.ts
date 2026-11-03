@@ -123,3 +123,28 @@ export function lookStatus(column: BoardColumn, statuses: Status[]): Status | un
     }
     return undefined
 }
+
+// ── statuses no column holds (LAM-202) ──────────────────────────────────────
+
+/** The names of the statuses a column holds, in the column's order; a status the team no
+ *  longer has is skipped. */
+export function shownNames(column: BoardColumn, statuses: Status[]): string[] {
+    return column.status_ids.flatMap((id) => statuses.find((status) => status.id === id)?.name ?? [])
+}
+
+/** The statuses of `tickets` that no column of `board` holds, in the team's order. */
+export function unmappedStatuses(board: Pick<Board, 'columns'>, tickets: Pick<Ticket, 'status_id'>[], statuses: Status[]): Status[] {
+    const used = new Set(tickets.map((ticket) => ticket.status_id))
+    return statuses.filter((status) => used.has(status.id) && !columnOfStatus(board, status.id))
+}
+
+/** Where an unmapped status most likely belongs: the first column (board order) that holds a
+ *  status of its category, as the server places a new status (LAM-202); otherwise the first column. */
+export function suggestedColumn(board: Pick<Board, 'columns'>, status: Status, statuses: Status[]): BoardColumn | undefined {
+    const ordered = inOrder(board.columns)
+    return (
+        ordered.find((column) =>
+            column.status_ids.some((id) => statuses.find((other) => other.id === id)?.category === status.category),
+        ) ?? ordered[0]
+    )
+}

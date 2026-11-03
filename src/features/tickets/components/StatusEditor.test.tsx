@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { connectSyncToSession, wipeLocalData } from '@/sync'
-import { listRoutes, TEAM, ticket } from '@/sync/testing/harness'
+import { BOARD, listRoutes, TEAM, ticket } from '@/sync/testing/harness'
 import { openApp, ME_BODY } from '@/testing/app'
 import { bodyOf, ok } from '@/testing/fetch'
 import { ALL_PERMISSIONS } from '@/testing/permissions'
@@ -155,6 +155,17 @@ describe('delete', () => {
 
         await waitFor(() => expect(rows().map(nameOf)).toEqual(['To Do', 'Done']))
         await waitFor(() => expect(query).toBe('?move_to=s-done'))
+    })
+
+    it('names the board column the moved tickets land in (LAM-202)', async () => {
+        const user = userEvent.setup()
+        await openApp(SETTINGS, listRoutes([ticket({ id: 't-1', status_id: 's-doing' })], [], [BOARD]))
+        await screen.findByLabelText('Name of In Progress')
+
+        await user.click(screen.getByRole('button', { name: 'Delete In Progress' }))
+        const dialog = await screen.findByRole('dialog', { name: /Delete .In Progress./ })
+        await user.selectOptions(within(dialog).getByLabelText('Move tickets to'), 'Done')
+        expect(dialog).toHaveTextContent('the “Done” column')
     })
 
     it('does not ask when no open ticket uses it, and moves any archived ones to its neighbour', async () => {

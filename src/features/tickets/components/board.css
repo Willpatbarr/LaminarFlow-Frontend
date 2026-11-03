@@ -307,3 +307,7 @@
     align-items: center;
   }
 }
+
+.board__shows {
+  margin: 0;
+}

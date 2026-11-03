@@ -156,3 +156,9 @@
     justify-content: center;
   }
 }
+
+.status-editor__landing {
+  margin: var(--s-8) 0 0;
+  padding: 0;
+  list-style: none;
+}

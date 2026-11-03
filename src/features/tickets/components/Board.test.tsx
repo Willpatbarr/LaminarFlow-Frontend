@@ -214,3 +214,42 @@ describe('the column menu', () => {
         expect(screen.getByRole('list', { name: 'Status order' })).toBeInTheDocument()
     })
 })
+
+describe('tickets no column shows (LAM-202)', () => {
+    const lost = [ticket({ id: 't-9', title: 'Lost', status_id: 's-doing', position: 1024 })]
+    const without = {
+        ...BOARD,
+        columns: [BOARD.columns[0], { ...BOARD.columns[1], status_ids: [] }, BOARD.columns[2]],
+    }
+
+    it('says so in a banner, and Map now puts the status in the column picked', async () => {
+        const user = userEvent.setup()
+        const bodies: unknown[] = []
+        await openApp('/boards/b-1', {
+            ...listRoutes(lost, [], [without]),
+            'PUT /api/v1/boards/b-1/columns/c-doing/statuses': async (request) => {
+                bodies.push(await bodyOf(request))
+                return ok({ ...BOARD.columns[1] })
+            },
+        })
+        await screen.findByRole('heading', { name: 'Launch' })
+        const banner = await screen.findByText(/1 ticket is not on this board/)
+        expect(banner).toBeVisible()
+
+        await user.click(screen.getByRole('button', { name: 'Map now' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Show these statuses on the board' })
+        // Starts on the column of the same category when there is one; here the first column.
+        await user.selectOptions(within(dialog).getByLabelText('Column for In Progress'), 'In Progress')
+        await user.click(within(dialog).getByRole('button', { name: 'Map statuses' }))
+
+        await waitFor(() => expect(bodies).toEqual([{ status_ids: ['s-doing'] }]))
+        await waitFor(() => expect(titles('In Progress')).toEqual(['Lost']))
+    })
+
+    it('the column menu says which statuses the column shows', async () => {
+        const user = userEvent.setup()
+        await open()
+        await user.click(await screen.findByLabelText('Column options for In Progress'))
+        expect(await screen.findByText('Shows: In Progress')).toBeInTheDocument()
+    })
+})
