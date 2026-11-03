@@ -11,7 +11,6 @@ import { retryNow, syncTrouble, unsyncedCount } from '@/sync'
 //
 // Dismissing hides it for the rest of that spell of trouble. When the server
 // is reached again the next failure is news, so the dismissal is forgotten.
-// Persistent (no timer): the message stays true until the trouble is over.
 // Nothing here is styled as an error: the changes are safe, they are only late.
 export function SyncTroubleToast() {
     const trouble = createMemo(syncTrouble)
@@ -25,7 +24,6 @@ export function SyncTroubleToast() {
         <Show when={trouble() && !dismissed()}>
             <Toast
                 hue="amber"
-                persistent
                 title={
                     trouble() === 'network'
                         ? "Can't reach the server"

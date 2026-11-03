@@ -29,8 +29,8 @@ export function clearArchiveUndo() {
 // (or the withdrawal of the archive, if it has not been sent), so it works
 // offline and in the same order as everything else the user did.
 //
-// Times out like the other toasts (Undo is then gone from here, as when
-// dismissed); archiving another replaces it and restarts the timer.
+// No timer, as with every toast here: it stays until it is dismissed, used or
+// replaced.
 export function ArchiveUndoToast() {
     // Another account's ticket must never be offered after signing out.
     createEffect(
@@ -52,7 +52,6 @@ export function ArchiveUndoToast() {
             {(ticket) => (
                 <Toast
                     hue="blue"
-                    timerKey={ticket()}
                     title={`Archived “${ticket().title || 'Untitled'}”`}
                     detail="It has left the list for everyone."
                     action="Undo"

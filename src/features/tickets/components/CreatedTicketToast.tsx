@@ -4,7 +4,7 @@ import { Toast } from '@/components/ui/Toast'
 import { sync } from '@/sync'
 
 /** `open` is the dialog's own way in: it closes itself, then goes to the ticket. */
-type Created = { title: string; open: () => void }
+type Created = { title: string; open: () => void; count: number }
 
 // The last ticket made with "Create more" on, so the dialog that stayed open
 // can say what it just did and offer a way to the ticket. One at a time:
@@ -12,12 +12,15 @@ type Created = { title: string; open: () => void }
 // toast area are in different parts of the tree.
 const [created, setCreated] = createSignal<Created | null>(null)
 
-export const announceCreated = (ticket: Created) => setCreated(ticket)
+// Same kind merges: tickets made one after another are one toast whose count
+// grows and whose "Open ticket" opens the most recent.
+export const announceCreated = (ticket: Created) =>
+    setCreated((prev) => ({ ...ticket, count: (prev?.count ?? 0) + ticket.count }))
 export const clearCreatedTicket = () => setCreated(null)
 
-// "Created “Title”" with a way to open it. Polite (role status), no focus
-// movement (the dialog under it is still being typed in). Times out like the
-// other toasts; making another ticket replaces it and restarts the timer.
+// "Created “Title”" with a way to open it. Polite (role status), no timer and
+// no focus movement, as with every toast here: the dialog under it is still
+// being typed in.
 export function CreatedTicketToast() {
     createEffect(
         () => sync.active,
@@ -30,9 +33,8 @@ export function CreatedTicketToast() {
             {(ticket) => (
                 <Toast
                     hue="blue"
-                    timerKey={ticket()}
                     mark="check"
-                    title={`Created “${ticket().title}”`}
+                    title={ticket().count > 1 ? `Created ${ticket().count} tickets` : `Created “${ticket().title}”`}
                     action="Open ticket"
                     onAction={() => {
                         const open = ticket().open

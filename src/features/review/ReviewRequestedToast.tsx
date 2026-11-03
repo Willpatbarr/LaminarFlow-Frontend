@@ -6,10 +6,11 @@ import { sync } from '@/sync'
 // "Review requested." as a toast, not a line in the page: a line above the
 // document pushed everything below it down (LAM-150). Module-level because
 // the dialog that asks is on a page, and the toast floats over whichever
-// one is showing. It times out like the other toasts; asking again restarts the timer.
+// one is showing. No timer, as with every toast here: it stays until dismissed
+// or replaced.
 const [shown, setShown] = createSignal(0)
 
-/** Says that a review was asked for. Asking again shows it again. */
+/** Says that a review was asked for. Asking again merges into the same toast with a count. */
 export function notifyReviewRequested() {
     setShown((n) => n + 1)
 }
@@ -28,7 +29,7 @@ export function ReviewRequestedToast() {
     )
     return (
         <Show when={shown() > 0}>
-            <Toast hue="green" mark="check" title="Review requested." timerKey={shown()} onDismiss={clearReviewRequested} />
+            <Toast hue="green" mark="check" title={shown() > 1 ? `Review requested (${shown()} times).` : 'Review requested.'} onDismiss={clearReviewRequested} />
         </Show>
     )
 }

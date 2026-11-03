@@ -1,10 +1,10 @@
-import { fireEvent, render, screen } from '@solidjs/testing-library'
+import { render, screen } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { createSignal, flush, Show } from 'solid-js'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { Banner } from './Banner'
-import { Toast, TOAST_TIMEOUT_MS } from './Toast'
+import { Toast } from './Toast'
 
 describe('Banner', () => {
     it('is a polite status region by default, with its message in it from the start', () => {
@@ -144,80 +144,5 @@ describe('Toast', () => {
         const mark = container.querySelector('.toast__mark')!
         expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
         expect(mark.textContent).toBe('')
-    })
-})
-
-describe('Toast timeout', () => {
-    afterEach(() => vi.useRealTimers())
-
-    it('dismisses itself after the timeout', () => {
-        vi.useFakeTimers()
-        const onDismiss = vi.fn()
-        render(() => <Toast title="Done" onDismiss={onDismiss} />)
-
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS - 1)
-        expect(onDismiss).not.toHaveBeenCalled()
-        vi.advanceTimersByTime(1)
-        expect(onDismiss).toHaveBeenCalledTimes(1)
-    })
-
-    it('stays when persistent', () => {
-        vi.useFakeTimers()
-        const onDismiss = vi.fn()
-        render(() => <Toast title="Trouble" persistent onDismiss={onDismiss} />)
-
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS * 10)
-        expect(onDismiss).not.toHaveBeenCalled()
-    })
-
-    it('waits while hovered and restarts in full when the pointer leaves', () => {
-        vi.useFakeTimers()
-        const onDismiss = vi.fn()
-        render(() => <Toast title="Done" onDismiss={onDismiss} />)
-        const toast = screen.getByRole('status')
-
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS - 100)
-        fireEvent.pointerEnter(toast)
-        flush()
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS * 5)
-        expect(onDismiss).not.toHaveBeenCalled()
-
-        fireEvent.pointerLeave(toast)
-        flush()
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS - 1)
-        expect(onDismiss).not.toHaveBeenCalled()
-        vi.advanceTimersByTime(1)
-        expect(onDismiss).toHaveBeenCalledTimes(1)
-    })
-
-    it('waits while focus is inside and restarts when it leaves', () => {
-        vi.useFakeTimers()
-        const onDismiss = vi.fn()
-        render(() => <Toast title="Done" action="Open" onDismiss={onDismiss} />)
-
-        screen.getByRole('button', { name: 'Open' }).focus()
-        flush()
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS * 5)
-        expect(onDismiss).not.toHaveBeenCalled()
-
-        screen.getByRole('button', { name: 'Open' }).blur()
-        flush()
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS)
-        expect(onDismiss).toHaveBeenCalledTimes(1)
-    })
-
-    it('restarts the timer when timerKey changes', () => {
-        vi.useFakeTimers()
-        const onDismiss = vi.fn()
-        const [key, setKey] = createSignal(1)
-        render(() => <Toast title="Done" timerKey={key()} onDismiss={onDismiss} />)
-
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS - 1)
-        setKey(2)
-        flush()
-        vi.advanceTimersByTime(TOAST_TIMEOUT_MS - 1)
-        expect(onDismiss).not.toHaveBeenCalled()
-        vi.advanceTimersByTime(1)
-        expect(onDismiss).toHaveBeenCalledTimes(1)
     })
 })

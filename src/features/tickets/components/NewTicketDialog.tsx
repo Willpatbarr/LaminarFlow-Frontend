@@ -63,6 +63,8 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
     // toast when the dialog closes, so the way to it is not lost.
     const [last, setLast] = createSignal<{ title: string; id: string } | null>(null)
     let opened = false
+    // How many were made while it stayed open, so the toast can say "Created 3 tickets".
+    let madeCount = 0
     let titleField: HTMLInputElement | undefined
     // The guard against a second create while one is under way. A plain flag,
     // not the `saving` signal: Solid batches a write, so two Enters in the same
@@ -94,6 +96,7 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
                 // Status stays for the next one; the words do not.
                 setTitle('')
                 setDescription('')
+                madeCount += 1
                 setLast({ title: made, id: ticket.id })
                 titleField?.focus()
             } else {
@@ -108,7 +111,7 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
 
     onCleanup(() => {
         const made = last()
-        if (made && !opened) announceCreated({ title: made.title, open: () => navigate(`/tickets/${made.id}`) })
+        if (made && !opened) announceCreated({ title: made.title, count: madeCount, open: () => navigate(`/tickets/${made.id}`) })
     })
 
     function onKeyDown(event: KeyboardEvent) {
