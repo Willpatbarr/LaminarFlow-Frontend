@@ -114,7 +114,11 @@ export interface paths {
         /** Rename an aspect type */
         put: operations["rename-aspect-type"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete an aspect type
+         * @description Deletes the type and its fields. Refused with 409 `aspect_type_in_use` (and `document_count`) while any document uses the type, archived ones included, because an archived document comes back with its type when unarchived. Nothing is changed on a refusal; delete or move the documents first. Needs `aspect:write`.
+         */
+        delete: operations["delete-aspect-type"];
         options?: never;
         head?: never;
         patch?: never;
@@ -218,6 +222,26 @@ export interface paths {
          * @description Send the complete list, in the order wanted. Idempotent, and the result is exactly what was sent - a partial list is rejected, because it would renumber some fields and leave others.
          */
         post: operations["reorder-aspect-type-fields"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aspect-types/{id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count the documents of an aspect type
+         * @description For the confirmation before a type is deleted. Archived documents count: they keep their type and return with it when unarchived. Needs `aspect:read`.
+         */
+        get: operations["get-aspect-type-usage"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1518,7 +1542,7 @@ export interface paths {
         put?: never;
         /**
          * Add a status to a team
-         * @description No status is sacred, so there is no special case and no 409: name and position are not unique.
+         * @description No status is sacred, so there is no special case and no 409: name and position are not unique. On every board of the team the new status joins the first column that holds a status of the same category, or, when none does, a new column appended to the board and named after the status; stored column names are never changed. Each column written is announced as `board.column.updated`.
          */
         post: operations["create-status"];
         delete?: never;
@@ -1798,6 +1822,61 @@ export interface components {
             id: string;
             name: string;
             team_id: string;
+        };
+        AspectTypeInUse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/AspectTypeInUse.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description How many of document_count are archived.
+             */
+            archived_count: number;
+            /**
+             * @description Documents still use the aspect type, so it was not deleted.
+             * @example aspect_type_in_use
+             * @enum {string}
+             */
+            code: "aspect_type_in_use";
+            /**
+             * @description A human-readable explanation specific to this occurrence of the problem.
+             * @example Property foo is required but is missing.
+             */
+            detail?: string;
+            /**
+             * Format: int64
+             * @description How many documents of this type exist, archived ones included.
+             */
+            document_count: number;
+            /** @description Optional list of individual error details */
+            errors?: components["schemas"]["ErrorDetail"][] | null;
+            /**
+             * Format: uri
+             * @description A URI reference that identifies the specific occurrence of the problem.
+             * @example https://example.com/error-log/abc123
+             */
+            instance?: string;
+            /**
+             * Format: int64
+             * @description HTTP status code
+             * @example 400
+             */
+            status?: number;
+            /**
+             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+             * @example Bad Request
+             */
+            title?: string;
+            /**
+             * Format: uri
+             * @description A URI reference to human-readable documentation for the error.
+             * @default about:blank
+             * @example https://example.com/errors/example
+             */
+            type: string;
         };
         AspectTypeListOutputBody: {
             /**
@@ -3726,6 +3805,24 @@ export interface components {
             /** @description Permission names, as resource:action. */
             scopes: string[];
         };
+        TypeUsageOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/TypeUsageOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description How many of document_count are archived, so they do not appear in the documents list.
+             */
+            archived_count: number;
+            /**
+             * Format: int64
+             * @description Documents of this type, archived ones included. Zero means the type can be deleted.
+             */
+            document_count: number;
+        };
         UpdateColumnInputBody: {
             /**
              * Format: uri
@@ -4147,6 +4244,44 @@ export interface operations {
             };
         };
     };
+    "delete-aspect-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflict. Documents (archived ones included) still use the type: code is aspect_type_in_use and document_count says how many and archived_count how many of those are archived. Nothing was deleted. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["AspectTypeInUse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "export-aspect-type": {
         parameters: {
             query?: never;
@@ -4337,6 +4472,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AspectTypeBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-aspect-type-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TypeUsageOutputBody"];
                 };
             };
             /** @description Error */

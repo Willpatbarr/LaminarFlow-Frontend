@@ -73,3 +73,54 @@ test('create a type with three fields, reorder them, and remove one after the co
     await page.reload()
     await expect.poll(shown).toEqual(['Owner', 'Risks'])
 })
+
+// LAM-206: an unused type deletes after a confirm and the page returns to the list; one
+// that documents use (an archived one included) explains with the counts and stays.
+test('delete a type: unused goes, used shows the counts', async ({ page, context, baseURL }) => {
+    const account = await newAccount('aspects-delete')
+    const world = await projectOf(account)
+    await signedInAs(context, account, baseURL!)
+
+    const make = async (name: string) => {
+        const created = await account.api.POST('/api/v1/aspect-types', { body: { team_id: world.teamId, name } })
+        expect(created.response.ok).toBe(true)
+        return created.data!
+    }
+    const serverHas = async (id: string) =>
+        (await account.api.GET('/api/v1/aspect-types/{id}', { params: { path: { id } } })).response.status === 200
+    const free = await make(unique('Free'))
+    const used = await make(unique('Used'))
+    await account.api.POST('/api/v1/aspect-types/{id}/fields', { params: { path: { id: used.id } }, body: { label: 'Goal' } })
+
+    // Two documents of the used type; one is archived, so the list will not show it.
+    const ids: string[] = []
+    for (const title of ['Live one', 'Archived one']) {
+        const made = await account.api.POST('/api/v1/documents', {
+            params: { header: { 'Idempotency-Key': crypto.randomUUID() } },
+            body: { title, type: 'aspect', aspect_type_id: used.id, body: {} },
+        })
+        expect(made.response.ok).toBe(true)
+        ids.push(made.data!.id)
+    }
+    expect((await account.api.DELETE('/api/v1/documents/{id}', { params: { path: { id: ids[1] } } })).response.ok).toBe(true)
+
+    // Used: counts, no destructive button, nothing deleted.
+    await page.goto(`/teams/${world.teamId}/aspect-types/${used.id}`)
+    await page.getByRole('button', { name: 'Delete type' }).click()
+    const blocked = page.getByRole('dialog')
+    await expect(blocked).toContainText('Used by 2 documents (1 archived).')
+    await expect(blocked.getByRole('button', { name: 'Delete type' })).toHaveCount(0)
+    await blocked.getByRole('button', { name: 'Close' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(await serverHas(used.id)).toBe(true)
+
+    // Unused: a normal confirm, then back on the list without it.
+    await page.goto(`/teams/${world.teamId}/aspect-types/${free.id}`)
+    await page.getByRole('button', { name: 'Delete type' }).click()
+    const confirm = page.getByRole('dialog')
+    await expect(confirm).toContainText('No document uses this type')
+    await confirm.getByRole('button', { name: 'Delete type' }).click()
+    await expect(page.getByRole('heading', { name: 'Aspect types' })).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`/teams/${world.teamId}/aspect-types$`))
+    await expect.poll(() => serverHas(free.id)).toBe(false)
+})
