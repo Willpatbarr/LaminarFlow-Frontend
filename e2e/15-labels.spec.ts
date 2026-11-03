@@ -34,11 +34,15 @@ test('a label created inline is applied, reaches the server and shows as a chip 
     await openTicket(page, ticket.id, 'Needs a label')
     await connectionIs(page, 'Connected')
 
-    await page.getByLabel('New label name').fill('regression')
-    await page.getByRole('button', { name: 'Create and apply' }).click()
+    // No create form until the "+" is pressed, then one search-or-create list.
+    await expect(page.getByLabel('New label name')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Add label' }).click()
+    await page.getByRole('searchbox', { name: 'Search or create a label' }).fill('regression')
+    await page.getByRole('button', { name: 'Create “regression”' }).click()
 
     // Picked at once, and a chip on the page.
-    await expect(page.getByRole('checkbox', { name: 'regression' })).toBeChecked()
+    await expect(page.getByRole('option', { name: 'regression' })).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Escape')
     await expect(page.getByRole('list', { name: 'Labels' }).getByText('regression')).toBeVisible()
 
     // On the server: the label, and the ticket carrying its real id.

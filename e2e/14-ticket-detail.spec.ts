@@ -1,10 +1,14 @@
 import {
     connectionIs,
     expect,
+    expectProperty,
     fields,
     newAccount,
     openProject,
+    openLabels,
     openTicket,
+    pickProperty,
+    property,
     projectOf,
     serverCreate,
     serverTicket,
@@ -33,20 +37,22 @@ test('every field set on the ticket page reaches the server and survives a reloa
     await connectionIs(page, 'Connected')
 
     // Everything unset reads "None", not an error.
-    for (const name of ['Epic', 'Sprint', 'Milestone']) await expect(page.getByLabel(name, { exact: true })).toHaveValue('')
-    await expect(page.getByLabel('Epic', { exact: true })).toContainText('None')
+    for (const name of ['Epic', 'Sprint', 'Milestone']) await expectProperty(page, name, 'None')
 
     await page.getByLabel('Title').fill('Detail page, renamed')
     await page.getByLabel('Title').blur()
     await page.getByRole('textbox', { name: 'Description' }).fill('Everything on one page')
     await page.getByRole('textbox', { name: 'Description' }).blur()
-    await page.getByLabel('Status').selectOption({ label: world.statusNames[1] })
-    await page.getByLabel('Assignee').selectOption({ label: `${account.displayName} (you)` })
-    await page.getByLabel('Epic', { exact: true }).selectOption({ label: 'Checkout' })
-    await page.getByLabel('Sprint', { exact: true }).selectOption({ label: 'Sprint 1' })
-    await page.getByLabel('Milestone', { exact: true }).selectOption({ label: 'v1.0' })
-    await page.getByRole('checkbox', { name: 'bug' }).check()
-    await page.getByRole('checkbox', { name: 'ui' }).check()
+    await pickProperty(page, 'Status', world.statusNames[1])
+    await pickProperty(page, 'Assignee', `${account.displayName} (you)`)
+    await pickProperty(page, 'Epic', 'Checkout')
+    await pickProperty(page, 'Sprint', 'Sprint 1')
+    await pickProperty(page, 'Milestone', 'v1.0')
+    // Labels: the list stays open while several are ticked.
+    const labelList = await openLabels(page)
+    await labelList.getByRole('option', { name: 'bug' }).click()
+    await labelList.getByRole('option', { name: 'ui' }).click()
+    await page.keyboard.press('Escape')
 
     // On the server: the ticket fields, and the sprint through its filter.
     await expect
@@ -80,17 +86,20 @@ test('every field set on the ticket page reaches the server and survives a reloa
     const shown = async () => {
         await expect(page.getByLabel('Title')).toHaveValue('Detail page, renamed')
         await expect(page.getByRole('textbox', { name: 'Description' })).toHaveText('Everything on one page')
-        await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[1])
-        await expect(page.getByLabel('Assignee')).toHaveValue(account.accountId)
-        await expect(page.getByLabel('Epic', { exact: true })).toHaveValue(epic.id)
-        await expect(page.getByLabel('Sprint', { exact: true })).toHaveValue(sprint.id)
-        await expect(page.getByLabel('Milestone', { exact: true })).toHaveValue(milestone.id)
-        await expect(page.getByRole('checkbox', { name: 'bug' })).toBeChecked()
-        await expect(page.getByRole('checkbox', { name: 'ui' })).toBeChecked()
+        await expectProperty(page, 'Status', world.statusNames[1])
+        await expectProperty(page, 'Assignee', `${account.displayName} (you)`)
+        await expectProperty(page, 'Epic', 'Checkout')
+        await expectProperty(page, 'Sprint', 'Sprint 1')
+        await expectProperty(page, 'Milestone', 'v1.0')
+        const chips = page.getByRole('list', { name: 'Labels' })
+        await expect(chips.getByText('bug')).toBeVisible()
+        await expect(chips.getByText('ui')).toBeVisible()
 
         // LAM-172: a label's dot is its hue token, not a raw colour.
+        const list = await openLabels(page)
         for (const [name, hue] of [['bug', 'rust'], ['ui', 'blue']]) {
-            const dot = page.locator('label.ticket__label', { hasText: name }).locator('.ticket__label-dot')
+            await expect(list.getByRole('option', { name, exact: true })).toHaveAttribute('aria-selected', 'true')
+            const dot = list.getByRole('option', { name, exact: true }).locator('.picker__dot')
             const painted = await dot.evaluate((el) => getComputedStyle(el).backgroundColor)
             const token = await page.evaluate((h) => {
                 const probe = document.createElement('i')
@@ -102,6 +111,7 @@ test('every field set on the ticket page reaches the server and survives a reloa
             }, hue)
             expect(painted).toBe(token)
         }
+        await page.keyboard.press('Escape')
     }
     await shown()
 
@@ -111,8 +121,9 @@ test('every field set on the ticket page reaches the server and survives a reloa
     await shown()
 
     // And "None" again clears them.
-    await page.getByLabel('Epic', { exact: true }).selectOption({ label: 'None' })
-    await page.getByRole('checkbox', { name: 'bug' }).uncheck()
+    await pickProperty(page, 'Epic', 'None')
+    await (await openLabels(page)).getByRole('option', { name: 'bug', exact: true }).click()
+    await page.keyboard.press('Escape')
     await expect.poll(async () => (await serverTicket(account, ticket.id))?.epic_id).toBeNull()
     await expect.poll(async () => (await serverTicket(account, ticket.id))?.label_ids).toEqual([ui.id])
 })
@@ -138,4 +149,93 @@ test('the list opens a ticket in a side panel, and a reload keeps it open', asyn
 
     await page.getByRole('complementary', { name: 'Ticket' }).getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('complementary', { name: 'Ticket' })).toHaveCount(0)
+})
+
+// LAM-211: the page reads as an issue, not a form.
+test('an epic made inside the Epic picker is given to the ticket, with no loose create buttons', async ({ page, context, baseURL }) => {
+    const account = await newAccount('pickercreate')
+    const world = await projectOf(account)
+    const ticket = await serverCreate(account, world.projectId, fields('Needs an epic'))
+    await signedInAs(context, account, baseURL!)
+    await openTicket(page, ticket.id, 'Needs an epic')
+    await connectionIs(page, 'Connected')
+
+    await expect(page.getByRole('button', { name: /^New (epic|sprint|milestone) for this ticket$/ })).toHaveCount(0)
+    await property(page, 'Epic').click()
+    await page.getByRole('searchbox', { name: 'Search epic' }).fill('Onb')
+    await page.getByRole('button', { name: 'Create new epic…' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New epic' })
+    await dialog.getByLabel('Name').fill('Onboarding')
+    await dialog.getByRole('button', { name: 'Create epic' }).click()
+
+    await expectProperty(page, 'Epic', 'Onboarding')
+    await expect.poll(async () => (await serverTicket(account, ticket.id))?.epic_id).not.toBeNull()
+})
+
+for (const [kind, size] of [
+    ['desktop', { width: 1366, height: 800 }],
+    ['tablet', { width: 768, height: 1024 }],
+    ['phone', { width: 375, height: 812 }],
+] as const) {
+    test(`the ticket page is an issue view on a ${kind}: a large title, the text at full width, properties in a panel (desktop) or chips (tablet, phone)`, async ({
+        page,
+        context,
+        baseURL,
+    }) => {
+        const account = await newAccount(`issueview${kind}`)
+        const world = await projectOf(account)
+        const ticket = await serverCreate(account, world.projectId, fields('Issue view', { description: 'Some words' }))
+        await page.setViewportSize(size)
+        await signedInAs(context, account, baseURL!)
+        await openTicket(page, ticket.id, 'Issue view')
+
+        // No boxed "Title" field: the title is a large heading you type into.
+        await expect(page.locator('label', { hasText: /^Title$/ })).toHaveCount(0)
+        const fontSize = await page.getByLabel('Title').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+        expect(fontSize).toBeGreaterThanOrEqual(24)
+
+        const title = (await page.getByLabel('Title').boundingBox())!
+        const text = (await page.getByRole('textbox', { name: 'Description' }).boundingBox())!
+        const status = (await property(page, 'Status').boundingBox())!
+        const labels = (await page.getByRole('button', { name: 'Add label' }).boundingBox())!
+        if (kind !== 'desktop') {
+            // Narrower than the panel needs (a tablet's content beside its rail, a phone): chips between the title and the text; the text spans the page.
+            expect(status.y).toBeGreaterThan(title.y)
+            expect(status.y + status.height).toBeLessThanOrEqual(text.y)
+            expect(labels.y + labels.height).toBeLessThanOrEqual(text.y)
+            expect(text.width).toBeGreaterThan(size.width - 140)
+        } else {
+            // A panel at the right of the text.
+            expect(status.x).toBeGreaterThanOrEqual(text.x + text.width)
+            expect(labels.x).toBeGreaterThanOrEqual(text.x + text.width)
+        }
+        // No sideways scroll.
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    })
+}
+
+test('a long title wraps, Enter saves it without a new line, and Escape drops what was typed since the last save', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const account = await newAccount('longtitle')
+    const world = await projectOf(account)
+    const ticket = await serverCreate(account, world.projectId, fields('Short'))
+    await page.setViewportSize({ width: 375, height: 812 })
+    await signedInAs(context, account, baseURL!)
+    await openTicket(page, ticket.id, 'Short')
+    const long = 'A rather long ticket title that goes on and on so that it has to wrap onto several lines on a phone screen, not scroll sideways'
+    const title = page.getByLabel('Title')
+    const oneLine = (await title.boundingBox())!.height
+    await title.fill(long)
+    await title.press('Enter')
+    expect(await title.inputValue()).toBe(long)
+    expect((await title.boundingBox())!.height).toBeGreaterThan(oneLine * 2)
+    expect(await title.evaluate((el: HTMLTextAreaElement) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await expect.poll(async () => (await serverTicket(account, ticket.id))?.title).toBe(long)
+
+    await title.fill('Typed then dropped')
+    await title.press('Escape')
+    await expect(title).toHaveValue(long)
 })

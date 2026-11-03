@@ -103,11 +103,11 @@ for (const scheme of SCHEMES) {
             await expect(row).toHaveAccessibleDescription(/\S/)
 
             await openTicket(page, ticket.id, 'Scanned ticket')
-            // The ticket page's create buttons say what they do here; the sidebar's
-            // keep the plain names, so each name is unique.
+            // LAM-211: creating an epic, sprint or milestone is inside its picker, not a
+            // loose button; the sidebar's "New epic" etc. are the only ones left.
             for (const kind of ['epic', 'sprint', 'milestone']) {
                 await expect(page.getByRole('button', { name: `New ${kind}`, exact: true })).toHaveCount(1)
-                await expect(page.getByRole('button', { name: `New ${kind} for this ticket`, exact: true })).toHaveCount(1)
+                await expect(page.getByRole('button', { name: `New ${kind} for this ticket`, exact: true })).toHaveCount(0)
             }
             await scan(page, `ticket-page-${scheme}`, testInfo)
         })

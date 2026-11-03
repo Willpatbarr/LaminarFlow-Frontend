@@ -1,0 +1,292 @@
+/* The ticket page's properties (LAM-211): Status, Assignee, Epic, Sprint,
+ * Milestone and Labels. In a panel at the right when the page is wide, and a
+ * row of chips under the title when it is not (a phone, the side panel). The
+ * switch is the ticket's own width (container "ticket"), not the window's. */
+.ticket__props {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8);
+  min-width: 0;
+}
+
+.prop-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.prop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-6);
+  min-height: var(--touch-target, 32px);
+  max-width: 100%;
+  padding: 0 var(--s-12);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prop:hover:not(:disabled),
+.prop[aria-expanded='true'] {
+  border-color: var(--border-strong);
+  background: var(--row-hover);
+}
+
+.prop:focus-visible,
+.picker__option:focus-visible,
+.picker__create:focus-visible,
+.picker__swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.prop:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.prop[aria-invalid='true'] {
+  border-color: var(--rust);
+}
+
+.prop__name {
+  color: var(--text-3);
+}
+
+.prop__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A chip says its value; only an empty one says its name instead. */
+.prop:not([data-empty]) .prop__name,
+.prop[data-empty] .prop__value {
+  display: none;
+}
+
+.prop--add {
+  padding: 0 var(--s-8);
+  border-style: dashed;
+  color: var(--text-2);
+}
+
+.prop__add-text {
+  display: none;
+}
+
+.prop--add[data-empty] .prop__add-text {
+  display: inline;
+}
+
+.prop-row--labels {
+  display: contents;
+}
+
+.prop-row--labels > .prop__name {
+  display: none;
+}
+
+.prop-labels {
+  display: contents;
+}
+
+/* The panel: from the ticket being wide enough to hold it beside the text. */
+@container ticket (min-width: 44rem) {
+  .ticket__props {
+    display: grid;
+    align-content: start;
+    gap: var(--s-2);
+  }
+
+  .prop-row {
+    display: grid;
+    gap: 0;
+  }
+
+  .prop {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    width: 100%;
+    min-height: 32px;
+    padding: var(--s-4) var(--s-8);
+    border-color: transparent;
+    border-radius: var(--r-control);
+    background: transparent;
+  }
+
+  .prop:not([data-empty]) .prop__name,
+  .prop[data-empty] .prop__value {
+    display: inline;
+  }
+
+  .prop[data-empty] .prop__value {
+    color: var(--text-3);
+  }
+
+  .prop-row .input__error {
+    padding: 0 var(--s-8);
+  }
+
+  .prop-row--labels {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    align-items: start;
+    padding: var(--s-4) var(--s-8);
+  }
+
+  .prop-row--labels > .prop__name {
+    display: inline;
+    padding-top: var(--s-4);
+  }
+
+  .prop-row--labels > .input__error {
+    grid-column: 2;
+    padding: 0;
+  }
+
+  .prop-labels {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-4);
+    min-width: 0;
+  }
+
+  .prop--add {
+    display: inline-flex;
+    width: auto;
+    min-height: 24px;
+    padding: 0 var(--s-6);
+    border-style: dashed;
+    border-color: var(--border);
+    border-radius: 999px;
+  }
+}
+
+/* The list a property opens. */
+.picker {
+  display: grid;
+  gap: var(--s-4);
+  min-width: min(260px, 100%);
+}
+
+.picker__search {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  padding: var(--s-4) var(--s-8);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  background: var(--bg-raised);
+  color: var(--text-1);
+  font: inherit;
+}
+
+.picker__search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.picker__search[aria-invalid='true'] {
+  border-color: var(--rust);
+}
+
+.picker__list {
+  display: grid;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.picker__option,
+.picker__create {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: var(--touch-target, 32px);
+  padding: var(--s-4) var(--s-8);
+  border: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker__option:hover,
+.picker__create:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+
+.picker__option[aria-selected='true'] {
+  font-weight: 600;
+}
+
+.picker__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.picker__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.picker__empty {
+  margin: 0;
+  padding: var(--s-8);
+  color: var(--text-3);
+}
+
+.picker__create {
+  color: var(--accent);
+}
+
+.picker__create:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.picker__new {
+  display: grid;
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border);
+}
+
+.picker__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  padding: var(--s-4) var(--s-8);
+}
+
+.picker__swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.picker__swatch[aria-checked='true'] {
+  border-color: var(--text-1);
+}
+
+@media (max-width: 767px) {
+  .picker__swatch {
+    width: 28px;
+    height: 28px;
+  }
+}

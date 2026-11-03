@@ -14,6 +14,7 @@ import {
 import { listRoutes, ME, ticket } from '@/sync/testing/harness'
 import { openApp, startAnonymous } from '@/testing/app'
 import { bodyOf, ok, problem } from '@/testing/fetch'
+import { expectProperty, property } from '@/testing/properties'
 
 // A change that lost to someone else's, as the ticket page, the list and the
 // pending indicator show it - through the real route tree, store and engine,
@@ -116,8 +117,9 @@ describe('an edit that lost to someone else\'s', () => {
         expect(within(region).getByText(/Editing is paused until you decide/)).toBeInTheDocument()
         expect(screen.getByLabelText('Title')).toHaveAttribute('readonly')
         expect(screen.getByRole('textbox', { name: 'Description' })).toHaveAttribute('aria-readonly', 'true')
-        expect(screen.getByLabelText('Status')).toBeDisabled()
-        expect(screen.getByLabelText('Assignee')).toBeDisabled()
+        expect(await property('Status')).toBeDisabled()
+        expect(await property('Assignee')).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Add label' })).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Archive ticket' })).toBeDisabled()
 
         // Typing does nothing.
@@ -157,7 +159,7 @@ describe('an edit that lost to someone else\'s', () => {
 
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         await waitFor(() => expect(sync.outbox).toEqual([]))
-        expect(screen.getByLabelText('Status')).toHaveValue('s-todo')
+        await expectProperty('Status', 'To Do')
     })
 
     it('uses mine: resends on their version, then the page is editable again', async () => {

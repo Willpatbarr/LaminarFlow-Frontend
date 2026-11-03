@@ -1,4 +1,4 @@
-import { connectionIs, expect, fields, newAccount, openTicket, projectOf, serverCreate, signedInAs, test } from './support/app'
+import { connectionIs, expect, fields, newAccount, openTicket, pickProperty, projectOf, serverCreate, signedInAs, test } from './support/app'
 
 // LAM-114: the history under the comments on the ticket page. A status change
 // made on the page puts a line at the top, worded plainly and with names.
@@ -15,7 +15,7 @@ test('changing a status adds a line to the ticket\'s activity', async ({ page, c
     const activity = page.getByRole('region', { name: 'Activity' })
     await expect(activity.getByText(/created this ticket/)).toBeVisible()
 
-    await page.getByLabel('Status').selectOption({ label: world.statusNames[1] })
+    await pickProperty(page, 'Status', world.statusNames[1])
     // The first status a ticket gets has no "from"; either wording names the new status.
     await expect(activity.getByText(new RegExp(`You (moved this from .+ to|set the status to) ${world.statusNames[1]}`))).toBeVisible()
     // Newest first.

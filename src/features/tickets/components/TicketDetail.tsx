@@ -1,9 +1,10 @@
 import { useNavigate } from '@solidjs/router'
 import {
     createEffect,
+    onCleanup,
     createMemo,
     createSignal,
-    For,
+    createUniqueId,
     Match,
     onSettled,
     Show,
@@ -15,16 +16,13 @@ import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { ensureMembers, members } from '@/features/members/members'
-import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine } from '@/components/ui/Skeleton'
 import {
     archiveOnHold,
     discard,
     epicsForProject,
-    labelsForProject,
-    milestonesForProject,
+        milestonesForProject,
     sprintsForProject,
     isLoading,
     keepAsNew,
@@ -53,14 +51,14 @@ import { BLANK_TITLE, descriptionCount, overMessage, titleCount } from '../limit
 import type { Viewer } from '../viewer'
 import { archiveWithUndo } from './ArchiveUndoToast'
 import { ConflictPanel } from './ConflictPanel'
-import { LabelChips } from './LabelChips'
-import { hueFor } from '../statusLook'
-import { NewLabel } from './LabelEditor'
+import { FieldFoot } from '@/components/ui/CharacterCount'
+import { describedBy, isOver } from '@/components/ui/count'
+import { LabelsProperty } from './LabelsProperty'
+import { PropertyPicker, type PropertyHandle } from './PropertyPicker'
 import { SectionBar } from './SectionBar'
 import { SyncMarker } from './SyncMarker'
 import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
-import { Checkbox } from '@/components/ui/Checkbox'
 
 type TicketDetailProps = {
     /** Set when the page is drawn as the side panel beside the list: the way
@@ -164,10 +162,9 @@ export function TicketDetail(props: TicketDetailProps) {
     )
 }
 
-// The editor's shape, field for field: the same `.ticket__form` and `.input`
-// boxes, with a bar where each label is and a box where each control is. The
-// heights are the real controls' (a one-line field, the six-row description,
-// the button), so nothing moves when the ticket lands.
+// The editor's shape, block for block: the same `.ticket__form` and
+// `.ticket__layout` (title, properties, body), with a box where each control
+// is. The heights are the real controls', so nothing moves when the ticket lands.
 function LoadingTicket() {
     return (
         <>
@@ -178,71 +175,55 @@ function LoadingTicket() {
             <div class="ticket__form" aria-hidden="true">
                 <div class="ticket__sections" />
                 <div class="ticket__status-line" />
-                <PlaceholderField control="40px" />
-                <div class="md-editor">
-                    <span class="input__label t-body ticket__skeleton-line">
-                        <SkeletonLine width="9ch" height="12px" />
-                    </span>
-                    <SkeletonBox shape="control" height="210px" />
-                </div>
-                <div class="ticket__row">
-                    <PlaceholderField control="40px" />
-                    <PlaceholderField control="40px" />
-                </div>
-                <div class="ticket__row">
-                    <PlaceholderField control="40px" />
-                    <PlaceholderField control="40px" />
-                </div>
-                <div class="ticket__row">
-                    <PlaceholderField control="40px" />
-                </div>
-                <div class="ticket__new-parent">
-                    <SkeletonBox shape="control" width="72px" height="26px" />
-                    <SkeletonBox shape="control" width="82px" height="26px" />
-                    <SkeletonBox shape="control" width="98px" height="26px" />
-                </div>
-                <div class="ticket__labels">
-                    <span class="input__label t-body ticket__skeleton-line">
-                        <SkeletonLine width="7ch" height="12px" />
-                    </span>
-                    <PlaceholderField control="40px" />
-                    <PlaceholderField control="40px" />
-                </div>
-                <div class="links">
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="10ch" height="16px" />
-                    </span>
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="24ch" height="14px" />
-                    </span>
-                    <div class="links__actions">
-                        <SkeletonBox shape="control" width="132px" height="40px" />
-                        <SkeletonBox shape="control" width="120px" height="40px" />
+                <div class="ticket__layout">
+                    <div class="ticket__head">
+                        <SkeletonBox shape="control" height="38px" />
                     </div>
-                </div>
-                <div class="attachments">
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="12ch" height="16px" />
-                    </span>
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="16ch" height="14px" />
-                    </span>
-                    <div class="attachments__actions">
-                        <SkeletonBox shape="control" width="120px" height="40px" />
+                    <div class="ticket__props">
+                        <SkeletonBox shape="control" width="132px" height="32px" />
+                        <SkeletonBox shape="control" width="120px" height="32px" />
+                        <SkeletonBox shape="control" width="96px" height="32px" />
+                        <SkeletonBox shape="control" width="108px" height="32px" />
                     </div>
-                </div>
-                <div class="comments">
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="12ch" height="16px" />
-                    </span>
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="20ch" height="14px" />
-                    </span>
-                </div>
-                <div class="activity">
-                    <span class="ticket__skeleton-line">
-                        <SkeletonLine width="8ch" height="16px" />
-                    </span>
+                    <div class="ticket__body">
+                        <SkeletonBox shape="control" height="224px" />
+                        <div class="links">
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="10ch" height="16px" />
+                            </span>
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="24ch" height="14px" />
+                            </span>
+                            <div class="links__actions">
+                                <SkeletonBox shape="control" width="132px" height="40px" />
+                                <SkeletonBox shape="control" width="120px" height="40px" />
+                            </div>
+                        </div>
+                        <div class="attachments">
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="12ch" height="16px" />
+                            </span>
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="16ch" height="14px" />
+                            </span>
+                            <div class="attachments__actions">
+                                <SkeletonBox shape="control" width="120px" height="40px" />
+                            </div>
+                        </div>
+                        <div class="comments">
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="12ch" height="16px" />
+                            </span>
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="20ch" height="14px" />
+                            </span>
+                        </div>
+                        <div class="activity">
+                            <span class="ticket__skeleton-line">
+                                <SkeletonLine width="8ch" height="16px" />
+                            </span>
+                        </div>
+                    </div>
                 </div>
                 <div class="t-meta ticket__hint ticket__skeleton-line">
                     <SkeletonLine width="28ch" height="11px" />
@@ -252,22 +233,6 @@ function LoadingTicket() {
                 </div>
             </div>
         </>
-    )
-}
-
-type PlaceholderFieldProps = {
-    /** The height of the control it stands in for. */
-    control: `${number}px`
-}
-
-function PlaceholderField(props: PlaceholderFieldProps) {
-    return (
-        <div class="input">
-            <span class="input__label t-body ticket__skeleton-line">
-                <SkeletonLine width="9ch" height="12px" />
-            </span>
-            <SkeletonBox shape="control" height={props.control} />
-        </div>
     )
 }
 
@@ -316,8 +281,14 @@ function TicketEditor(props: TicketEditorProps) {
     const id = () => props.ticket.id
     const statuses = createMemo(() => statusesForProject(props.ticket.project_id))
 
-    let titleEl: HTMLInputElement | undefined
-    let statusEl: HTMLSelectElement | undefined
+    let titleEl: HTMLTextAreaElement | undefined
+    function growTitle() {
+        if (!titleEl) return
+        titleEl.style.height = 'auto'
+        titleEl.style.height = `${titleEl.scrollHeight}px`
+    }
+    let status: PropertyHandle | undefined
+    const titleId = createUniqueId()
 
     // Typing saves ~1 s after the last keystroke, and again on blur, on leaving
     // the page and on closing the tab. `context.base` is the ticket's version when
@@ -344,6 +315,12 @@ function TicketEditor(props: TicketEditorProps) {
             same: (a, b) => resolveTicketId(a) === resolveTicketId(b),
             canSave: (value) => !overMessage('Description', descriptionCount(value)),
         },
+    )
+
+    // A title that arrives from elsewhere (a live change, a revert) changes the height too.
+    createEffect(
+        () => title.value(),
+        () => growTitle(),
     )
 
     // Nothing over its limit, and no blank title, is ever queued. The text
@@ -381,18 +358,18 @@ function TicketEditor(props: TicketEditorProps) {
         if (current && !options.some((option) => option.value === current)) {
             options.push({ value: current, label: 'Unknown status' })
         }
-        return [{ value: '', label: 'No status' }, ...options]
+        return options
     }
 
     // A parent, sprint or milestone that is no longer in the list is still the
     // ticket's until someone changes it, so it keeps an option of its own (as a
-    // status does); "None" is the empty value and never an error.
+    // status does); "None" is the empty value (the picker adds it) and never an error.
     function pickerOptions<T extends { id: string; name: string }>(known: T[], current: string[], unknown: string) {
         const options = known.map((item) => ({ value: item.id, label: item.name }))
         for (const id of current) {
             if (!options.some((option) => option.value === id)) options.push({ value: id, label: unknown })
         }
-        return [{ value: '', label: 'None' }, ...options]
+        return options
     }
     const project = () => props.ticket.project_id
     const epicOptions = () => pickerOptions(epicsForProject(project()), props.ticket.epic_id ? [props.ticket.epic_id] : [], 'Unknown epic')
@@ -400,13 +377,6 @@ function TicketEditor(props: TicketEditorProps) {
         pickerOptions(milestonesForProject(project()), props.ticket.milestone_id ? [props.ticket.milestone_id] : [], 'Unknown milestone')
     const sprintOptions = () => pickerOptions(sprintsForProject(project()), props.ticket.sprint_ids.slice(0, 1), 'Unknown sprint')
     const teamId = () => sync.projects.find((candidate) => candidate.id === project())?.team_id ?? ''
-    const labelChoices = () => {
-        const known = labelsForProject(project())
-        const unknown = props.ticket.label_ids
-            .filter((id) => !known.some((label) => label.id === id))
-            .map((id) => ({ id, name: 'Unknown label', color: '' }))
-        return [...known, ...unknown]
-    }
     // Two boxes ticked in quick succession must both count: the second is
     // worked out from the first even though the store has not shown it yet.
     const [labelDraft, setLabelDraft] = createSignal<string[] | null>(null)
@@ -454,11 +424,11 @@ function TicketEditor(props: TicketEditorProps) {
         titleEl?.focus()
     }
 
-    // `S` and `E` (LAM-124). The status is a native select, so `S` puts focus
-    // on it and the arrow keys or typing pick the new one; `E` puts the cursor
-    // in the title. Not offered while the ticket is read-only.
+    // `S` and `E` (LAM-124). `S` opens the status list, with focus in its
+    // search box (arrow keys and Enter pick); `E` puts the cursor in the title.
+    // Not offered while the ticket is read-only.
     useScope('ticket')
-    useShortcut('ticket.status', () => statusEl?.focus(), () => !locked())
+    useShortcut('ticket.status', () => status?.open(), () => !locked())
     useShortcut(
         'ticket.edit',
         () => {
@@ -556,10 +526,7 @@ function TicketEditor(props: TicketEditorProps) {
         const people = new Map<string, string>([[me, `${props.viewer.displayName} (you)`]])
         for (const m of members()) if (m.account_id !== me) people.set(m.account_id, m.display_name)
         if (current !== null && !people.has(current)) people.set(current, 'Someone else')
-        return [
-            { value: '', label: 'Unassigned' },
-            ...[...people].map(([value, label]) => ({ value, label })),
-        ]
+        return [...people].map(([value, label]) => ({ value, label }))
     })
 
     function archive() {
@@ -628,161 +595,160 @@ function TicketEditor(props: TicketEditorProps) {
                 )}
             </Show>
 
-            <Input
-                label="Title"
-                ref={(el) => {
-                    titleEl = el
-                }}
-                readOnly={locked()}
-                value={title.value()}
-                onInput={(value) => {
-                    setBlankTried(false)
-                    title.input(value)
-                }}
-                onBlur={commitTitle}
-                count={titleCount(title.value())}
-                error={titleError()}
-            />
+            <div class="ticket__layout">
+                <div class="ticket__head">
+                    {/* A textarea that grows with its text, so a long title wraps instead of
+                        scrolling sideways. Enter saves (and never adds a line), so the stored
+                        title stays one line; Escape drops what was typed since the last save. */}
+                    <textarea
+                        ref={(el) => {
+                            titleEl = el
+                            growTitle()
+                            // The width changes (a turned phone, a drawer): wrap again.
+                            if (typeof ResizeObserver === 'undefined') return
+                            let width = el.clientWidth
+                            const watch = new ResizeObserver(() => {
+                                if (el.clientWidth === width) return
+                                width = el.clientWidth
+                                growTitle()
+                            })
+                            watch.observe(el)
+                            onCleanup(() => watch.disconnect())
+                        }}
+                        class="ticket__title"
+                        rows="1"
+                        aria-label="Title"
+                        placeholder="Untitled"
+                        readonly={locked()}
+                        value={title.value()}
+                        aria-invalid={titleError() || isOver(titleCount(title.value())) ? 'true' : undefined}
+                        aria-describedby={describedBy({ error: titleError(), count: titleCount(title.value()) }, `${titleId}-error`, `${titleId}-count`)}
+                        onInput={(event) => {
+                            setBlankTried(false)
+                            // A pasted line break becomes a space.
+                            const text = event.currentTarget.value
+                            const one = text.replace(/\s*\n+\s*/g, ' ')
+                            if (one !== text) event.currentTarget.value = one
+                            title.input(one)
+                            growTitle()
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.isComposing) return
+                            if (event.key === 'Enter') {
+                                event.preventDefault()
+                                commitTitle()
+                            } else if (event.key === 'Escape' && title.dirty()) {
+                                event.preventDefault()
+                                title.reset()
+                                setBlankTried(false)
+                            }
+                        }}
+                        onBlur={commitTitle}
+                    />
+                    <FieldFoot errorId={`${titleId}-error`} countId={`${titleId}-count`} error={titleError()} count={titleCount(title.value())} />
+                </div>
 
-            <MarkdownEditor
-                label="Description"
-                placeholder="Write, or type Markdown: # for a heading, - for a list…"
-                images={imageUploader(() => ({ ticketId: props.routeId }))}
-                readOnly={locked()}
-                value={description.value()}
-                onChange={(markdown) => {
-                    if (!locked()) description.input(markdown)
-                }}
-                onBlur={commitDescription}
-                count={descriptionCount(description.value())}
-                error={descriptionError()}
-            />
-
-            <div class="ticket__row">
-                <Select
-                    label="Status"
-                    ref={(el) => {
-                        statusEl = el
-                    }}
-                    value={props.ticket.status_id ?? ''}
-                    options={statusOptions()}
-                    disabled={locked()}
-                    onChange={(value) => void updateTicket(id(), { status_id: value || null })}
-                    error={refused()?.fields.status}
-                />
-
-                <Select
-                    label="Assignee"
-                    value={props.ticket.assignee_id ?? ''}
-                    options={assigneeOptions()}
-                    disabled={locked()}
-                    onChange={(value) => void updateTicket(id(), { assignee_id: value || null })}
-                    error={refused()?.fields.assignee}
-                />
-            </div>
-
-            <div class="ticket__row">
-                <Select
-                    label="Epic"
-                    value={props.ticket.epic_id ?? ''}
-                    options={epicOptions()}
-                    disabled={locked()}
-                    onChange={(value) => void updateTicket(id(), { epic_id: value || null })}
-                    error={refused()?.fields.epic}
-                />
-                <Select
-                    label="Sprint"
-                    value={props.ticket.sprint_ids[0] ?? ''}
-                    options={sprintOptions()}
-                    disabled={locked()}
-                    onChange={(value) => void updateTicket(id(), { sprint_ids: value ? [value] : [] })}
-                />
-            </div>
-
-            <div class="ticket__row">
-                <Select
-                    label="Milestone"
-                    value={props.ticket.milestone_id ?? ''}
-                    options={milestoneOptions()}
-                    disabled={locked()}
-                    onChange={(value) => void updateTicket(id(), { milestone_id: value || null })}
-                    error={refused()?.fields.milestone}
-                />
-            </div>
-
-            <div class="ticket__new-parent">
-                <Button variant="ghost" size="sm" disabled={locked()} aria-label="New epic for this ticket" onClick={() => setMakingParent('epic')}>
-                    New epic
-                </Button>
-                <Button variant="ghost" size="sm" disabled={locked()} aria-label="New sprint for this ticket" onClick={() => setMakingParent('sprint')}>
-                    New sprint
-                </Button>
-                <Button variant="ghost" size="sm" disabled={locked()} aria-label="New milestone for this ticket" onClick={() => setMakingParent('milestone')}>
-                    New milestone
-                </Button>
-            </div>
-            <Show when={makingParent()}>
-                {(kind) => (
-                    <NewHierarchyDialog
-                        kind={kind()}
+                <div class="ticket__props" role="group" aria-label="Properties">
+                    <PropertyPicker
+                        label="Status"
+                        value={props.ticket.status_id ?? ''}
+                        noneLabel="No status"
+                        options={statusOptions()}
+                        disabled={locked()}
+                        register={(handle) => {
+                            status = handle
+                        }}
+                        onChange={(value) => void updateTicket(id(), { status_id: value || null })}
+                        error={refused()?.fields.status}
+                    />
+                    <PropertyPicker
+                        label="Assignee"
+                        value={props.ticket.assignee_id ?? ''}
+                        noneLabel="Unassigned"
+                        options={assigneeOptions()}
+                        disabled={locked()}
+                        onChange={(value) => void updateTicket(id(), { assignee_id: value || null })}
+                        error={refused()?.fields.assignee}
+                    />
+                    <PropertyPicker
+                        label="Epic"
+                        value={props.ticket.epic_id ?? ''}
+                        noneLabel="None"
+                        options={epicOptions()}
+                        disabled={locked()}
+                        create={{ label: 'Create new epic…', onCreate: () => setMakingParent('epic') }}
+                        onChange={(value) => void updateTicket(id(), { epic_id: value || null })}
+                        error={refused()?.fields.epic}
+                    />
+                    <PropertyPicker
+                        label="Sprint"
+                        value={props.ticket.sprint_ids[0] ?? ''}
+                        noneLabel="None"
+                        options={sprintOptions()}
+                        disabled={locked()}
+                        create={{ label: 'Create new sprint…', onCreate: () => setMakingParent('sprint') }}
+                        onChange={(value) => void updateTicket(id(), { sprint_ids: value ? [value] : [] })}
+                    />
+                    <PropertyPicker
+                        label="Milestone"
+                        value={props.ticket.milestone_id ?? ''}
+                        noneLabel="None"
+                        options={milestoneOptions()}
+                        disabled={locked()}
+                        create={{ label: 'Create new milestone…', onCreate: () => setMakingParent('milestone') }}
+                        onChange={(value) => void updateTicket(id(), { milestone_id: value || null })}
+                        error={refused()?.fields.milestone}
+                    />
+                    <LabelsProperty
                         projectId={project()}
-                        onCreated={(row) => {
-                            if (kind() === 'epic') void updateTicket(id(), { epic_id: row.id })
-                            else if (kind() === 'milestone') void updateTicket(id(), { milestone_id: row.id })
-                            else void updateTicket(id(), { sprint_ids: [...props.ticket.sprint_ids, row.id] })
-                        }}
-                        onClose={() => setMakingParent(null)}
-                    />
-                )}
-            </Show>
-
-            <fieldset class="ticket__labels" disabled={locked()}>
-                <legend class="input__label t-body">Labels</legend>
-                <LabelChips ids={labelIds()} />
-                <Show
-                    when={labelChoices().length > 0}
-                    fallback={<span class="t-body ticket__none">None</span>}
-                >
-                    <For each={labelChoices()}>
-                        {(label) => (
-                            <label class="ticket__label t-body" for={`ticket-label-${id()}-${label.id}`}>
-                                <Checkbox
-                                    id={`ticket-label-${id()}-${label.id}`}
-                                    checked={labelIds().includes(label.id)}
-                                    onChange={(event) => void toggleLabel(label.id, event.currentTarget.checked)}
-                                />
-                                <span
-                                    class="ticket__label-dot"
-                                    aria-hidden="true"
-                                    style={{ background: `var(--${hueFor(label.color)})` }}
-                                />
-                                {label.name}
-                            </label>
-                        )}
-                    </For>
-                </Show>
-                {/* Make a label here and give it to this ticket in one step. */}
-                <Show when={teamId()}>
-                    <NewLabel
                         teamId={teamId()}
-                        confirm="Create and apply"
-                        onAdd={(label) => {
-                            if (!labelIds().includes(label.id)) void toggleLabel(label.id, true)
-                        }}
+                        ids={labelIds()}
+                        disabled={locked()}
+                        error={refused()?.fields.labels}
+                        onToggle={(labelId, on) => void toggleLabel(labelId, on)}
                     />
-                </Show>
-                <Show when={refused()?.fields.labels}>
-                    <span class="input__error t-meta">{refused()?.fields.labels}</span>
-                </Show>
-            </fieldset>
+                </div>
 
-            <LinkedDocuments ticketId={props.routeId} projectId={project()} disabled={locked()} />
+                <div class="ticket__body">
+                    <MarkdownEditor
+                        label="Description"
+                        labelHidden
+                        placeholder="Write, or type Markdown: # for a heading, - for a list…"
+                        images={imageUploader(() => ({ ticketId: props.routeId }))}
+                        readOnly={locked()}
+                        value={description.value()}
+                        onChange={(markdown) => {
+                            if (!locked()) description.input(markdown)
+                        }}
+                        onBlur={commitDescription}
+                        count={descriptionCount(description.value())}
+                        error={descriptionError()}
+                    />
 
-            <AttachmentList parent={{ ticketId: props.routeId }} disabled={locked()} />
+                    <Show when={makingParent()}>
+                        {(kind) => (
+                            <NewHierarchyDialog
+                                kind={kind()}
+                                projectId={project()}
+                                onCreated={(row) => {
+                                    if (kind() === 'epic') void updateTicket(id(), { epic_id: row.id })
+                                    else if (kind() === 'milestone') void updateTicket(id(), { milestone_id: row.id })
+                                    else void updateTicket(id(), { sprint_ids: [...props.ticket.sprint_ids, row.id] })
+                                }}
+                                onClose={() => setMakingParent(null)}
+                            />
+                        )}
+                    </Show>
 
-            <CommentThread parent={{ ticketId: props.routeId }} accountId={props.viewer.accountId} disabled={locked()} />
+                    <LinkedDocuments ticketId={props.routeId} projectId={project()} disabled={locked()} />
 
-            <ActivityFeed entityType="ticket" entityId={props.routeId} accountId={props.viewer.accountId} />
+                    <AttachmentList parent={{ ticketId: props.routeId }} disabled={locked()} />
+
+                    <CommentThread parent={{ ticketId: props.routeId }} accountId={props.viewer.accountId} disabled={locked()} />
+
+                    <ActivityFeed entityType="ticket" entityId={props.routeId} accountId={props.viewer.accountId} />
+                </div>
+            </div>
 
             <p class="t-meta ticket__hint">
                 {!can('ticket:write')

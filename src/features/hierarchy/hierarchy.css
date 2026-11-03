@@ -58,12 +58,6 @@
   color: var(--danger, currentColor);
 }
 
-.ticket__new-parent {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-8);
-}
-
 .list-bar__below .progress-bar {
   max-width: 360px;
 }

@@ -1,10 +1,12 @@
 import {
     connectionIs,
     expect,
+    expectProperty,
     fields,
     newAccount,
     openProject,
     openTicket,
+    pickProperty,
     projectOf,
     serverCreate,
     signedInAs,
@@ -42,14 +44,14 @@ test('an edit in one browser shows up in another account\'s open ticket, live', 
     await bobPage.getByRole('textbox', { name: 'Description' }).fill('Bob was here')
     await bobPage.getByLabel('Title').press('Tab')
     await bobPage.getByRole('textbox', { name: 'Description' }).press('Tab')
-    await bobPage.getByLabel('Status').selectOption({ label: world.statusNames[1] })
-    await bobPage.getByLabel('Assignee').selectOption({ label: `${bob.displayName} (you)` })
+    await pickProperty(bobPage, 'Status', world.statusNames[1])
+    await pickProperty(bobPage, 'Assignee', `${bob.displayName} (you)`)
 
     await expect(page.getByLabel('Title')).toHaveValue('Renamed by Bob')
     await expect(page.getByRole('textbox', { name: 'Description' })).toHaveText('Bob was here')
-    await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[1])
+    await expectProperty(page, 'Status', world.statusNames[1])
     // Alice sees it assigned, though not to her.
-    await expect(page.getByLabel('Assignee')).toHaveValue(bob.accountId)
+    await expectProperty(page, 'Assignee', bob.displayName)
 
     expect(await page.evaluate((key) => (window as unknown as Record<string, unknown>)[key], NOT_RELOADED)).toBe(true)
     // And nothing of Bob's is waiting on Alice's side: it arrived, it was not sent.

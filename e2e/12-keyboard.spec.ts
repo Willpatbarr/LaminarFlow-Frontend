@@ -1,4 +1,4 @@
-import { expect, newAccount, openProject, projectOf, serverTickets, signedInAs, test } from './support/app'
+import { expect, expectProperty, newAccount, openProject, projectOf, serverTickets, signedInAs, test } from './support/app'
 
 test('a ticket is created and moved to In Progress using only the keyboard', async ({ page, context, baseURL }) => {
     const account = await newAccount('keys')
@@ -15,16 +15,18 @@ test('a ticket is created and moved to In Progress using only the keyboard', asy
     await page.keyboard.type('Ship the keyboard map')
     await page.keyboard.press('Enter')
 
-    // The new ticket's page opens. S puts focus on the status; typing picks it.
+    // The new ticket's page opens. S opens the status list; typing narrows it and Enter picks.
     await expect(page.getByLabel('Title')).toHaveValue('Ship the keyboard map')
     // The page swaps the temporary id for the server's once; wait it out so the
     // status field is not rebuilt under the key press.
     await expect(page).toHaveURL(/\/tickets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     await page.getByLabel('Title').blur()
     await page.keyboard.press('s')
-    await expect(page.getByLabel('Status')).toBeFocused()
+    // The status list opens with focus in its search; typing narrows it, Enter picks.
+    await expect(page.getByRole('searchbox', { name: 'Search status' })).toBeFocused()
     await page.keyboard.type(inProgress!)
-    await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[world.statusNames.indexOf(inProgress!)])
+    await page.keyboard.press('Enter')
+    await expectProperty(page, 'Status', inProgress!)
 
     await expect
         .poll(async () => (await serverTickets(account, world.projectId)).map((ticket) => [ticket.title, ticket.status_id]))

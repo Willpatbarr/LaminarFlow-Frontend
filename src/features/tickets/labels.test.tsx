@@ -61,10 +61,13 @@ describe('label chips', () => {
         expect(within(card).getAllByRole('listitem').map((chip) => chip.textContent)).toEqual(['bug', 'ui'])
     })
 
-    it('show on the ticket page above the picker', async () => {
+    it('show once on the ticket page, as chips, with no checkbox list beside them', async () => {
         await open('/tickets/t-1', listRoutes([tagged], [], [], { labels: [BUG, UI] }))
-        const group = (await screen.findByText('Labels', { selector: 'legend' })).closest('fieldset')!
-        expect(within(group).getByRole('list', { name: 'Labels' })).toHaveTextContent('bugui')
+        expect(await screen.findByRole('list', { name: 'Labels' })).toHaveTextContent('bugui')
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+        // And no create form until the "+" is pressed.
+        expect(screen.queryByLabelText('New label name')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Create and apply' })).not.toBeInTheDocument()
     })
 })
 
@@ -86,11 +89,12 @@ describe('creating a label from the picker', () => {
         })
         const user = userEvent.setup()
 
-        await user.type(await screen.findByLabelText('New label name'), 'feature')
-        await user.click(screen.getByRole('button', { name: 'Create and apply' }))
+        await user.click(await screen.findByRole('button', { name: 'Add label' }))
+        await user.type(await screen.findByRole('searchbox', { name: 'Search or create a label' }), 'feature')
+        await user.click(screen.getByRole('button', { name: 'Create “feature”' }))
 
-        const box = await screen.findByRole('checkbox', { name: 'feature' })
-        await vi.waitFor(() => expect(box).toBeChecked())
+        const option = await screen.findByRole('option', { name: 'feature' })
+        await vi.waitFor(() => expect(option).toHaveAttribute('aria-selected', 'true'))
         await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ label_ids: ['l-new'] }))
         expect(posts).toEqual([{ team_id: 'team-1', name: 'feature', color: 'green' }])
         expect(screen.getByRole('list', { name: 'Labels' })).toHaveTextContent('feature')
@@ -112,8 +116,8 @@ describe('creating a label from the picker', () => {
         })
         const user = userEvent.setup()
 
-        await user.type(await screen.findByLabelText('New label name'), 'Bug')
-        await user.click(screen.getByRole('button', { name: 'Use “bug”' }))
+        await user.click(await screen.findByRole('button', { name: 'Add label' }))
+        await user.type(await screen.findByRole('searchbox', { name: 'Search or create a label' }), 'Bug{Enter}')
 
         await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ label_ids: ['l-1'] }))
         expect(posts).toEqual([])
