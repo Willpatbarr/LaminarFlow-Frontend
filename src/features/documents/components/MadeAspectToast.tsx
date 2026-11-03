@@ -5,7 +5,7 @@ import { sync } from '@/sync'
 
 // "Made this an Aspect." as a toast, not a line above the title (LAM-216). Module
 // level because the page that says it and the shell's toast area are in different
-// parts of the tree. No timer, as with every toast here: it stays until dismissed.
+// parts of the tree. It times out like the other toasts.
 const [shown, setShown] = createSignal(0)
 
 /** Says that the document just became an Aspect. */
@@ -27,7 +27,7 @@ export function MadeAspectToast() {
     )
     return (
         <Show when={shown() > 0}>
-            <Toast hue="green" mark="check" title="Made this an Aspect." onDismiss={clearMadeAspect} />
+            <Toast hue="green" mark="check" title="Made this an Aspect." timerKey={shown()} onDismiss={clearMadeAspect} />
         </Show>
     )
 }

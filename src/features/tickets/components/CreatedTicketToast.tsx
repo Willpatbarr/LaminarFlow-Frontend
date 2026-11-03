@@ -15,9 +15,9 @@ const [created, setCreated] = createSignal<Created | null>(null)
 export const announceCreated = (ticket: Created) => setCreated(ticket)
 export const clearCreatedTicket = () => setCreated(null)
 
-// "Created “Title”" with a way to open it. Polite (role status), no timer and
-// no focus movement, as with every toast here: the dialog under it is still
-// being typed in.
+// "Created “Title”" with a way to open it. Polite (role status), no focus
+// movement (the dialog under it is still being typed in). Times out like the
+// other toasts; making another ticket replaces it and restarts the timer.
 export function CreatedTicketToast() {
     createEffect(
         () => sync.active,
@@ -30,6 +30,7 @@ export function CreatedTicketToast() {
             {(ticket) => (
                 <Toast
                     hue="blue"
+                    timerKey={ticket()}
                     mark="check"
                     title={`Created “${ticket().title}”`}
                     action="Open ticket"
