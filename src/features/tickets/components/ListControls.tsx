@@ -482,7 +482,8 @@ export function ListControls(props: ListControlsProps) {
                         {searchField()}
                         {filterButton()}
                         {columnsButton()}
-                        {groupAndSort()}
+                        {/* One cluster, so a narrow row moves Group, Sort and the direction together (LAM-214). */}
+                        <div class="list-controls__order">{groupAndSort()}</div>
                     </div>
                     {chipRow()}
                 </div>

@@ -8,7 +8,8 @@ import './tickets.css'
 // goes to another page, and the current one says so with aria-current. The
 // filter rides along in the URL, as it does everywhere else; the rest of the
 // list's config (sort, group) is the list's own and is not carried to the board.
-// The key for the other view sits beside it (hidden on touch).
+// Each segment carries its own key (G then T, G then B), so the text never
+// changes with the screen you are on (LAM-214). Hints hide on touch.
 export function ViewSwitch(props: { current: 'list' | 'board'; projectId: string; boardId: string; filter?: FilterGroup }) {
     const list = () => {
         const search = toSearch({ filter: props.filter, group: DEFAULT_GROUP }).toString()
@@ -24,11 +25,10 @@ export function ViewSwitch(props: { current: 'list' | 'board'; projectId: string
                 label="View"
                 current={props.current}
                 items={[
-                    { value: 'list', label: 'List', href: list() },
-                    { value: 'board', label: 'Board', href: board() },
+                    { value: 'list', label: <>List<ShortcutHint id="nav.tickets" /></>, href: list() },
+                    { value: 'board', label: <>Board<ShortcutHint id="nav.board" /></>, href: board() },
                 ]}
             />
-            <ShortcutHint id={props.current === 'list' ? 'nav.board' : 'nav.tickets'} />
         </div>
     )
 }

@@ -49,11 +49,9 @@ import { AssigneeMarker } from './AssigneeMarker'
 import { MapStatuses } from './MapStatuses'
 import { LabelChips } from './LabelChips'
 import { ListControls } from './ListControls'
-import { SavedViewBar } from './SavedViewBar'
 import { StatusEditor } from './StatusEditor'
 import { SyncMarker } from './SyncMarker'
-import { PageSubnav } from '@/components/ui/PageLayout'
-import { ViewSwitch } from './ViewSwitch'
+import { ViewHeader } from './ViewHeader'
 import { Icon } from '@/components/ui/icons/Icon'
 import './board.css'
 import { Checkbox } from '@/components/ui/Checkbox'
@@ -298,21 +296,16 @@ export function Board(props: BoardProps) {
     return (
         <section class="board" ref={(el) => (root = el)}>
             {/* The title, the tabs and the List | Board switch are the page's header (ProjectFrame, LAM-201). */}
-            <PageSubnav>
-                <ViewSwitch current="board" projectId={props.board.project_id} boardId={props.board.id} filter={config().filter} />
-            </PageSubnav>
-
             <Show when={project()} keyed>
                 {(found) => (
                     <>
-                        <SavedViewBar
-                            layout="board"
+                        <ViewHeader
+                            current="board"
+                            project={found}
+                            boardId={props.board.id}
                             config={config()}
                             viewId={viewId()}
                             accountId={props.viewer.accountId}
-                            teamId={found.team_id}
-                            projectId={found.id}
-                            boardId={props.board.id}
                             onSaved={(saved) => navigate(`${location.pathname}?${boardSearch(config().filter, saved.id)}`, { replace: true })}
                             onRevert={(saved) => navigate(viewUrl(saved), { replace: true })}
                         />

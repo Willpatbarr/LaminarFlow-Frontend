@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router'
 import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
-import { PageLayout, PageSubnav } from '@/components/ui/PageLayout'
+import { PageLayout } from '@/components/ui/PageLayout'
 import { Select } from '@/components/ui/Select'
 import { SkeletonBox, SkeletonLine, type SkeletonLength } from '@/components/ui/Skeleton'
 import { StatusPill } from '@/components/ui/StatusPill'
@@ -43,11 +43,9 @@ import type { Viewer } from '../viewer'
 import { FirstRunSetup } from './FirstRunSetup'
 import { ListHeaderActions } from './ListHeaderActions'
 import { ListControls } from './ListControls'
-import { NewTicketDialog } from './NewTicketDialog'
-import { SavedViewBar } from './SavedViewBar'
 import { TicketDetail } from './TicketDetail'
 import { TicketRow } from './TicketRow'
-import { ViewSwitch } from './ViewSwitch'
+import { ViewHeader } from './ViewHeader'
 import { Icon } from '@/components/ui/icons/Icon'
 import './tickets.css'
 
@@ -170,8 +168,6 @@ type ProjectTicketsProps = {
 }
 
 function ProjectTickets(props: ProjectTicketsProps) {
-    const [creating, setCreating] = createSignal(false)
-    const [savingView, setSavingView] = createSignal(false)
     const navigate = useNavigate()
     const location = useLocation()
     // The side panel: `/?ticket=<id>`. Plain data in the address, so a reload or
@@ -197,11 +193,6 @@ function ProjectTickets(props: ProjectTicketsProps) {
         go(params, false)
     }
     const closePanel = () => showTicket(null)
-    // A new ticket should be in its place when the dialog closes.
-    const openDialog = () => {
-        thaw()
-        setCreating(true)
-    }
     // A view change is not a place to go back to, so it replaces the entry.
     function writeView(config: ListViewConfig, collapsed: string[]) {
         const params = toSearch(config, collapsed)
@@ -244,12 +235,10 @@ function ProjectTickets(props: ProjectTicketsProps) {
 
     const statuses = createMemo(() => statusesForProject(props.project.id))
 
-    // Keys for this screen, declared in the shortcut registry (LAM-124): `C`
-    // opens this list's own new-ticket dialog (taking over the shell's
-    // fallback), `J` and `K` walk the rows. The listener has already ruled out
+    // Keys for this screen, declared in the shortcut registry (LAM-124): `J`
+    // and `K` walk the rows (`C` is the shared ViewHeader's). The listener has already ruled out
     // fields, open dialogs and Ctrl/Cmd/Alt.
     useScope('list')
-    useShortcut('ticket.new', () => openDialog())
     useShortcut('list.next', () => stepRow(1))
     useShortcut('list.previous', () => stepRow(-1))
 
@@ -420,36 +409,16 @@ function ProjectTickets(props: ProjectTicketsProps) {
                     </div>
                 </Show>
             </div>
-            <Show when={boardsForProject(props.project.id)[0]}>
-                {(board) => (
-                    <PageSubnav>
-                        <ViewSwitch
-                            current="list"
-                            projectId={props.project.id}
-                            boardId={board().id}
-                            filter={view().config.filter}
-                        />
-                    </PageSubnav>
-                )}
-            </Show>
-
-            <SavedViewBar
-                layout="list"
+            <ViewHeader
+                current="list"
+                project={props.project}
+                boardId={boardsForProject(props.project.id)[0]?.id}
                 config={view().config}
                 viewId={viewId()}
                 accountId={props.viewer.accountId}
-                teamId={props.project.team_id}
-                projectId={props.project.id}
-                saving={savingView()}
-                onSavingChange={setSavingView}
                 onSaved={(saved) => belongTo(saved.id)}
                 onRevert={(saved) => navigate(viewUrl(saved), { replace: true })}
-            />
-
-            <ListHeaderActions
-                teamId={props.project.team_id}
-                onNew={openDialog}
-                onSaveView={() => setSavingView(true)}
+                onBeforeNew={thaw}
             />
 
             <Show
@@ -577,15 +546,6 @@ function ProjectTickets(props: ProjectTicketsProps) {
                         </Show>
                     </div>
                 </Show>
-            </Show>
-
-            <Show when={creating()}>
-                <NewTicketDialog
-                    projectId={props.project.id}
-                    statuses={statuses()}
-                    statusId={statuses()[0]?.id ?? null}
-                    onClose={() => setCreating(false)}
-                />
             </Show>
 
             <Show when={openId()}>

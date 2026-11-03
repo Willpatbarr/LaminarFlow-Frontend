@@ -36,11 +36,19 @@ const switchBox = async (page: Page) => {
     return found
 }
 
+const newTicketBox = async (page: Page) => {
+    const found = await page.getByRole('button', { name: /^New ticket/ }).boundingBox()
+    if (!found) throw new Error('New ticket is not on screen')
+    return found
+}
+
+// LAM-214: New ticket is in the same place on the list and the board, at every width.
 for (const [name, viewport] of [
     ['desktop', { width: 1280, height: 800 }],
     ['tablet', { width: 768, height: 1024 }],
+    ['phone', { width: 375, height: 812 }],
 ] as const) {
-    test(`the List | Board switch has the same box on the list and on the board (${name})`, async ({ page, context, baseURL }) => {
+    test(`the List | Board switch and New ticket have the same box on the list and on the board (${name})`, async ({ page, context, baseURL }) => {
         const account = await newAccount('layout-switch')
         const world = await projectOf(account)
         const boardId = await boardIdOf(account, world)
@@ -51,6 +59,7 @@ for (const [name, viewport] of [
         await expect(page.getByRole('heading', { level: 1, name: world.projectName })).toBeVisible()
         await expect(page.getByRole('button', { name: /^New ticket/ })).toBeEnabled()
         const onList = await switchBox(page)
+        const newOnList = await newTicketBox(page)
         const listTitle = await page.getByRole('heading', { level: 1 }).boundingBox()
 
         await page.getByRole('navigation', { name: 'View' }).getByRole('link', { name: 'Board', exact: true }).click()
@@ -60,7 +69,9 @@ for (const [name, viewport] of [
             'aria-current',
             'page',
         )
+        await expect(page.getByRole('button', { name: /^New ticket/ })).toBeEnabled()
         const onBoard = await switchBox(page)
+        expect(await newTicketBox(page)).toEqual(newOnList)
         const boardTitle = await page.getByRole('heading', { level: 1 }).boundingBox()
 
         expect(onBoard).toEqual(onList)
@@ -87,7 +98,7 @@ test('at 1818px the body is centred and the page buttons are at the right edge, 
     // [address, what proves it has loaded, the button that must reach the right edge (if any)]
     const pages: [string, () => Promise<void>, string | null][] = [
         [`/projects/${world.projectId}`, () => expect(page.getByRole('button', { name: /^New ticket/ })).toBeEnabled(), 'New ticket'],
-        [`/boards/${boardId}`, () => expect(page.getByRole('button', { name: 'Save view' })).toBeVisible(), 'Save view'],
+        [`/boards/${boardId}`, () => expect(page.getByRole('button', { name: /^New ticket/ })).toBeEnabled(), 'New ticket'],
         ['/documents', () => expect(page.getByRole('button', { name: 'New document' })).toBeEnabled(), 'New document'],
         ['/epics', () => expect(page.getByRole('heading', { level: 1, name: 'Epics' })).toBeVisible(), 'New epic'],
         ['/settings', () => expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible(), null],

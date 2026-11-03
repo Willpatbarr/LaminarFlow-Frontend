@@ -54,6 +54,8 @@ test('filter, group and sort a list, reload, and get the same view back', async 
     await page.getByText(/^Filter/).click()
     await page.getByRole('checkbox', { name: todoName }).check()
     await expect(page.getByRole('link', { name: /Sign in/ })).toHaveCount(0)
+    // The popover stays over the second toolbar row until it is dismissed.
+    await page.keyboard.press('Escape')
 
     // Group by epic, sort by title, descending.
     await page.getByLabel('Group by').selectOption({ label: 'Epic' })
