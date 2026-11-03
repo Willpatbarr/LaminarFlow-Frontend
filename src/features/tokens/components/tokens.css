@@ -129,3 +129,9 @@
     font-size: 12px;
   }
 }
+
+/* Back link above the heading, with room between them. */
+.tokens__head {
+  display: grid;
+  gap: var(--s-8);
+}

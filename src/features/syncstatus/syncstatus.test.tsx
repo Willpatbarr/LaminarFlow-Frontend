@@ -282,8 +282,8 @@ describe('logging out', () => {
 
         await user.click(screen.getByRole('button', { name: 'Log out' }))
 
-        const dialog = screen.getByRole('dialog', { name: 'Sign out?' })
-        expect(dialog).toHaveTextContent("You have 1 change that hasn't synced. Signing out will discard it.")
+        const dialog = screen.getByRole('dialog', { name: 'Log out?' })
+        expect(dialog).toHaveTextContent("You have 1 change that hasn't synced. Logging out will discard it.")
         // The safe answer has focus.
         expect(within(dialog).getByRole('button', { name: 'Stay signed in' })).toHaveFocus()
         await user.click(within(dialog).getByRole('button', { name: 'Stay signed in' }))
@@ -304,7 +304,7 @@ describe('logging out', () => {
         const user = userEvent.setup()
 
         await user.click(screen.getByRole('button', { name: 'Log out' }))
-        await user.click(screen.getByRole('button', { name: 'Sign out and discard' }))
+        await user.click(screen.getByRole('button', { name: 'Log out and discard' }))
 
         await vi.waitFor(() => expect(history.get()).toBe('/login'))
         expect(sync.outbox).toEqual([])

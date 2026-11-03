@@ -44,7 +44,9 @@ export function SettingsScreen() {
                 <h2 class="t-section" id="settings-appearance">
                     Appearance
                 </h2>
-                <ThemeSwitch />
+                <div class="settings__appearance">
+                    <ThemeSwitch />
+                </div>
             </section>
 
             <section class="settings__section" aria-labelledby="settings-teams">
@@ -92,13 +94,13 @@ export function SettingsScreen() {
                 </p>
             </section>
 
-            <section class="settings__section" aria-labelledby="settings-signout">
-                <h2 class="t-section" id="settings-signout">
-                    Sign out
+            <section class="settings__section" aria-labelledby="settings-logout">
+                <h2 class="t-section" id="settings-logout">
+                    Log out
                 </h2>
                 <div>
                     <Button variant="secondary" onClick={() => leave()}>
-                        Sign out
+                        Log out
                     </Button>
                 </div>
             </section>
