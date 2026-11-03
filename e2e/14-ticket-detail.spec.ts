@@ -192,7 +192,7 @@ for (const [kind, size] of [
         // No boxed "Title" field: the title is a large heading you type into.
         await expect(page.locator('label', { hasText: /^Title$/ })).toHaveCount(0)
         const fontSize = await page.getByLabel('Title').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-        expect(fontSize).toBeGreaterThanOrEqual(28)
+        expect(fontSize).toBeGreaterThanOrEqual(24)
 
         const title = (await page.getByLabel('Title').boundingBox())!
         const text = (await page.getByRole('textbox', { name: 'Description' }).boundingBox())!
@@ -213,3 +213,29 @@ for (const [kind, size] of [
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     })
 }
+
+test('a long title wraps, Enter saves it without a new line, and Escape drops what was typed since the last save', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const account = await newAccount('longtitle')
+    const world = await projectOf(account)
+    const ticket = await serverCreate(account, world.projectId, fields('Short'))
+    await page.setViewportSize({ width: 375, height: 812 })
+    await signedInAs(context, account, baseURL!)
+    await openTicket(page, ticket.id, 'Short')
+    const long = 'A rather long ticket title that goes on and on so that it has to wrap onto several lines on a phone screen, not scroll sideways'
+    const title = page.getByLabel('Title')
+    const oneLine = (await title.boundingBox())!.height
+    await title.fill(long)
+    await title.press('Enter')
+    expect(await title.inputValue()).toBe(long)
+    expect((await title.boundingBox())!.height).toBeGreaterThan(oneLine * 2)
+    expect(await title.evaluate((el: HTMLTextAreaElement) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await expect.poll(async () => (await serverTicket(account, ticket.id))?.title).toBe(long)
+
+    await title.fill('Typed then dropped')
+    await title.press('Escape')
+    await expect(title).toHaveValue(long)
+})

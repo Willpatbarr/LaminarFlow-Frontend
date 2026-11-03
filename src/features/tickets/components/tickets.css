@@ -658,6 +658,8 @@
   color: var(--text-1);
   font: 600 30px/38px var(--sans);
   letter-spacing: -0.02em;
+  resize: none;
+  overflow: hidden;
 }
 
 .ticket__title::placeholder {
@@ -720,7 +722,7 @@
 /* The phone's own rule keeps inputs at 16px (no zoom on focus); the title is
  * larger than that, so it says so with more weight than that rule has. */
 @media (max-width: 767px) {
-  .ticket input.ticket__title {
+  .ticket .ticket__title {
     font-size: 24px;
     line-height: 32px;
   }

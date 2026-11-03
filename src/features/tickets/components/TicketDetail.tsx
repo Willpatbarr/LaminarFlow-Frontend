@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router'
 import {
     createEffect,
+    onCleanup,
     createMemo,
     createSignal,
     createUniqueId,
@@ -280,7 +281,12 @@ function TicketEditor(props: TicketEditorProps) {
     const id = () => props.ticket.id
     const statuses = createMemo(() => statusesForProject(props.ticket.project_id))
 
-    let titleEl: HTMLInputElement | undefined
+    let titleEl: HTMLTextAreaElement | undefined
+    function growTitle() {
+        if (!titleEl) return
+        titleEl.style.height = 'auto'
+        titleEl.style.height = `${titleEl.scrollHeight}px`
+    }
     let status: PropertyHandle | undefined
     const titleId = createUniqueId()
 
@@ -309,6 +315,12 @@ function TicketEditor(props: TicketEditorProps) {
             same: (a, b) => resolveTicketId(a) === resolveTicketId(b),
             canSave: (value) => !overMessage('Description', descriptionCount(value)),
         },
+    )
+
+    // A title that arrives from elsewhere (a live change, a revert) changes the height too.
+    createEffect(
+        () => title.value(),
+        () => growTitle(),
     )
 
     // Nothing over its limit, and no blank title, is ever queued. The text
@@ -585,11 +597,26 @@ function TicketEditor(props: TicketEditorProps) {
 
             <div class="ticket__layout">
                 <div class="ticket__head">
-                    <input
+                    {/* A textarea that grows with its text, so a long title wraps instead of
+                        scrolling sideways. Enter saves (and never adds a line), so the stored
+                        title stays one line; Escape drops what was typed since the last save. */}
+                    <textarea
                         ref={(el) => {
                             titleEl = el
+                            growTitle()
+                            // The width changes (a turned phone, a drawer): wrap again.
+                            if (typeof ResizeObserver === 'undefined') return
+                            let width = el.clientWidth
+                            const watch = new ResizeObserver(() => {
+                                if (el.clientWidth === width) return
+                                width = el.clientWidth
+                                growTitle()
+                            })
+                            watch.observe(el)
+                            onCleanup(() => watch.disconnect())
                         }}
                         class="ticket__title"
+                        rows="1"
                         aria-label="Title"
                         placeholder="Untitled"
                         readonly={locked()}
@@ -598,7 +625,23 @@ function TicketEditor(props: TicketEditorProps) {
                         aria-describedby={describedBy({ error: titleError(), count: titleCount(title.value()) }, `${titleId}-error`, `${titleId}-count`)}
                         onInput={(event) => {
                             setBlankTried(false)
-                            title.input(event.currentTarget.value)
+                            // A pasted line break becomes a space.
+                            const text = event.currentTarget.value
+                            const one = text.replace(/\s*\n+\s*/g, ' ')
+                            if (one !== text) event.currentTarget.value = one
+                            title.input(one)
+                            growTitle()
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.isComposing) return
+                            if (event.key === 'Enter') {
+                                event.preventDefault()
+                                commitTitle()
+                            } else if (event.key === 'Escape' && title.dirty()) {
+                                event.preventDefault()
+                                title.reset()
+                                setBlankTried(false)
+                            }
                         }}
                         onBlur={commitTitle}
                     />
