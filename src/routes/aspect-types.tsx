@@ -34,32 +34,43 @@ function NoTeam() {
 export function AspectTypesPage() {
     const { team, busy } = useTeam()
     const navigate = useNavigate()
+    // The title block is the header's left end and Import (from the list) its right,
+    // like Epics and Milestones, so the heading has room below the back link.
     return (
-        <PageLayout>
-        <section aria-busy={busy() ? 'true' : undefined}>
-            <Show when={!busy()} fallback={<p class="visually-hidden" role="status">Loading aspect types…</p>}>
-                <Show when={team()} fallback={<NoTeam />}>
-                    {(found) => (
-                        <>
-                            <p class="t-body">
-                                <a class="icon-text" href={`/teams/${found().id}/settings`} aria-label="← Team settings">
-                                    <Icon name="chevron-left" size={16} />
-                                    Team settings
-                                </a>
-                            </p>
-                            <h1 class="t-screen-title">Aspect types</h1>
-                            <p class="t-meta">
-                                The labeled fields a document of that type has. Starter types are yours to rename, change or delete.
-                            </p>
+        <PageLayout
+            title={
+                <div class="aspect-types__head">
+                    <Show when={team()}>
+                        {(found) => (
+                            <>
+                                <p class="t-body">
+                                    <a class="icon-text" href={`/teams/${found().id}/settings`} aria-label="← Team settings">
+                                        <Icon name="chevron-left" size={16} />
+                                        Team settings
+                                    </a>
+                                </p>
+                                <h1 class="t-screen-title">Aspect types</h1>
+                                <p class="t-meta">
+                                    The labeled fields a document of that type has. Starter types are yours to rename, change or delete.
+                                </p>
+                            </>
+                        )}
+                    </Show>
+                </div>
+            }
+        >
+            <section aria-busy={busy() ? 'true' : undefined}>
+                <Show when={!busy()} fallback={<p class="visually-hidden" role="status">Loading aspect types…</p>}>
+                    <Show when={team()} fallback={<NoTeam />}>
+                        {(found) => (
                             <AspectTypeList
                                 teamId={found().id}
                                 onOpen={(id) => navigate(`/teams/${found().id}/aspect-types/${id}`)}
                             />
-                        </>
-                    )}
+                        )}
+                    </Show>
                 </Show>
-            </Show>
-        </section>
+            </section>
         </PageLayout>
     )
 }
