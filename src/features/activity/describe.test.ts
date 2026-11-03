@@ -163,4 +163,31 @@ suite("describe", () => {
       ),
     ).toBe("Ann made this a normal document");
   });
+
+  it("says which sprint a ticket joined or left, by the name stored at the time", () => {
+    expect(
+      describe(
+        entry({
+          kind: "sprint_added",
+          summary_after: "sp1",
+          name_after: "Sprint 1",
+        }),
+        names,
+      ),
+    ).toBe("Ann added this to sprint Sprint 1");
+    expect(
+      describe(
+        entry({
+          kind: "sprint_removed",
+          actor_id: "me",
+          summary_before: "sp1",
+          name_before: "Sprint 1",
+        }),
+        names,
+      ),
+    ).toBe("You removed this from sprint Sprint 1");
+    expect(
+      describe(entry({ kind: "sprint_removed", summary_before: "sp1" }), names),
+    ).toBe("Ann removed this from sprint a deleted sprint");
+  });
 });
