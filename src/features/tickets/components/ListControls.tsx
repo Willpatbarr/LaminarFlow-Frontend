@@ -3,7 +3,9 @@ import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untra
 import { Button } from '@/components/ui/Button'
 import { DisclosureCaret } from '@/components/ui/DisclosureCaret'
 import { Input } from '@/components/ui/Input'
+import { Popover } from '@/components/ui/Popover'
 import { Select } from '@/components/ui/Select'
+import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { ensureMembers, members } from '@/features/members/members'
 import {
     epicsForProject,
@@ -14,7 +16,14 @@ import {
     type Project,
 } from '@/sync'
 
-import { COLUMN_FIELDS, fieldLabel, GROUP_FIELDS, visibleColumns, type ListViewConfig } from '../listView/config'
+import {
+    COLUMN_FIELDS,
+    DEFAULT_GROUP,
+    fieldLabel,
+    GROUP_FIELDS,
+    visibleColumns,
+    type ListViewConfig,
+} from '../listView/config'
 import { fromGroup, PICK_FIELDS, toGroup, type FilterModel, type PickField } from '../listView/filterModel'
 import type { Viewer } from '../viewer'
 import { Checkbox } from '@/components/ui/Checkbox'
@@ -68,6 +77,7 @@ const LEGEND: Record<PickField, string> = {
 }
 
 export function ListControls(props: ListControlsProps) {
+    const narrow = useNarrowScreen()
     const uid = createUniqueId()
     onSettled(() => void ensureMembers())
     const model = () => fromGroup(props.config.filter)
@@ -173,161 +183,239 @@ export function ListControls(props: ListControlsProps) {
         set({ sort: field === '' ? undefined : [{ field, desc: sortKey()?.desc ?? false }] })
     }
 
-    return (
-        <div class="list-controls" role="group" aria-label={props.filterOnly ? 'Board filter' : 'List view'}>
-            <div class="list-controls__row">
-                <Show
-                    when={model()}
-                    fallback={
-                        <p class="t-body list-controls__advanced">
-                            This view uses an advanced filter. Clear it to use the search and filter panel.
-                        </p>
-                    }
-                >
-                    <div class="list-controls__search">
-                        <Input
-                            label="Search"
-                            hideLabel
-                            placeholder="Search"
-                            icon="search"
-                            value={text()}
-                            onInput={typeText}
-                        />
-                    </div>
-                </Show>
-                <Show when={!props.filterOnly}>
-                    <div class="list-controls__select">
-                        <Select
-                            label="Group by"
-                            value={props.config.group ?? ''}
-                            options={[
-                                { value: '', label: 'No grouping' },
-                                ...GROUP_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
-                            ]}
-                            onChange={(value) => set({ group: value === '' ? undefined : value })}
-                        />
-                    </div>
-                    <div class="list-controls__select">
-                        <Select
-                            label="Sort by"
-                            value={direction().field === 'updated_at' ? '' : direction().field}
-                            options={[
-                                { value: '', label: 'Recently updated' },
-                                ...COLUMN_FIELDS.filter((f) => f !== 'updated_at').map((f) => ({
-                                    value: f,
-                                    label: fieldLabel(f),
-                                })),
-                            ]}
-                            onChange={pickSort}
-                        />
-                    </div>
-                    <div class="list-controls__direction">
-                        <Button
-                            variant="secondary"
-                            aria-label={`Sort direction: ${direction().desc ? 'descending' : 'ascending'}`}
-                            onClick={() => set({ sort: [{ field: direction().field, desc: !direction().desc }] })}
-                        >
-                            {direction().desc ? 'Descending' : 'Ascending'}
-                        </Button>
-                    </div>
-                </Show>
-                {/* Its room is kept whether or not it is showing, so it appearing
-                    moves nothing. */}
-                <div class="list-controls__clear">
-                    <Show when={props.config.filter !== undefined}>
-                        <Button variant="ghost" onClick={() => set({ filter: undefined })}>
-                            Clear filters
-                        </Button>
-                    </Show>
+    // The controls as pieces: the desktop bar lays them out in two rows, and a
+    // phone puts all but the search in a "View" sheet (LAM-212). LAM-213 turns
+    // the filter and columns pieces into anchored popovers with chips.
+    const searchField = () => (
+        <>
+            <Show
+                when={model()}
+                fallback={
+                    <p class="t-body list-controls__advanced">
+                        This view uses an advanced filter. Clear it to use the search and filter panel.
+                    </p>
+                }
+            >
+                <div class="list-controls__search">
+                    <Input
+                        label="Search"
+                        hideLabel
+                        placeholder="Search"
+                        icon="search"
+                        value={text()}
+                        onInput={typeText}
+                    />
                 </div>
-            </div>
+            </Show>
+        </>
+    )
 
-            <div class="list-controls__row">
-                <Show when={model()}>
-                    {(current) => (
-                        <details
-                            class="list-controls__panel"
-                            onToggle={(event) => setFilterOpen(event.currentTarget.open)}
-                        >
-                            <summary class="t-body list-controls__summary disclosure-summary">
-                                <DisclosureCaret />
-                                Filter{activeCount() > 0 ? ` (${activeCount()})` : ''}
-                            </summary>
-                            <Show when={filterOpen()}>
-                                <div class="list-controls__fields">
-                                    <For each={PICK_FIELDS}>
-                                        {(field) => (
-                                            <fieldset class="list-controls__fieldset">
-                                                <legend class="t-overline">{LEGEND[field]}</legend>
-                                                <For each={choices(field, current().picks[field].ids)}>
-                                                    {(option) => (
-                                                        <label class="list-controls__check t-body" for={`${uid}-${field}-${option.id}`}>
-                                                            <Checkbox
-                                                                id={`${uid}-${field}-${option.id}`}
-                                                                checked={current().picks[field].ids.includes(option.id)}
-                                                                onChange={(event) =>
-                                                                    toggle(
-                                                                        current(),
-                                                                        field,
-                                                                        option.id,
-                                                                        event.currentTarget.checked,
-                                                                    )
-                                                                }
-                                                            />
-                                                            {option.label}
-                                                        </label>
-                                                    )}
-                                                </For>
-                                                <label class="list-controls__check t-body" for={`${uid}-${field}-none`}>
-                                                    <Checkbox
-                                                        id={`${uid}-${field}-none`}
-                                                        checked={current().picks[field].none}
-                                                        onChange={(event) =>
-                                                            toggle(current(), field, null, event.currentTarget.checked)
-                                                        }
-                                                    />
-                                                    {NONE_LABEL[field]}
-                                                </label>
-                                            </fieldset>
-                                        )}
-                                    </For>
-                                </div>
-                            </Show>
-                        </details>
-                    )}
+    const groupAndSort = () => (
+        <>
+            <Show when={!props.filterOnly}>
+                <div class="list-controls__select">
+                    <Select
+                        label="Group by"
+                        value={props.config.group ?? ''}
+                        options={[
+                            { value: '', label: 'No grouping' },
+                            ...GROUP_FIELDS.map((f) => ({ value: f, label: fieldLabel(f) })),
+                        ]}
+                        onChange={(value) => set({ group: value === '' ? undefined : value })}
+                    />
+                </div>
+                <div class="list-controls__select">
+                    <Select
+                        label="Sort by"
+                        value={direction().field === 'updated_at' ? '' : direction().field}
+                        options={[
+                            { value: '', label: 'Recently updated' },
+                            ...COLUMN_FIELDS.filter((f) => f !== 'updated_at').map((f) => ({
+                                value: f,
+                                label: fieldLabel(f),
+                            })),
+                        ]}
+                        onChange={pickSort}
+                    />
+                </div>
+                <div class="list-controls__direction">
+                    <Button
+                        variant="secondary"
+                        aria-label={`Sort direction: ${direction().desc ? 'descending' : 'ascending'}`}
+                        onClick={() => set({ sort: [{ field: direction().field, desc: !direction().desc }] })}
+                    >
+                        {direction().desc ? 'Descending' : 'Ascending'}
+                    </Button>
+                </div>
+            </Show>
+        </>
+    )
+
+    const clearFilters = () => (
+        <>
+            {/* Its room is kept whether or not it is showing, so it appearing
+                    moves nothing. */}
+            <div class="list-controls__clear">
+                <Show when={props.config.filter !== undefined}>
+                    <Button variant="ghost" onClick={() => set({ filter: undefined })}>
+                        Clear filters
+                    </Button>
                 </Show>
-                <Show when={!props.filterOnly}>
-                    <details class="list-controls__panel" onToggle={(event) => setColumnsOpen(event.currentTarget.open)}>
+            </div>
+        </>
+    )
+
+    const filterPanel = () => (
+        <>
+            <Show when={model()}>
+                {(current) => (
+                    <details
+                        class="list-controls__panel"
+                        open={filterOpen()}
+                        onToggle={(event) => setFilterOpen(event.currentTarget.open)}
+                    >
                         <summary class="t-body list-controls__summary disclosure-summary">
                             <DisclosureCaret />
-                            Columns
+                            Filter{activeCount() > 0 ? ` (${activeCount()})` : ''}
                         </summary>
-                        <Show when={columnsOpen()}>
-                            <fieldset class="list-controls__fieldset">
-                                <legend class="visually-hidden">Visible columns</legend>
-                                <For each={COLUMN_FIELDS}>
+                        <Show when={filterOpen()}>
+                            <div class="list-controls__fields">
+                                <For each={PICK_FIELDS}>
                                     {(field) => (
-                                        <label class="list-controls__check t-body" for={`${uid}-column-${field}`}>
-                                            <Checkbox
-                                                id={`${uid}-column-${field}`}
-                                                checked={columns().includes(field)}
-                                                disabled={field === 'title'}
-                                                onChange={(event) => pickColumn(field, event.currentTarget.checked)}
-                                            />
-                                            {fieldLabel(field)}
-                                        </label>
+                                        <fieldset class="list-controls__fieldset">
+                                            <legend class="t-overline">{LEGEND[field]}</legend>
+                                            <For each={choices(field, current().picks[field].ids)}>
+                                                {(option) => (
+                                                    <label
+                                                        class="list-controls__check t-body"
+                                                        for={`${uid}-${field}-${option.id}`}
+                                                    >
+                                                        <Checkbox
+                                                            id={`${uid}-${field}-${option.id}`}
+                                                            checked={current().picks[field].ids.includes(option.id)}
+                                                            onChange={(event) =>
+                                                                toggle(
+                                                                    current(),
+                                                                    field,
+                                                                    option.id,
+                                                                    event.currentTarget.checked,
+                                                                )
+                                                            }
+                                                        />
+                                                        {option.label}
+                                                    </label>
+                                                )}
+                                            </For>
+                                            <label class="list-controls__check t-body" for={`${uid}-${field}-none`}>
+                                                <Checkbox
+                                                    id={`${uid}-${field}-none`}
+                                                    checked={current().picks[field].none}
+                                                    onChange={(event) =>
+                                                        toggle(current(), field, null, event.currentTarget.checked)
+                                                    }
+                                                />
+                                                {NONE_LABEL[field]}
+                                            </label>
+                                        </fieldset>
                                     )}
                                 </For>
-                                <Show when={props.config.columns !== undefined}>
-                                    <Button variant="ghost" size="sm" onClick={() => set({ columns: undefined })}>
-                                        Reset columns
-                                    </Button>
-                                </Show>
-                            </fieldset>
+                            </div>
                         </Show>
                     </details>
-                </Show>
+                )}
+            </Show>
+        </>
+    )
+
+    const columnsPanel = () => (
+        <>
+            <Show when={!props.filterOnly}>
+                <details
+                    class="list-controls__panel"
+                    open={columnsOpen()}
+                    onToggle={(event) => setColumnsOpen(event.currentTarget.open)}
+                >
+                    <summary class="t-body list-controls__summary disclosure-summary">
+                        <DisclosureCaret />
+                        Columns
+                    </summary>
+                    <Show when={columnsOpen()}>
+                        <fieldset class="list-controls__fieldset">
+                            <legend class="visually-hidden">Visible columns</legend>
+                            <For each={COLUMN_FIELDS}>
+                                {(field) => (
+                                    <label class="list-controls__check t-body" for={`${uid}-column-${field}`}>
+                                        <Checkbox
+                                            id={`${uid}-column-${field}`}
+                                            checked={columns().includes(field)}
+                                            disabled={field === 'title'}
+                                            onChange={(event) => pickColumn(field, event.currentTarget.checked)}
+                                        />
+                                        {fieldLabel(field)}
+                                    </label>
+                                )}
+                            </For>
+                            <Show when={props.config.columns !== undefined}>
+                                <Button variant="ghost" size="sm" onClick={() => set({ columns: undefined })}>
+                                    Reset columns
+                                </Button>
+                            </Show>
+                        </fieldset>
+                    </Show>
+                </details>
+            </Show>
+        </>
+    )
+
+    // What the sheet holds that differs from the plain list, so a closed sheet
+    // still says something is set.
+    const changes = () =>
+        (props.config.filter !== undefined ? activeCount() : 0) +
+        (props.config.group !== DEFAULT_GROUP ? 1 : 0) +
+        (props.config.sort !== undefined ? 1 : 0) +
+        (props.config.columns !== undefined ? 1 : 0)
+
+    return (
+        <Show
+            when={narrow() && !props.filterOnly}
+            fallback={
+                <div class="list-controls" role="group" aria-label={props.filterOnly ? 'Board filter' : 'List view'}>
+                    <div class="list-controls__row">
+                        {searchField()}
+                        {groupAndSort()}
+                        {clearFilters()}
+                    </div>
+                    <div class="list-controls__row">
+                        {filterPanel()}
+                        {columnsPanel()}
+                    </div>
+                </div>
+            }
+        >
+            <div class="list-controls list-controls--phone" role="group" aria-label="List view">
+                <div class="list-controls__row">
+                    {searchField()}
+                    <Popover
+                        label="View"
+                        presentation="auto"
+                        trigger={(trigger) => (
+                            <button type="button" class="button button--secondary list-controls__view" {...trigger}>
+                                View
+                                <Show when={changes() > 0}>
+                                    <span class="list-controls__view-count t-meta">{changes()}</span>
+                                </Show>
+                            </button>
+                        )}
+                    >
+                        <div class="list-controls__sheet">
+                            {groupAndSort()}
+                            {clearFilters()}
+                            {filterPanel()}
+                            {columnsPanel()}
+                        </div>
+                    </Popover>
+                </div>
             </div>
-        </div>
+        </Show>
     )
 }
