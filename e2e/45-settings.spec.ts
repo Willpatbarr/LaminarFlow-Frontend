@@ -12,7 +12,7 @@ test('profile menu -> Settings -> Team settings', async ({ page, context, baseUR
     await page.getByRole('button', { name: 'Account menu' }).click()
     const menu = page.getByRole('menu', { name: 'Account menu' })
     await expect(menu.getByRole('menuitem', { name: 'API tokens' })).toBeVisible()
-    await expect(menu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Log out' })).toBeVisible()
     await menu.getByRole('menuitem', { name: /^Settings/ }).click()
 
     await expect(page).toHaveURL(/\/settings$/)

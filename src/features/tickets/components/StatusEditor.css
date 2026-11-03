@@ -120,10 +120,6 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
-.aspect-editor__type {
-  display: block;
-}
-
 .aspect-editor__new {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -161,4 +157,11 @@
   margin: var(--s-8) 0 0;
   padding: 0;
   list-style: none;
+}
+
+/* The Aspect types page's header block: back link, heading and subtitle with
+ * room between them (they were packed together in the page body). */
+.aspect-types__head {
+  display: grid;
+  gap: var(--s-8);
 }

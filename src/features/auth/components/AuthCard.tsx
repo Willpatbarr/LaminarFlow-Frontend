@@ -16,6 +16,9 @@ type AuthCardProps = {
 export function AuthCard(props: AuthCardProps) {
     return (
         <div class="auth">
+            {/* No logo asset exists in the repo or the vault, so this is a text
+                wordmark in the vault's type style, not a drawn logo. */}
+            <p class="auth__brand t-section">LaminarFlow</p>
             <h1 class="t-screen-title">{props.title}</h1>
             {/* novalidate: the browser's own bubbles would replace our messages,
                 and they look different in every browser. */}

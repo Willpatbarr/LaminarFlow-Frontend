@@ -3,6 +3,7 @@ import { createSignal, For, onSettled, Show } from 'solid-js'
 import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { Icon } from '@/components/ui/icons/Icon'
 import { PageActions, PageLayout } from '@/components/ui/PageLayout'
 
 import { describeFailure } from '../failures'
@@ -58,7 +59,19 @@ export function TokensScreen() {
     })
 
     return (
-        <PageLayout title={<h1 class="t-screen-title">API tokens</h1>}>
+        <PageLayout
+            title={
+                <div class="tokens__head">
+                    <p class="t-body">
+                        <a class="icon-text" href="/settings" aria-label="← Settings">
+                            <Icon name="chevron-left" size={16} />
+                            Settings
+                        </a>
+                    </p>
+                    <h1 class="t-screen-title">API tokens</h1>
+                </div>
+            }
+        >
         <PageActions>
             <Button onClick={() => setCreating(true)}>Create token</Button>
         </PageActions>

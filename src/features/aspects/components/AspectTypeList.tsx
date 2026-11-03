@@ -4,6 +4,8 @@ import { can, denial } from '@/features/auth'
 import { Button } from '@/components/ui/Button'
 import { Banner } from '@/components/ui/Banner'
 import { Input } from '@/components/ui/Input'
+import { ListBar, ListBars } from '@/components/ui/ListBar'
+import { PageActions } from '@/components/ui/PageLayout'
 import { Modal } from '@/components/ui/Modal'
 import { nameCount, overMessage } from '@/features/tickets/limits'
 import '@/features/tickets/components/StatusEditor.css'
@@ -90,7 +92,7 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
                     </Banner>
                 )}
             </Show>
-            <div>
+            <PageActions>
                 <Button
                     variant="secondary"
                     disabledReason={denial('aspect:write', 'import aspect types')}
@@ -111,19 +113,17 @@ export function AspectTypeList(props: { teamId: string; onOpen: (id: string) => 
                         input.value = ''
                     }}
                 />
-            </div>
+            </PageActions>
             <Show when={types()} fallback={<p class="t-meta" role="status">Loading aspect types…</p>}>
                 {(list) => (
                     <>
-                        <ul class="status-editor__list" aria-label="Aspect types">
+                        <ListBars label="Aspect types">
                             <For each={list()} keyed={(item) => item.id}>
                                 {(item) => (
-                                    <li class="status-editor__row aspect-editor__type">
-                                        <a href={`/teams/${props.teamId}/aspect-types/${item().id}`}>{item().name}</a>
-                                    </li>
+                                    <ListBar href={`/teams/${props.teamId}/aspect-types/${item().id}`} title={item().name} />
                                 )}
                             </For>
-                        </ul>
+                        </ListBars>
                         <Show when={list().length === 0}>
                             <p class="status-editor__empty t-meta">This team has no aspect types. Add one below.</p>
                         </Show>
