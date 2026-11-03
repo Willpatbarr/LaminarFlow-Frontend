@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearMembers } from '@/features/members/members'
@@ -140,5 +141,41 @@ describe('activity feed', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
         expect(await screen.findByText(/Someone created this ticket/)).toBeInTheDocument()
         expect(screen.queryByText(/not available right now/)).not.toBeInTheDocument()
+    })
+    it('asks again under the real id once a ticket made under a temporary id is created', async () => {
+        const created = deferred()
+        const asked: string[] = []
+        const history = await openApp('/', {
+            ...listRoutes([]),
+            'POST /api/v1/tickets': () => created.promise,
+            'POST /api/v1/activity/list': async (request: Request) => {
+                const body = (await bodyOf(request)) as { filter: { conditions: { value: string }[] } }
+                const id = body.filter.conditions[1].value
+                asked.push(id)
+                return page(id === 't-9' ? [entry({ entity_id: 't-9' })] : [])
+            },
+        })
+        const user = userEvent.setup()
+        await waitFor(() => expect(screen.getByRole('button', { name: 'New ticket' })).toBeEnabled())
+        await user.click(screen.getByRole('button', { name: 'New ticket' }))
+        await user.type(screen.getByLabelText('Title'), 'Fresh idea{Enter}')
+        await waitFor(() => expect(history.get()).toMatch(/^\/tickets\/tmp_/))
+        // Nothing to ask for yet: a temporary id is never sent to the server.
+        expect(asked).toEqual([])
+        expect(screen.getByText('History appears once this ticket is saved.')).toBeInTheDocument()
+
+        created.resolve(ok(ticket({ id: 't-9', title: 'Fresh idea', updated_by: 'acc-me' })))
+        await waitFor(() => expect(history.get()).toBe('/tickets/t-9'))
+        expect(await screen.findByText(/Someone created this ticket/)).toBeInTheDocument()
+        expect(asked.length).toBeGreaterThan(0)
+        expect(new Set(asked)).toEqual(new Set(['t-9']))
+        expect(screen.queryByText('History appears once this ticket is saved.')).not.toBeInTheDocument()
+
+        // And live entries for the real id still merge.
+        publishActivityFrame({
+            type: 'activity.created',
+            activity: entry({ id: 'a-2', entity_id: 't-9', kind: 'archived', created_at: '2026-01-02T00:00:00Z' }),
+        })
+        expect(await screen.findByText(/archived this ticket/)).toBeInTheDocument()
     })
 })
