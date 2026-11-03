@@ -46,7 +46,7 @@ test('a filtered board saved as a team view opens from a teammate\'s sidebar; a 
     await expect.poll(() => cardsIn(page, doingName)).toEqual(['Card three'])
 
     await page.getByText(/^Filter/).click()
-    await page.getByRole('group', { name: 'Board filter' }).getByRole('checkbox', { name: todoName }).check()
+    await page.getByRole('dialog', { name: 'Filter' }).getByRole('checkbox', { name: todoName }).check()
     await expect.poll(() => cardsIn(page, doingName)).toEqual([])
     await expect.poll(() => cardsIn(page, todoName)).toEqual(['Card one', 'Card two'])
 

@@ -2,6 +2,7 @@ import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untra
 
 import { Button } from '@/components/ui/Button'
 import { DisclosureCaret } from '@/components/ui/DisclosureCaret'
+import { Icon } from '@/components/ui/icons/Icon'
 import { Input } from '@/components/ui/Input'
 import { Popover } from '@/components/ui/Popover'
 import { Select } from '@/components/ui/Select'
@@ -183,9 +184,9 @@ export function ListControls(props: ListControlsProps) {
         set({ sort: field === '' ? undefined : [{ field, desc: sortKey()?.desc ?? false }] })
     }
 
-    // The controls as pieces: the desktop bar lays them out in two rows, and a
-    // phone puts all but the search in a "View" sheet (LAM-212). LAM-213 turns
-    // the filter and columns pieces into anchored popovers with chips.
+    // The controls as pieces: the desktop bar lays them out in one row with
+    // popovers and chips (LAM-213), and a phone puts all but the search in a
+    // "View" sheet (LAM-212).
     const searchField = () => (
         <>
             <Show
@@ -265,106 +266,203 @@ export function ListControls(props: ListControlsProps) {
         </>
     )
 
-    const filterPanel = () => (
-        <>
-            <Show when={model()}>
-                {(current) => (
-                    <details
-                        class="list-controls__panel"
-                        open={filterOpen()}
-                        onToggle={(event) => setFilterOpen(event.currentTarget.open)}
-                    >
-                        <summary class="t-body list-controls__summary disclosure-summary">
-                            <DisclosureCaret />
-                            Filter{activeCount() > 0 ? ` (${activeCount()})` : ''}
-                        </summary>
-                        <Show when={filterOpen()}>
-                            <div class="list-controls__fields">
-                                <For each={PICK_FIELDS}>
-                                    {(field) => (
-                                        <fieldset class="list-controls__fieldset">
-                                            <legend class="t-overline">{LEGEND[field]}</legend>
-                                            <For each={choices(field, current().picks[field].ids)}>
-                                                {(option) => (
-                                                    <label
-                                                        class="list-controls__check t-body"
-                                                        for={`${uid}-${field}-${option.id}`}
-                                                    >
-                                                        <Checkbox
-                                                            id={`${uid}-${field}-${option.id}`}
-                                                            checked={current().picks[field].ids.includes(option.id)}
-                                                            onChange={(event) =>
-                                                                toggle(
-                                                                    current(),
-                                                                    field,
-                                                                    option.id,
-                                                                    event.currentTarget.checked,
-                                                                )
-                                                            }
-                                                        />
-                                                        {option.label}
-                                                    </label>
-                                                )}
-                                            </For>
-                                            <label class="list-controls__check t-body" for={`${uid}-${field}-none`}>
-                                                <Checkbox
-                                                    id={`${uid}-${field}-none`}
-                                                    checked={current().picks[field].none}
-                                                    onChange={(event) =>
-                                                        toggle(current(), field, null, event.currentTarget.checked)
-                                                    }
-                                                />
-                                                {NONE_LABEL[field]}
-                                            </label>
-                                        </fieldset>
-                                    )}
-                                </For>
-                            </div>
-                        </Show>
-                    </details>
+    // The filter's fields and the columns' checkboxes are written once. A popover
+    // holds them on desktop and tablet (LAM-213); the phone's View sheet holds
+    // the same pieces under a disclosure each (LAM-212).
+    const filterFields = (current: () => FilterModel) => (
+        <div class="list-controls__fields">
+            <For each={PICK_FIELDS}>
+                {(field) => (
+                    <fieldset class="list-controls__fieldset">
+                        <legend class="t-overline">{LEGEND[field]}</legend>
+                        <For each={choices(field, current().picks[field].ids)}>
+                            {(option) => (
+                                <label class="list-controls__check t-body" for={`${uid}-${field}-${option.id}`}>
+                                    <Checkbox
+                                        id={`${uid}-${field}-${option.id}`}
+                                        checked={current().picks[field].ids.includes(option.id)}
+                                        onChange={(event) =>
+                                            toggle(model() ?? current(), field, option.id, event.currentTarget.checked)
+                                        }
+                                    />
+                                    {option.label}
+                                </label>
+                            )}
+                        </For>
+                        <label class="list-controls__check t-body" for={`${uid}-${field}-none`}>
+                            <Checkbox
+                                id={`${uid}-${field}-none`}
+                                checked={current().picks[field].none}
+                                onChange={(event) => toggle(model() ?? current(), field, null, event.currentTarget.checked)}
+                            />
+                            {NONE_LABEL[field]}
+                        </label>
+                    </fieldset>
                 )}
-            </Show>
-        </>
+            </For>
+        </div>
     )
 
-    const columnsPanel = () => (
-        <>
-            <Show when={!props.filterOnly}>
+    const columnFields = () => (
+        <fieldset class="list-controls__fieldset">
+            <legend class="visually-hidden">Visible columns</legend>
+            <For each={COLUMN_FIELDS}>
+                {(field) => (
+                    <label class="list-controls__check t-body" for={`${uid}-column-${field}`}>
+                        <Checkbox
+                            id={`${uid}-column-${field}`}
+                            checked={columns().includes(field)}
+                            disabled={field === 'title'}
+                            onChange={(event) => pickColumn(field, event.currentTarget.checked)}
+                        />
+                        {fieldLabel(field)}
+                    </label>
+                )}
+            </For>
+            <Show when={props.config.columns !== undefined}>
+                <Button variant="ghost" size="sm" onClick={() => set({ columns: undefined })}>
+                    Reset columns
+                </Button>
+            </Show>
+        </fieldset>
+    )
+
+    const filterLabel = () => `Filter${activeCount() > 0 ? ` (${activeCount()})` : ''}`
+
+    // Desktop and tablet: a button, and the fields hang off it.
+    const filterButton = () => (
+        <Show when={model()}>
+            {(current) => (
+                <Popover
+                    label="Filter"
+                    align="start"
+                    trigger={(trigger) => (
+                        <button type="button" class="button button--secondary list-controls__trigger list-controls__trigger--filter"
+                            {...trigger}
+                        >
+                            {filterLabel()}
+                            <DisclosureCaret />
+                        </button>
+                    )}
+                >
+                    <div class="list-controls__popover list-controls__popover--filter">{filterFields(current)}</div>
+                </Popover>
+            )}
+        </Show>
+    )
+
+    const columnsButton = () => (
+        <Show when={!props.filterOnly}>
+            <Popover
+                label="Columns"
+                align="start"
+                trigger={(trigger) => (
+                    <button type="button" class="button button--secondary list-controls__trigger" {...trigger}>
+                        Columns
+                        <DisclosureCaret />
+                    </button>
+                )}
+            >
+                <div class="list-controls__popover">{columnFields()}</div>
+            </Popover>
+        </Show>
+    )
+
+    // Phone sheet: the same fields, each under a disclosure.
+    const filterPanel = () => (
+        <Show when={model()}>
+            {(current) => (
                 <details
                     class="list-controls__panel"
-                    open={columnsOpen()}
-                    onToggle={(event) => setColumnsOpen(event.currentTarget.open)}
+                    open={filterOpen()}
+                    onToggle={(event) => setFilterOpen(event.currentTarget.open)}
                 >
                     <summary class="t-body list-controls__summary disclosure-summary">
                         <DisclosureCaret />
-                        Columns
+                        {filterLabel()}
                     </summary>
-                    <Show when={columnsOpen()}>
-                        <fieldset class="list-controls__fieldset">
-                            <legend class="visually-hidden">Visible columns</legend>
-                            <For each={COLUMN_FIELDS}>
-                                {(field) => (
-                                    <label class="list-controls__check t-body" for={`${uid}-column-${field}`}>
-                                        <Checkbox
-                                            id={`${uid}-column-${field}`}
-                                            checked={columns().includes(field)}
-                                            disabled={field === 'title'}
-                                            onChange={(event) => pickColumn(field, event.currentTarget.checked)}
-                                        />
-                                        {fieldLabel(field)}
-                                    </label>
-                                )}
-                            </For>
-                            <Show when={props.config.columns !== undefined}>
-                                <Button variant="ghost" size="sm" onClick={() => set({ columns: undefined })}>
-                                    Reset columns
-                                </Button>
-                            </Show>
-                        </fieldset>
-                    </Show>
+                    <Show when={filterOpen()}>{filterFields(current)}</Show>
                 </details>
-            </Show>
-        </>
+            )}
+        </Show>
+    )
+
+    const columnsPanel = () => (
+        <Show when={!props.filterOnly}>
+            <details
+                class="list-controls__panel"
+                open={columnsOpen()}
+                onToggle={(event) => setColumnsOpen(event.currentTarget.open)}
+            >
+                <summary class="t-body list-controls__summary disclosure-summary">
+                    <DisclosureCaret />
+                    Columns
+                </summary>
+                <Show when={columnsOpen()}>{columnFields()}</Show>
+            </details>
+        </Show>
+    )
+
+    // Active filters as removable chips (LAM-213). "Clear" is the last thing in
+    // the row, next to what it clears.
+    type Chip = { key: string; label: string; remove: () => void }
+    const chips = (): Chip[] => {
+        const current = model()
+        if (!current) return []
+        const out: Chip[] = []
+        if (current.text.trim() !== '')
+            out.push({
+                key: 'text',
+                label: `Title: ${current.text.trim()}`,
+                remove: () => {
+                    clearTimeout(timer)
+                    timer = undefined
+                    setText('')
+                    setModel({ ...current, text: '' })
+                },
+            })
+        for (const field of PICK_FIELDS) {
+            for (const id of current.picks[field].ids) {
+                const name = choices(field, current.picks[field].ids).find((o) => o.id === id)?.label ?? 'Unknown'
+                out.push({
+                    key: `${field}:${id}`,
+                    label: `${LEGEND[field]}: ${name}`,
+                    remove: () => toggle(model() ?? current, field, id, false),
+                })
+            }
+            if (current.picks[field].none)
+                out.push({
+                    key: `${field}:none`,
+                    label: `${LEGEND[field]}: ${NONE_LABEL[field]}`,
+                    remove: () => toggle(model() ?? current, field, null, false),
+                })
+        }
+        return out
+    }
+
+    const chipRow = () => (
+        <Show when={props.config.filter !== undefined}>
+            <div class="list-controls__chips" role="group" aria-label="Active filters">
+                <For each={chips()}>
+                    {(chip) => (
+                        <span class="chip list-controls__chip">
+                            {chip.label}
+                            <button
+                                type="button"
+                                class="list-controls__chip-remove"
+                                aria-label={`Remove filter ${chip.label}`}
+                                onClick={chip.remove}
+                            >
+                                <Icon name="close" size={14} />
+                            </button>
+                        </span>
+                    )}
+                </For>
+                <Button variant="ghost" size="sm" aria-label="Clear filters" onClick={() => set({ filter: undefined })}>
+                    Clear
+                </Button>
+            </div>
+        </Show>
     )
 
     // What the sheet holds that differs from the plain list, so a closed sheet
@@ -382,13 +480,11 @@ export function ListControls(props: ListControlsProps) {
                 <div class="list-controls" role="group" aria-label={props.filterOnly ? 'Board filter' : 'List view'}>
                     <div class="list-controls__row">
                         {searchField()}
+                        {filterButton()}
+                        {columnsButton()}
                         {groupAndSort()}
-                        {clearFilters()}
                     </div>
-                    <div class="list-controls__row">
-                        {filterPanel()}
-                        {columnsPanel()}
-                    </div>
+                    {chipRow()}
                 </div>
             }
         >

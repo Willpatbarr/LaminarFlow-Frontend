@@ -249,7 +249,7 @@ describe('saving a view', () => {
         await screen.findByRole('heading', { name: 'Launch' })
 
         await user.click(screen.getByText(/^Filter/))
-        const panel = screen.getByText(/^Filter/).closest('details')!
+        const panel = await screen.findByRole('dialog', { name: 'Filter' })
         await user.click(await within(panel).findByRole('checkbox', { name: 'To Do' }))
         expect(within(screen.getByRole('region', { name: 'In Progress' })).queryAllByRole('listitem')).toHaveLength(0)
 
