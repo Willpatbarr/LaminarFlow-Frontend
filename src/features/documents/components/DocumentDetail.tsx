@@ -34,6 +34,7 @@ import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
 import { decidedRequestsFor, openRequestsFor } from '@/features/review/feed'
 import { OpenRequestsCount, ReviewPanel } from '@/features/review/ReviewPanel'
+import { notifyMadeAspect } from './MadeAspectToast'
 import { notifyReviewRequested } from '@/features/review/ReviewRequestedToast'
 import { ReviewableField, type ReviewContext } from '@/features/review/ReviewableField'
 
@@ -292,7 +293,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                     text={content.value}
                     onMade={async () => {
                         content.reset()
-                        props.announce('Made this an Aspect.')
+                        notifyMadeAspect()
                     }}
                 />
             </Show>

@@ -21,6 +21,7 @@ import { CommandPalette } from '@/features/search/CommandPalette'
 import { openPalette } from '@/features/search/paletteState'
 import { hintFor, installShortcutListener, ShortcutHelp, useScope, useShortcut } from '@/features/shortcuts'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
+import { MadeAspectToast } from '@/features/documents/components/MadeAspectToast'
 import { ReviewRequestedToast } from '@/features/review/ReviewRequestedToast'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
 import { CreatedTicketToast } from '@/features/tickets/components/CreatedTicketToast'
@@ -310,6 +311,7 @@ export function AppLayout(props: RouteSectionProps) {
                         <ArchiveUndoToast />
                         <CreatedTicketToast />
                         <ReviewRequestedToast />
+                        <MadeAspectToast />
                     </Show>
                 }
             >
