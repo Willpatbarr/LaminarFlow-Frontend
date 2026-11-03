@@ -364,6 +364,7 @@ describe('SideNav accessible names (LAM-218)', () => {
                 { label: 'New team', icon: 'team', onClick: () => {}, disabledReason: 'Needs a connection.' },
             ]}
             search={{ onClick: () => {}, hint: 'Ctrl K' }}
+            help={{ onClick: () => {}, hint: '?' }}
             settings={{ href: '/settings', hint: 'G S' }}
             userName="Ada Lovelace"
             onLogout={() => {}}
@@ -380,6 +381,7 @@ describe('SideNav accessible names (LAM-218)', () => {
         ['button', 'New epic'],
         ['button', 'New team'],
         ['button', 'Search'],
+        ['button', 'Keyboard shortcuts'],
         ['button', 'Log out'],
     ]
 

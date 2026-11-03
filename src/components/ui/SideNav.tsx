@@ -20,7 +20,7 @@ const PLUS_BADGE = 'M19 16v6M16 19h6'
 const COLLAPSED_KEY = 'lf-side-nav-collapsed'
 
 // A click on one of these inside the tablet overlay is "going somewhere".
-const GOES_SOMEWHERE = 'a[href], .side-nav__create, .side-nav__search, .side-nav__logout'
+const GOES_SOMEWHERE = 'a[href], .side-nav__create, .side-nav__search, .side-nav__help, .side-nav__logout'
 
 function storedCollapsed(): boolean | undefined {
     try {
@@ -100,6 +100,9 @@ type SideNavProps = {
     /** The items of the menu the profile block opens (LAM-200): `role="menuitem"` elements. Absent:
      *  the profile is a plain label, not a button. */
     menu?: JSX.Element
+    /** The "Keyboard shortcuts" button in the foot, above Settings (LAM-223); `hint` is the
+     *  key written beside it. Hidden on touch-only devices, like the hints. Absent: none. */
+    help?: { onClick: () => void; hint?: string }
     onLogout: () => void
     /** Changes whenever the user has gone somewhere (the path). On a tablet an expanded
      *  sidebar floats over the page, and it shuts when this changes (LAM-218). */
@@ -419,6 +422,28 @@ export function SideNav(props: SideNavProps) {
                             <hr class="side-nav__divider" aria-hidden="true" />
                             {props.account}
                             {props.status}
+                            <Show when={props.help}>
+                                {(help) => (
+                                    <button
+                                        type="button"
+                                        class="side-nav__link side-nav__help t-body"
+                                        aria-keyshortcuts={help().hint ? '?' : undefined}
+                                        aria-label="Keyboard shortcuts"
+                                        data-tip={collapsed() ? 'Keyboard shortcuts' : undefined}
+                                        onClick={() => help().onClick()}
+                                    >
+                                        <Icon class="side-nav__icon" name="keyboard" />
+                                        <span class="side-nav__label">Keyboard shortcuts</span>
+                                        <Show when={help().hint}>
+                                            {(hint) => (
+                                                <kbd class="shortcut-hint side-nav__hint t-meta" aria-hidden="true">
+                                                    {hint()}
+                                                </kbd>
+                                            )}
+                                        </Show>
+                                    </button>
+                                )}
+                            </Show>
                             <Show when={props.settings}>
                                 {(settings) => (
                                     <a

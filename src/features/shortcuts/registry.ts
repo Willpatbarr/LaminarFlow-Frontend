@@ -25,12 +25,12 @@ import { can } from '@/features/auth'
 export type Scope = 'global' | 'list' | 'ticket' | 'board' | 'comment'
 
 /** Headings for the help sheet, in the order they are shown. */
-export const SCOPES: { scope: Scope; heading: string }[] = [
+export const SCOPES: { scope: Scope; heading: string; where?: string }[] = [
     { scope: 'global', heading: 'Anywhere' },
-    { scope: 'list', heading: 'Ticket list' },
-    { scope: 'ticket', heading: 'A ticket' },
-    { scope: 'board', heading: 'Board' },
-    { scope: 'comment', heading: 'Writing a comment' },
+    { scope: 'list', heading: 'List', where: 'On the ticket list' },
+    { scope: 'ticket', heading: 'A ticket', where: 'On a ticket' },
+    { scope: 'board', heading: 'Board', where: 'On the board' },
+    { scope: 'comment', heading: 'Writing a comment', where: 'While writing a comment' },
 ]
 
 export type ShortcutDef = {
@@ -68,6 +68,7 @@ export const SHORTCUTS = [
     { id: 'comment.submit', keys: 'mod+enter', label: 'Post the comment, or save the edit (Enter is a new line)', scope: 'comment', local: true },
     { id: 'list.next', keys: 'j', label: 'Next ticket', scope: 'list' },
     { id: 'list.previous', keys: 'k', label: 'Previous ticket', scope: 'list' },
+    { id: 'list.open', keys: 'enter', display: 'Enter', label: 'Open the focused ticket', scope: 'list', local: true },
     { id: 'ticket.status', keys: 's', label: 'Change status', scope: 'ticket', permission: 'ticket:write' },
     { id: 'ticket.edit', keys: 'e', label: 'Edit the title', scope: 'ticket', permission: 'ticket:write' },
     { id: 'board.lift', keys: 'space', display: 'Space', label: 'Pick up or drop the focused card', scope: 'board', permission: 'ticket:write', local: true },
@@ -144,16 +145,24 @@ export function available(id: ShortcutId): boolean {
     return bindings.some((b) => b.id === id && on(b))
 }
 
-/** What the help sheet shows: the available shortcuts, grouped by scope. */
-export function listed(): { heading: string; items: { id: ShortcutId; keys: string; label: string }[] }[] {
-    return SCOPES.map(({ scope, heading }) => ({
-        heading,
-        items: SHORTCUTS.filter((def) => def.scope === scope && available(def.id)).map((def) => ({
-            id: def.id,
-            keys: keysOf(def.id),
-            label: def.label,
-        })),
-    })).filter((group) => group.items.length > 0)
+/** What the help sheet shows: every group, so it teaches what exists. Groups
+ *  for the screen on show come first, with only what is on offer; the others
+ *  follow with a `note` saying where they work (what the account may not do is
+ *  still left out). Listing a group changes nothing about what its keys do. */
+export function listed(): {
+    heading: string
+    note?: string
+    items: { id: ShortcutId; keys: string; label: string }[]
+}[] {
+    version()
+    const groups = SCOPES.map(({ scope, heading, where }) => {
+        const here = scopes.includes(scope)
+        const items = SHORTCUTS.filter((def) => def.scope === scope)
+            .filter((def) => (here ? available(def.id) : !definition(def.id).permission || can(definition(def.id).permission!)))
+            .map((def) => ({ id: def.id, keys: keysOf(def.id), label: def.label }))
+        return { heading, note: here ? undefined : where, items }
+    }).filter((group) => group.items.length > 0)
+    return [...groups.filter((g) => !g.note), ...groups.filter((g) => g.note)]
 }
 
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)

@@ -37,3 +37,7 @@
 .shortcut-help__row dd {
     margin: 0;
 }
+
+.shortcut-help__note {
+    font-weight: 400;
+}
