@@ -253,6 +253,22 @@ describe('internal links as chips', () => {
         setEditorLinks(null)
     })
 
+    it('tells the caller about a chip inserted from the list, and only then (LAM-225)', async () => {
+        register()
+        const onMention = vi.fn()
+        let editor: Editor | undefined
+        render(() => <MarkdownEditor label="Notes" value="[old](lf://ticket/t-9) " onChange={() => {}} onMention={onMention} ref={(e) => (editor = e)} />)
+        await waitFor(() => expect(editor).toBeDefined())
+        expect(onMention).not.toHaveBeenCalled()
+        editor!.commands.focus('end')
+        typeText(editor!, '@checklist')
+        await waitFor(() => expect(options()).toHaveLength(1))
+        press(editor!, 'Enter')
+        await waitFor(() => expect(onMention).toHaveBeenCalledWith({ kind: 'ticket', id: 't-1' }))
+        expect(onMention).toHaveBeenCalledTimes(1)
+        setEditorLinks(null)
+    })
+
     it('picks the top result with Tab, and a click picks that option', async () => {
         register()
         const editor = await mount('')

@@ -20,6 +20,9 @@ type ToastProps = {
     role?: 'status' | 'alert'
     action?: string
     onAction?: () => void
+    /** A second, quieter choice beside `action` ("Not now"). */
+    secondary?: string
+    onSecondary?: () => void
     onDismiss?: () => void
 }
 
@@ -52,6 +55,11 @@ export function Toast(props: ToastProps) {
                         <Button variant="secondary" size="sm" onClick={() => props.onAction?.()}>
                             {props.action}
                         </Button>
+                        <Show when={props.secondary}>
+                            <Button variant="ghost" size="sm" onClick={() => props.onSecondary?.()}>
+                                {props.secondary}
+                            </Button>
+                        </Show>
                     </span>
                 </Show>
             </div>

@@ -83,6 +83,8 @@ type Options = {
     onSession: (session: Session | null) => void
     /** A key went down while the list is open. True if the list used it. */
     onKey: (event: KeyboardEvent) => boolean
+    /** A chip was inserted from the list (LAM-225). */
+    onInsert?: (target: LinkTarget) => void
 }
 
 /** Whether the caret is in code: a `codeBlock` node or the inline `code` mark.
@@ -94,11 +96,13 @@ export function inCode(state: EditorState): boolean {
     return marks.some((mark) => mark.type.name === 'code')
 }
 
-function insertChip(editor: Editor, range: Range, target: LinkTarget) {
+function insertChip(editor: Editor, range: Range, target: LinkTarget, options: Options) {
     const after = editor.state.doc.textBetween(range.to, Math.min(range.to + 1, editor.state.doc.content.size), '\n', '\0')
     const content: object[] = [{ type: 'internalLink', attrs: { kind: target.kind, id: target.id, label: target.title } }]
     if (!/^\s/.test(after)) content.push({ type: 'text', text: ' ' })
-    return editor.chain().focus().insertContentAt(range, content).run()
+    const done = editor.chain().focus().insertContentAt(range, content).run()
+    if (done) options.onInsert?.(target)
+    return done
 }
 
 function trigger(editor: Editor, options: Options, name: string, char: string, anywhere: boolean) {
@@ -117,7 +121,7 @@ function trigger(editor: Editor, options: Options, name: string, char: string, a
             const query = state.doc.textBetween(range.from + char.length, range.to, '\n', '\0')
             return !queryEnded(query, editorLinks()?.targets() ?? [])
         },
-        command: ({ editor: ed, range, props }) => void insertChip(ed, range, props),
+        command: ({ editor: ed, range, props }) => void insertChip(ed, range, props, options),
         // Our own outside-press handling is the Popover's; the list is not mounted by TipTap.
         dismissOnOutsideClick: false,
         render: () => {

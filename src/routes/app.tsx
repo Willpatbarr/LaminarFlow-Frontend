@@ -22,6 +22,7 @@ import { openPalette } from '@/features/search/paletteState'
 import { hintFor, installShortcutListener, ShortcutHelp, useScope, useShortcut } from '@/features/shortcuts'
 import { NewTicketDialog } from '@/features/tickets/components/NewTicketDialog'
 import { ToastOverflow } from '@/components/ui/ToastOverflow'
+import { MentionLinkToast } from '@/features/links/mentionOffer'
 import { MadeAspectToast } from '@/features/documents/components/MadeAspectToast'
 import { ReviewRequestedToast } from '@/features/review/ReviewRequestedToast'
 import { ArchiveUndoToast } from '@/features/tickets/components/ArchiveUndoToast'
@@ -315,6 +316,7 @@ export function AppLayout(props: RouteSectionProps) {
                         <CreatedTicketToast />
                         <ReviewRequestedToast />
                         <MadeAspectToast />
+                        <MentionLinkToast />
                         <ToastOverflow />
                     </Show>
                 }
