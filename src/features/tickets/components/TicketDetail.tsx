@@ -733,7 +733,9 @@ function TicketEditor(props: TicketEditorProps) {
                                 onCreated={(row) => {
                                     if (kind() === 'epic') void updateTicket(id(), { epic_id: row.id })
                                     else if (kind() === 'milestone') void updateTicket(id(), { milestone_id: row.id })
-                                    else void updateTicket(id(), { sprint_ids: [...props.ticket.sprint_ids, row.id] })
+                                    // The Sprint picker holds one value, so the new sprint replaces it:
+                                    // appending would leave the picker showing the old sprint.
+                                    else void updateTicket(id(), { sprint_ids: [row.id] })
                                 }}
                                 onClose={() => setMakingParent(null)}
                             />
