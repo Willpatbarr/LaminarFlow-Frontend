@@ -254,11 +254,28 @@ describe('list polish (LAM-155)', () => {
         expect(headers[0]).toHaveTextContent('Assignee')
     })
 
-    it('keeps the room for "Clear filters" whether or not it shows', async () => {
+    it('opens Filter and Columns as popovers, and shows active filters as removable chips (LAM-213)', async () => {
         await open('/')
+        const user = userEvent.setup()
         await screen.findByRole('region', { name: 'To Do' })
-        expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
-        expect(document.querySelector('.list-controls__clear')).toBeInTheDocument()
+        expect(screen.queryByRole('group', { name: 'Active filters' })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^Filter/ }))
+        const panel = await screen.findByRole('dialog', { name: 'Filter' })
+        expect(panel.closest('.list-controls')).toBeNull()
+        await user.click(within(panel).getByRole('checkbox', { name: 'Checkout' }))
+
+        const chips = await screen.findByRole('group', { name: 'Active filters' })
+        expect(within(chips).getByText('Epic: Checkout')).toBeInTheDocument()
+        const last = chips.lastElementChild as HTMLElement
+        expect(last).toHaveAccessibleName('Clear filters')
+
+        await user.click(within(chips).getByRole('button', { name: 'Remove filter Epic: Checkout' }))
+        await vi.waitFor(() => expect(screen.queryByRole('group', { name: 'Active filters' })).not.toBeInTheDocument())
+        expect(titles()).toHaveLength(3)
+
+        await user.click(screen.getByRole('button', { name: 'Columns' }))
+        expect(await screen.findByRole('dialog', { name: 'Columns' })).toBeInTheDocument()
     })
 
     it('has quiet icon buttons on every row, named and in the tab order', async () => {

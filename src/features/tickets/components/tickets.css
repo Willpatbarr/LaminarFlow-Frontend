@@ -514,6 +514,58 @@
   flex: 1 1 100%;
 }
 
+/* LAM-213: Filter and Columns hang off their buttons as popovers; nothing
+ * expands in the page. The row's controls share a height. */
+.list-controls__trigger {
+  gap: var(--s-6);
+  height: 40px;
+}
+
+/* Room kept for the count, so "Filter (2)" moves nothing beside it. */
+.list-controls__trigger--filter {
+  flex: 0 0 8rem;
+  justify-content: center;
+}
+
+.list-controls__popover {
+  padding: var(--s-8);
+}
+
+.list-controls__popover--filter {
+  width: min(44rem, calc(100vw - 32px));
+}
+
+/* Active filters under the toolbar, "Clear" last. */
+.list-controls__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-6);
+}
+
+.list-controls__chip {
+  padding-inline-end: var(--s-2);
+  background: var(--bg-raised, var(--bg-overlay));
+  color: var(--text-1);
+  border: 1px solid var(--border);
+}
+
+.list-controls__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-2);
+  border: 0;
+  border-radius: var(--r-chip);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.list-controls__chip-remove:hover {
+  color: var(--text-1);
+}
+
 /* The rows and what belongs to them (the held-rows hint). Same rhythm as the
  * stack around it. */
 .tickets__rows {
