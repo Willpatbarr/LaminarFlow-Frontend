@@ -172,6 +172,28 @@ test('an epic made inside the Epic picker is given to the ticket, with no loose 
     await expect.poll(async () => (await serverTicket(account, ticket.id))?.epic_id).not.toBeNull()
 })
 
+// LAM-231: the same for a sprint, which is a membership and not a field on the ticket.
+test('a sprint made inside the Sprint picker is joined by the ticket, and it survives a reload', async ({ page, context, baseURL }) => {
+    const account = await newAccount('pickersprint')
+    const world = await projectOf(account)
+    const ticket = await serverCreate(account, world.projectId, fields('Needs a sprint'))
+    await signedInAs(context, account, baseURL!)
+    await openTicket(page, ticket.id, 'Needs a sprint')
+    await connectionIs(page, 'Connected')
+
+    await property(page, 'Sprint').click()
+    await page.getByRole('button', { name: 'Create new sprint…' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New sprint' })
+    await dialog.getByLabel('Name').fill('Sprint Alpha')
+    await dialog.getByRole('button', { name: 'Create sprint' }).click()
+
+    await expectProperty(page, 'Sprint', 'Sprint Alpha')
+    await expect(property(page, 'Sprint')).toBeFocused()
+    await expect(page.getByRole('region', { name: 'Activity' })).toContainText('added this to sprint Sprint Alpha')
+    await page.reload()
+    await expectProperty(page, 'Sprint', 'Sprint Alpha')
+})
+
 for (const [kind, size] of [
     ['desktop', { width: 1366, height: 800 }],
     ['tablet', { width: 768, height: 1024 }],

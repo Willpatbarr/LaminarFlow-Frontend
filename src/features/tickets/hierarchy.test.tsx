@@ -126,6 +126,95 @@ describe('the ticket page pickers', () => {
     })
 })
 
+// LAM-231: "Create new …" inside a picker makes the item and gives it to this ticket.
+describe('making an epic, sprint, milestone or label from a picker', () => {
+    async function createFrom(user: ReturnType<typeof userEvent.setup>, property: string, kind: string, name: string) {
+        await user.click(await screen.findByRole('button', { name: new RegExp(`^${property}:`) }))
+        await user.click(await screen.findByRole('button', { name: `Create new ${kind}…` }))
+        const dialog = await screen.findByRole('dialog')
+        await user.type(within(dialog).getByLabelText('Name'), name)
+        await user.click(within(dialog).getByRole('button', { name: `Create ${kind}` }))
+    }
+
+    it('files the ticket under a new epic and a new milestone, and the pickers read them', async () => {
+        const { all, puts } = routes()
+        await open('/tickets/t-1', {
+            ...all,
+            'POST /api/v1/epics': async (request) => ok({ id: 'e-new', ...(await bodyOf(request)), ...stamp }),
+            'POST /api/v1/milestones': async (request) => ok({ id: 'm-new', ...(await bodyOf(request)), ...stamp }),
+        })
+        const user = userEvent.setup()
+        await createFrom(user, 'Epic', 'epic', 'Onboarding')
+        await createFrom(user, 'Milestone', 'milestone', 'Beta')
+        await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ epic_id: 'e-new', milestone_id: 'm-new' }))
+        await expectProperty('Epic', 'Onboarding')
+        await expectProperty('Milestone', 'Beta')
+        // Focus comes back to the property that was being set.
+        await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Milestone: Beta' })).toHaveFocus())
+    })
+
+    it('adds the ticket to a new sprint, replacing the one it was in', async () => {
+        const { all, members } = routes()
+        const removed: string[] = []
+        await open('/tickets/t-1', {
+            ...all,
+            'POST /api/v1/sprints': async (request) => ok({ id: 'sp-new', ...(await bodyOf(request)), ...stamp }),
+            'POST /api/v1/sprints/sp-new/tickets': async (request) => {
+                members.push(`new:${(await bodyOf(request)).ticket_id}`)
+                return new Response(null, { status: 204 })
+            },
+            'DELETE /api/v1/sprints/sp-1/tickets/t-1': () => {
+                removed.push('sp-1')
+                return new Response(null, { status: 204 })
+            },
+        })
+        const user = userEvent.setup()
+        await pickProperty(user, 'Sprint', 'Sprint 1')
+        await vi.waitFor(() => expect(members).toEqual(['t-1']))
+        await expectProperty('Sprint', 'Sprint 1')
+        await createFrom(user, 'Sprint', 'sprint', 'Sprint 2')
+        await vi.waitFor(() => expect(members).toContain('new:t-1'))
+        await expectProperty('Sprint', 'Sprint 2')
+        await vi.waitFor(() => expect(removed).toEqual(['sp-1']))
+    })
+
+    it('applies a label made from the label picker', async () => {
+        const { all, puts } = routes()
+        await open('/tickets/t-1', {
+            ...all,
+            'POST /api/v1/labels': async (request) => ok({ id: 'l-new', ...(await bodyOf(request)), ...stamp }),
+        })
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Add label' }))
+        await user.type(await screen.findByRole('searchbox', { name: 'Search or create a label' }), 'urgent{Enter}')
+        await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ label_ids: ['l-new'] }))
+        expect(within(await screen.findByRole('list', { name: 'Labels' })).getByText('urgent')).toBeInTheDocument()
+    })
+
+    it('changes nothing when the dialog is cancelled', async () => {
+        const { all, puts, members } = routes()
+        let made = 0
+        await open('/tickets/t-1', {
+            ...all,
+            'POST /api/v1/sprints': () => {
+                made++
+                return ok({})
+            },
+        })
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: /^Sprint:/ }))
+        await user.click(await screen.findByRole('button', { name: 'Create new sprint…' }))
+        const dialog = await screen.findByRole('dialog')
+        await user.type(within(dialog).getByLabelText('Name'), 'Never')
+        await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+        await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        await expectProperty('Sprint', 'None')
+        expect(made).toBe(0)
+        expect(puts).toEqual([])
+        expect(members).toEqual([])
+    })
+})
+
 describe('the side panel', () => {
     it('opens the ticket beside the list on a plain click, and closes back to the list', async () => {
         const history = await open('/', routes().all)

@@ -46,12 +46,19 @@ export function NewHierarchyDialog(props: NewHierarchyDialogProps) {
         setSaving(true)
         const project_id = props.projectId
         const text = name().trim()
-        const row =
-            props.kind === 'epic'
-                ? await createEpic({ project_id, name: text, description: description() })
-                : props.kind === 'sprint'
-                  ? await createSprint({ project_id, name: text, start_date: start() || null, end_date: end() || null })
-                  : await createMilestone({ project_id, name: text, description: description(), target_date: target() || null })
+        let row: Created
+        try {
+            row =
+                props.kind === 'epic'
+                    ? await createEpic({ project_id, name: text, description: description() })
+                    : props.kind === 'sprint'
+                      ? await createSprint({ project_id, name: text, start_date: start() || null, end_date: end() || null })
+                      : await createMilestone({ project_id, name: text, description: description(), target_date: target() || null })
+        } catch {
+            // Nothing was made, so nothing is handed on; the dialog stays for another try.
+            setSaving(false)
+            return
+        }
         props.onCreated?.(row)
         props.onClose()
     }
