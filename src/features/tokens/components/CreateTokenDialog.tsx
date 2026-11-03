@@ -1,10 +1,11 @@
-import { createSignal, For, Show } from 'solid-js'
+import { createSignal, For, onCleanup, Show } from 'solid-js'
 
+import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons/Icon'
 import { DisclosureCaret } from '@/components/ui/DisclosureCaret'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { Toast } from '@/components/ui/Toast'
 import { session } from '@/features/auth'
 
 import { describeFailure, type TokenFailure } from '../failures'
@@ -22,6 +23,9 @@ import { Checkbox } from '@/components/ui/Checkbox'
 │      The secret lives in one signal inside this component. Unmounting the
 │      dialog (onClose) drops it; it is never written anywhere else.
 */
+/** How long the Copy button says "Copied" before it goes back. */
+export const COPIED_MS = 3000
+
 type CreateTokenDialogProps = {
     /** A token was made: refresh the list. Called without the secret. */
     onCreated: () => void
@@ -72,12 +76,18 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
         }
     }
 
+    let revert: ReturnType<typeof setTimeout> | undefined
+    onCleanup(() => clearTimeout(revert))
+
     async function copy() {
         const value = secret()
         if (value === null) return
         try {
             await navigator.clipboard.writeText(value)
+            setFailure({})
             setCopied(true)
+            clearTimeout(revert)
+            revert = setTimeout(() => setCopied(false), COPIED_MS)
         } catch {
             // Clipboard refused: the field is selectable, so say so.
             setFailure({ form: 'Could not copy. Select the token and copy it by hand.' })
@@ -193,21 +203,31 @@ export function CreateTokenDialog(props: CreateTokenDialogProps) {
             {(token) => (
                 <Modal
                     title="Copy your token"
-                    consequence="You won't see this again."
                     confirm="Done"
+                    describedBy="token-once-warning"
                     persistent
                     onConfirm={props.onClose}
                     onCancel={props.onClose}
                 >
+                    <div class="tokens__once">
+                        <Banner id="token-once-warning" hue="amber">
+                            You won't see this again. Copy the token now and keep it somewhere safe; once you press Done
+                            it can't be shown again.
+                        </Banner>
+                    </div>
                     <Input label="Token" value={token()} onInput={() => {}} readOnly />
                     <div class="tokens__copy">
                         <Button variant="secondary" onClick={() => void copy()}>
-                            Copy token
+                            <Show when={copied()} fallback="Copy token">
+                                <span class="tokens__copied">
+                                    <Icon name="check" size={16} /> Copied
+                                </span>
+                            </Show>
                         </Button>
+                        <span class="visually-hidden" role="status">
+                            {copied() ? 'Token copied to clipboard.' : ''}
+                        </span>
                     </div>
-                    <Show when={copied()}>
-                        <Toast hue="green" mark="check" title="Copied" detail="The token is on your clipboard." onDismiss={() => setCopied(false)} />
-                    </Show>
                     <Show when={failure().form}>
                         {(message) => (
                             <p class="t-meta tokens__error" role="alert">
