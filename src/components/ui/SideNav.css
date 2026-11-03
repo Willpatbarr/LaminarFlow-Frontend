@@ -361,3 +361,11 @@
   transform: translateY(-50%);
   white-space: nowrap;
 }
+
+/* A keyboard-shortcuts button is no use without a keyboard (LAM-223): it hides on
+ * the same devices as the hints (no hover, a coarse pointer; see src/index.css). */
+@media (hover: none) and (pointer: coarse) {
+  .side-nav__help {
+    display: none;
+  }
+}

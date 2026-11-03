@@ -136,6 +136,23 @@ describe('the help sheet', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     })
 
+    it('lists J, K and Enter in a List group, read from the registry', async () => {
+        const { user } = await list()
+        await user.keyboard('?')
+        const sheet = within(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' }))
+        const group = within(sheet.getByRole('region', { name: 'List' }))
+        expect(group.getByText('Next ticket').closest('div')).toHaveTextContent('J')
+        expect(group.getByText('Previous ticket').closest('div')).toHaveTextContent('K')
+        expect(group.getByText('Open the focused ticket').closest('div')).toHaveTextContent('Enter')
+    })
+
+    it('opens from the sidebar Keyboard shortcuts button', async () => {
+        const { user } = await list()
+        await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }))
+        const sheet = within(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' }))
+        expect(sheet.getByText('Next ticket')).toBeInTheDocument()
+    })
+
     it('leaves out what the account cannot do', async () => {
         const { user } = await list(READ_ONLY)
         await user.keyboard('?')

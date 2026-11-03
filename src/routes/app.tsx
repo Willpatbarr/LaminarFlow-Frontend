@@ -283,6 +283,7 @@ export function AppLayout(props: RouteSectionProps) {
                         search={{ onClick: openPalette, hint: hintFor('palette.toggle') }}
                         userName={session.me?.display_name}
                         account={<ThemeSwitch />}
+                        help={{ onClick: () => setHelping(true), hint: hintFor('help.open') }}
                         settings={{
                             href: '/settings',
                             hint: hintFor('nav.settings'),

@@ -49,6 +49,13 @@ test('? lists the shortcuts, G then T goes back to the list, and keys typed into
     await page.keyboard.press('Escape')
     await expect(sheet).toHaveCount(0)
 
+    // The sidebar's "Keyboard shortcuts ?" button opens it too, and the List group names J, K and Enter.
+    await page.getByRole('button', { name: 'Keyboard shortcuts' }).click()
+    await expect(sheet.getByText('Next ticket')).toBeVisible()
+    await expect(sheet.getByText('Open the focused ticket')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+
     await page.keyboard.press('g')
     await page.keyboard.press('d')
     await expect(page).toHaveURL(/\/documents$/)

@@ -27,7 +27,7 @@ export type Scope = 'global' | 'list' | 'ticket' | 'board' | 'comment'
 /** Headings for the help sheet, in the order they are shown. */
 export const SCOPES: { scope: Scope; heading: string }[] = [
     { scope: 'global', heading: 'Anywhere' },
-    { scope: 'list', heading: 'Ticket list' },
+    { scope: 'list', heading: 'List' },
     { scope: 'ticket', heading: 'A ticket' },
     { scope: 'board', heading: 'Board' },
     { scope: 'comment', heading: 'Writing a comment' },
@@ -68,6 +68,7 @@ export const SHORTCUTS = [
     { id: 'comment.submit', keys: 'mod+enter', label: 'Post the comment, or save the edit (Enter is a new line)', scope: 'comment', local: true },
     { id: 'list.next', keys: 'j', label: 'Next ticket', scope: 'list' },
     { id: 'list.previous', keys: 'k', label: 'Previous ticket', scope: 'list' },
+    { id: 'list.open', keys: 'enter', display: 'Enter', label: 'Open the focused ticket', scope: 'list', local: true },
     { id: 'ticket.status', keys: 's', label: 'Change status', scope: 'ticket', permission: 'ticket:write' },
     { id: 'ticket.edit', keys: 'e', label: 'Edit the title', scope: 'ticket', permission: 'ticket:write' },
     { id: 'board.lift', keys: 'space', display: 'Space', label: 'Pick up or drop the focused card', scope: 'board', permission: 'ticket:write', local: true },
