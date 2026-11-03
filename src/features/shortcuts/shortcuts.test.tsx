@@ -130,8 +130,9 @@ describe('the help sheet', () => {
         expect(sheet.getByText('Next ticket')).toBeInTheDocument()
         expect(sheet.getByText('New ticket')).toBeInTheDocument()
         expect(sheet.getByText('Go to documents')).toBeInTheDocument()
-        // Not on this screen.
-        expect(sheet.queryByText('Change status')).not.toBeInTheDocument()
+        // Other screens' keys are listed too, after this screen's, with where they work.
+        expect(sheet.getByText('Change status')).toBeInTheDocument()
+        expect(sheet.getByText(/On a ticket/)).toBeInTheDocument()
         await user.keyboard('{Escape}')
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     })
@@ -168,7 +169,15 @@ describe('the help sheet', () => {
         await user.keyboard('?')
         const sheet = within(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' }))
         expect(sheet.getByText('Change status')).toBeInTheDocument()
-        expect(sheet.queryByText('Next ticket')).not.toBeInTheDocument()
+        // J, K and Enter still show on a ticket page, under a note saying where they work.
+        const group = within(sheet.getByRole('region', { name: 'List' }))
+        expect(group.getByText('Next ticket').closest('div')).toHaveTextContent('J')
+        expect(group.getByText('Previous ticket').closest('div')).toHaveTextContent('K')
+        expect(group.getByText('Open the focused ticket').closest('div')).toHaveTextContent('Enter')
+        expect(sheet.getByText(/On the ticket list/)).toBeInTheDocument()
+        // This screen's group comes before the other screens'.
+        const headings = sheet.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+        expect(headings.findIndex((h) => h?.startsWith('A ticket'))).toBeLessThan(headings.findIndex((h) => h?.startsWith('List')))
     })
 })
 

@@ -1,4 +1,4 @@
-import { For } from 'solid-js'
+import { For, Show } from 'solid-js'
 
 import { Modal } from '@/components/ui/Modal'
 
@@ -15,7 +15,12 @@ export function ShortcutHelp(props: { onClose: () => void }) {
                 <For each={listed()}>
                     {(group) => (
                         <section class="shortcut-help__group" aria-label={group.heading}>
-                            <h3 class="shortcut-help__heading t-meta">{group.heading}</h3>
+                            <h3 class="shortcut-help__heading t-meta">
+                                {group.heading}
+                                <Show when={group.note}>
+                                    <span class="shortcut-help__note"> · {group.note}</span>
+                                </Show>
+                            </h3>
                             <dl class="shortcut-help__list">
                                 <For each={group.items}>
                                     {(item) => (
