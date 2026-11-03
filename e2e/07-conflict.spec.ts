@@ -35,7 +35,7 @@ test('a stale edit shows who changed the ticket, and "Keep mine as a new ticket"
     expect(onServer).toHaveLength(2)
 
     await page.getByRole('link', { name: '← Tickets' }).click()
-    await page.getByLabel('Project').selectOption({ label: world.projectName })
+    await page.getByLabel('Project', { exact: true }).selectOption({ label: world.projectName })
     await expect(page.getByRole('link', { name: new RegExp(mine) })).toBeVisible()
     await expect(page.getByRole('link', { name: new RegExp(theirs) })).toBeVisible()
 })

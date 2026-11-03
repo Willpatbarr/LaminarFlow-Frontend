@@ -37,8 +37,8 @@ test('a new ticket appears under its status, gets its real id, and survives a re
     ])
 
     await page.reload()
-    await expect(page.getByLabel('Project')).toBeVisible()
-    await page.getByLabel('Project').selectOption({ label: world.projectName })
+    await expect(page.getByLabel('Project', { exact: true })).toBeVisible()
+    await page.getByLabel('Project', { exact: true }).selectOption({ label: world.projectName })
     await expect(
         page.getByRole('region', { name: world.statusNames[0] }).getByRole('link', { name: /Write the release notes/ }),
     ).toBeVisible()

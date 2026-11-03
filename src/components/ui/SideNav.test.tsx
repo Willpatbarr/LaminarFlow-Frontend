@@ -1,9 +1,10 @@
-import { render, screen } from '@solidjs/testing-library'
+import { render, screen, waitFor } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ICON_PATHS } from './icons/Icon'
 import { initialsOf, monogram, SideNav } from './SideNav'
+import { createSignal } from 'solid-js'
 
 describe('monogram', () => {
     it.each([
@@ -239,7 +240,7 @@ describe('SideNav', () => {
             const paths = Array.from(create.querySelectorAll('svg g path')).map((p) => p.getAttribute('d'))
             expect(paths).toEqual([ICON_PATHS.epic, ICON_PATHS.sprint, ICON_PATHS.milestone])
             for (const name of ['New epic', 'New sprint', 'New milestone']) {
-                expect(screen.getByRole('button', { name })).toHaveAttribute('title', name)
+                expect(screen.getByRole('button', { name })).toHaveAttribute('data-tip', name)
             }
             expect(container.textContent).not.toContain('+')
         })
@@ -252,7 +253,7 @@ describe('SideNav', () => {
             await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
             const initials = Array.from(container.querySelectorAll('.side-nav__initials')).map((e) => e.textContent)
             expect(initials).toEqual(['AL', 'BU', 'MI'])
-            expect(screen.getByRole('link', { name: 'Bugs' })).toHaveAttribute('title', 'Bugs')
+            expect(screen.getByRole('link', { name: 'Bugs' })).toHaveAttribute('data-tip', 'Bugs')
 
             await user.click(screen.getByRole('button', { name: 'Expand sidebar' }))
             expect(container.querySelector('.side-nav__initials')).toBeNull()
@@ -269,11 +270,11 @@ describe('SideNav', () => {
         it('turns Log out into an icon button that keeps its name and a tooltip', async () => {
             render(rail)
             const logout = screen.getByRole('button', { name: 'Log out' })
-            expect(logout).not.toHaveAttribute('title')
+            expect(logout).not.toHaveAttribute('data-tip')
 
             await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
             expect(logout).toHaveAccessibleName('Log out')
-            expect(logout).toHaveAttribute('title', 'Log out')
+            expect(logout).toHaveAttribute('data-tip', 'Log out')
             expect(logout.querySelector('svg')).not.toBeNull()
         })
 
@@ -337,5 +338,148 @@ describe('SideNav default width (LAM-185)', () => {
         screenIs('phone')
         const phone = render(nav)
         expect(phone.container.querySelector('.side-nav--collapsed')).toBeNull()
+    })
+})
+
+// LAM-218 (P9): the names are explicit, not left to be worked out from the text inside, so they
+// survive in both states and in tools that do not read through nested spans (LAM-161 regression).
+describe('SideNav accessible names (LAM-218)', () => {
+    beforeEach(() => localStorage.clear())
+    afterEach(() => vi.unstubAllGlobals())
+
+    const rail = () => (
+        <SideNav
+            links={[
+                { label: 'Tickets', href: '/', hint: 'G T' },
+                { label: 'Epics', href: '/epics', icon: 'epic' },
+            ]}
+            teams={{ options: [{ value: 't1', label: 'Quiet Team' }], value: 't1', onChange: () => {} }}
+            projects={[{ label: 'Alpha', href: '/projects/p1' }]}
+            views={[
+                { label: 'Bugs', href: '/views/v1' },
+                { label: 'Mine', href: '/views/v2', note: 'Private' },
+            ]}
+            create={[
+                { label: 'New epic', icon: 'epic', onClick: () => {} },
+                { label: 'New team', icon: 'team', onClick: () => {}, disabledReason: 'Needs a connection.' },
+            ]}
+            search={{ onClick: () => {}, hint: 'Ctrl K' }}
+            settings={{ href: '/settings', hint: 'G S' }}
+            userName="Ada Lovelace"
+            onLogout={() => {}}
+        />
+    )
+
+    const expected: [string, string][] = [
+        ['link', 'Tickets'],
+        ['link', 'Epics'],
+        ['link', 'Alpha'],
+        ['link', 'Bugs'],
+        ['link', 'Mine Private'],
+        ['link', 'Settings'],
+        ['button', 'New epic'],
+        ['button', 'New team'],
+        ['button', 'Search'],
+        ['button', 'Log out'],
+    ]
+
+    it.each(['expanded', 'collapsed'])('every link and button has an explicit name when %s', async (state) => {
+        render(rail)
+        if (state === 'collapsed') await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+        for (const [role, name] of expected) {
+            const el = screen.getByRole(role, { name })
+            expect(el).toHaveAttribute('aria-label', name)
+            expect(el).toHaveAccessibleName(name)
+        }
+    })
+})
+
+describe('SideNav tablet overlay (LAM-218)', () => {
+    beforeEach(() => localStorage.clear())
+    afterEach(() => vi.unstubAllGlobals())
+
+    function Harness() {
+        const [route, setRoute] = createSignal('/')
+        return (
+            <>
+                <button type="button" onClick={() => setRoute('/elsewhere')}>
+                    Go
+                </button>
+                <p>Outside</p>
+                <SideNav
+                    links={[{ label: 'Tickets', href: '/' }]}
+                    settings={{ href: '/settings' }}
+                    route={route()}
+                    userName="Ada Lovelace"
+                    onLogout={() => {}}
+                />
+            </>
+        )
+    }
+
+    const open = async () => {
+        screenIs('tablet')
+        const view = render(() => <Harness />)
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: 'Expand sidebar' }))
+        expect(view.container.querySelector('.side-nav--collapsed')).toBeNull()
+        return { ...view, user }
+    }
+
+    it('shuts when a link in it is followed, without storing a new choice', async () => {
+        const { container, user } = await open()
+        const link = screen.getByRole('link', { name: 'Settings' })
+        link.addEventListener('click', (e) => e.preventDefault())
+        await user.click(link)
+        expect(container.querySelector('.side-nav--collapsed')).not.toBeNull()
+        expect(localStorage.getItem('lf-side-nav-collapsed')).toBe('0')
+    })
+
+    it('shuts when the route changes', async () => {
+        const { container, user } = await open()
+        await user.click(screen.getByRole('button', { name: 'Go' }))
+        expect(container.querySelector('.side-nav--collapsed')).not.toBeNull()
+    })
+
+    it('shuts on a press outside it, but not on one inside', async () => {
+        const { container, user } = await open()
+        await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }).closest('.side-nav__profile')!)
+        expect(container.querySelector('.side-nav--collapsed')).toBeNull()
+        await user.click(screen.getByText('Outside'))
+        expect(container.querySelector('.side-nav--collapsed')).not.toBeNull()
+    })
+
+    it('shuts on Escape and puts focus on the button that reopens it', async () => {
+        const { container, user } = await open()
+        screen.getByRole('link', { name: 'Tickets' }).focus()
+        await user.keyboard('{Escape}')
+        expect(container.querySelector('.side-nav--collapsed')).not.toBeNull()
+        expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveFocus()
+        // And it can be opened again.
+        await user.click(screen.getByRole('button', { name: 'Expand sidebar' }))
+        expect(container.querySelector('.side-nav--collapsed')).toBeNull()
+    })
+
+    it('does nothing to a docked desktop sidebar', async () => {
+        screenIs('desktop')
+        const { container } = render(() => <Harness />)
+        const user = userEvent.setup()
+        await user.click(screen.getByText('Outside'))
+        await user.keyboard('{Escape}')
+        await user.click(screen.getByRole('button', { name: 'Go' }))
+        expect(container.querySelector('.side-nav--collapsed')).toBeNull()
+    })
+
+    it('shows a tooltip with the name on hover and focus of a rail icon, and hides it on Escape', async () => {
+        screenIs('tablet')
+        render(() => <Harness />)
+        const user = userEvent.setup()
+        await user.hover(screen.getByRole('link', { name: 'Tickets' }))
+        expect(document.querySelector('.side-nav__tip')).toHaveTextContent('Tickets')
+        await user.keyboard('{Escape}')
+        expect(document.querySelector('.side-nav__tip')).toBeNull()
+        screen.getByRole('link', { name: 'Settings' }).focus()
+        await waitFor(() => expect(document.querySelector('.side-nav__tip')).not.toBeNull())
+        expect(document.querySelector('.side-nav__tip')).toHaveTextContent('Settings')
     })
 })

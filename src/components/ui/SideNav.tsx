@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web'
-import { createSignal, For, Show } from 'solid-js'
+import { createEffect, createSignal, For, Show, untrack } from 'solid-js'
 
 import { Avatar } from './Avatar'
 import { Icon, ICON_PATHS, type IconName } from './icons/Icon'
@@ -18,6 +18,9 @@ const PLUS_BADGE = 'M19 16v6M16 19h6'
 // is only written when they press the button, so "nothing stored" still means
 // "no preference" and the default (a rail on a tablet) can apply.
 const COLLAPSED_KEY = 'lf-side-nav-collapsed'
+
+// A click on one of these inside the tablet overlay is "going somewhere".
+const GOES_SOMEWHERE = 'a[href], .side-nav__create, .side-nav__search, .side-nav__logout'
 
 function storedCollapsed(): boolean | undefined {
     try {
@@ -98,6 +101,9 @@ type SideNavProps = {
      *  the profile is a plain label, not a button. */
     menu?: JSX.Element
     onLogout: () => void
+    /** Changes whenever the user has gone somewhere (the path). On a tablet an expanded
+     *  sidebar floats over the page, and it shuts when this changes (LAM-218). */
+    route?: string
     /** Draw the rail's own placeholder: the profile slot and one bar per link,
      *  with nothing to click. For the moment before the session is known. */
     loading?: boolean
@@ -147,16 +153,96 @@ export function SideNav(props: SideNavProps) {
     const [chosen, setChosen] = createSignal<boolean | undefined>(storedCollapsed())
     const tablet = useMediaQuery(TABLET_QUERY)
     const phone = useMediaQuery(NARROW_QUERY)
-    const collapsed = () => !phone() && (chosen() ?? tablet())
+    // On a tablet an expanded sidebar is an overlay (LAM-218). Shutting it by
+    // navigating, clicking away or pressing Escape is not a new preference, so
+    // it is not stored: it only holds the rail until the user expands it again.
+    const [dismissed, setDismissed] = createSignal(false)
+    const collapsed = () => !phone() && (tablet() && dismissed() ? true : (chosen() ?? tablet()))
+    const overlayOpen = () => tablet() && !phone() && !collapsed()
     const toggle = () => {
         const next = !collapsed()
         setChosen(next)
         storeCollapsed(next)
+        setDismissed(false)
     }
+    let aside: HTMLElement | undefined
+    let toggleButton: HTMLButtonElement | undefined
+    const dismiss = () => setDismissed(true)
+
+    // Going anywhere (a shortcut, the back button, a link) shuts the overlay.
+    // Focus stays where it is: the control it was on is still in the rail.
+    let lastRoute = untrack(() => props.route)
+    createEffect(
+        () => props.route,
+        (route) => {
+            const moved = route !== lastRoute
+            lastRoute = route
+            if (moved && untrack(overlayOpen)) dismiss()
+        },
+    )
+
+    // While the overlay is open, a press outside it or Escape shuts it. Escape
+    // puts focus on the toggle button when it was inside the sidebar, so a
+    // keyboard user lands on the button that reopens it.
+    createEffect(overlayOpen, (isOpen) => {
+        if (!isOpen) return
+        const onPointerDown = (event: PointerEvent) => {
+            const target = event.target as Element | null
+            if (!target || aside?.contains(target)) return
+            // A menu the sidebar opened is portaled out of it, but it is part of it.
+            if (target.closest('.popover-host, .popover')) return
+            dismiss()
+        }
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || event.defaultPrevented) return
+            const inside = aside?.contains(document.activeElement)
+            dismiss()
+            if (inside) toggleButton?.focus()
+        }
+        document.addEventListener('pointerdown', onPointerDown)
+        document.addEventListener('keydown', onKey)
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown)
+            document.removeEventListener('keydown', onKey)
+        }
+    })
+
+    // The rail's tooltips (LAM-218): hover or focus on anything marked
+    // `data-tip` shows its text beside it, fixed to the viewport so the
+    // rail's own scrolling does not clip it. Escape hides it again.
+    const [tip, setTip] = createSignal<{ text: string; top: number; left: number } | undefined>()
+    const showTip = (event: Event) => {
+        if (!collapsed()) return setTip(undefined)
+        const holder = (event.target as Element | null)?.closest<HTMLElement>('[data-tip]')
+        if (!holder?.dataset.tip) return setTip(undefined)
+        const box = holder.getBoundingClientRect()
+        setTip({ text: holder.dataset.tip, top: box.top + box.height / 2, left: box.right + 8 })
+    }
+    const hideTip = () => setTip(undefined)
+    createEffect(
+        () => tip() !== undefined,
+        (showing) => {
+            if (!showing) return
+            const onKey = (event: KeyboardEvent) => {
+                if (event.key === 'Escape') hideTip()
+            }
+            document.addEventListener('keydown', onKey)
+            return () => document.removeEventListener('keydown', onKey)
+        },
+    )
     return (
         <aside
+            ref={(el) => (aside = el)}
             class={`side-nav${collapsed() ? ' side-nav--collapsed' : ''}`}
             aria-busy={props.loading ? 'true' : undefined}
+            onPointerOver={showTip}
+            onFocusIn={showTip}
+            onPointerLeave={hideTip}
+            onFocusOut={hideTip}
+            onClick={(event) => {
+                // Following a link, or a button that opens a dialog, is going somewhere.
+                if (overlayOpen() && (event.target as Element).closest(GOES_SOMEWHERE)) dismiss()
+            }}
         >
             <Show
                 when={props.loading}
@@ -185,7 +271,7 @@ export function SideNav(props: SideNavProps) {
                                                 type="button"
                                                 class="side-nav__account"
                                                 aria-label="Account menu"
-                                                title={collapsed() ? 'Account menu' : undefined}
+                                                data-tip={collapsed() ? 'Account menu' : undefined}
                                                 {...trigger}
                                             >
                                                 <span class="side-nav__monogram t-meta" aria-hidden="true">
@@ -204,6 +290,8 @@ export function SideNav(props: SideNavProps) {
                                 class="side-nav__collapse t-meta"
                                 aria-expanded={collapsed() ? 'false' : 'true'}
                                 aria-label={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
+                                data-tip={collapsed() ? 'Expand sidebar' : undefined}
+                                ref={(el) => (toggleButton = el)}
                                 onClick={toggle}
                             >
                                 <Icon name={collapsed() ? 'chevron-right-duo' : 'chevron-left-duo'} size={16} />
@@ -213,7 +301,7 @@ export function SideNav(props: SideNavProps) {
                             {(teams) => (
                                 <div
                                     class="side-nav__teams"
-                                    title={collapsed() ? `Team: ${teamName(teams())}` : undefined}
+                                    data-tip={collapsed() ? `Team: ${teamName(teams())}` : undefined}
                                 >
                                     {/* Collapsed: the team's avatar is what shows, and the
                                         real select sits invisibly on top of it, so it still
@@ -243,7 +331,8 @@ export function SideNav(props: SideNavProps) {
                                     type="button"
                                     class="side-nav__link side-nav__search t-body"
                                     aria-keyshortcuts={search().hint ? 'Control+K Meta+K' : undefined}
-                                    title={collapsed() ? 'Search' : undefined}
+                                    aria-label="Search"
+                                    data-tip={collapsed() ? 'Search' : undefined}
                                     onClick={(event) => search().onClick(event.currentTarget)}
                                 >
                                     <Icon class="side-nav__icon" name="search" />
@@ -336,7 +425,8 @@ export function SideNav(props: SideNavProps) {
                                         class="side-nav__link side-nav__settings t-body"
                                         href={settings().href}
                                         aria-keyshortcuts={settings().hint?.replace(' then ', ' ')}
-                                        title={collapsed() ? 'Settings' : undefined}
+                                        aria-label="Settings"
+                                        data-tip={collapsed() ? 'Settings' : undefined}
                                     >
                                         <Icon class="side-nav__icon" name="settings" />
                                         <span class="side-nav__label">Settings</span>
@@ -354,7 +444,8 @@ export function SideNav(props: SideNavProps) {
                                 <button
                                     type="button"
                                     class="side-nav__logout t-body"
-                                    title={collapsed() ? 'Log out' : undefined}
+                                    aria-label="Log out"
+                                    data-tip={collapsed() ? 'Log out' : undefined}
                                     onClick={props.onLogout}
                                 >
                                     <Icon class="side-nav__icon" name="logout" />
@@ -394,6 +485,19 @@ export function SideNav(props: SideNavProps) {
                     </div>
                 </div>
             </Show>
+            <Show when={tip()}>
+                {(t) => (
+                    // The name is already on the control; this is for the eyes, so it is
+                    // hidden from screen readers rather than read out twice.
+                    <div
+                        class="side-nav__tip t-meta"
+                        aria-hidden="true"
+                        style={{ top: `${t().top}px`, left: `${t().left}px` }}
+                    >
+                        {t().text}
+                    </div>
+                )}
+            </Show>
         </aside>
     )
 }
@@ -405,7 +509,8 @@ function CreateButton(props: { item: CreateItem; collapsed: boolean; describedBy
         <button
             type="button"
             class="side-nav__link side-nav__create t-body"
-            title={props.collapsed && !props.describedBy ? props.item.label : undefined}
+            aria-label={props.item.label}
+            data-tip={props.collapsed && !props.describedBy ? props.item.label : undefined}
             disabled={props.item.disabledReason !== undefined}
             aria-describedby={props.describedBy}
             onClick={() => props.item.onClick()}
@@ -444,7 +549,8 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
                 class="side-nav__link t-body"
                 href={props.link.href}
                 aria-keyshortcuts={props.link.hint?.replace(' then ', ' ')}
-                title={props.collapsed ? props.link.label : undefined}
+                aria-label={props.link.note ? `${props.link.label} ${props.link.note}` : props.link.label}
+                data-tip={props.collapsed ? props.link.label : undefined}
             >
                 <Show
                     when={props.collapsed && props.link.initials}

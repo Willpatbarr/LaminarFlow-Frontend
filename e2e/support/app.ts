@@ -82,8 +82,8 @@ export async function listLoaded(page: Page) {
 export async function openProject(page: Page, world: World) {
     await page.goto('/')
     await listLoaded(page)
-    await page.getByLabel('Project').selectOption({ label: world.projectName })
-    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+    await page.getByLabel('Project', { exact: true }).selectOption({ label: world.projectName })
+    await expect(page.getByLabel('Project', { exact: true })).toHaveValue(world.projectId)
 }
 
 /** A page open on `/tickets/:id` with the ticket loaded. */

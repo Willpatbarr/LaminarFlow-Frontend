@@ -16,11 +16,11 @@ test('New document from a filtered list lands in that project; the picker makes 
     await signedInAs(context, account, baseURL!)
 
     await page.goto('/documents')
-    await page.getByLabel('Project').selectOption({ label: world.projectName })
+    await page.getByLabel('Project', { exact: true }).selectOption({ label: world.projectName })
     await page.getByRole('button', { name: 'New document' }).click()
     await expect(page).toHaveURL(UUID)
     const id = page.url().split('/').pop()!
-    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+    await expect(page.getByLabel('Project', { exact: true })).toHaveValue(world.projectId)
 
     await page.getByLabel('Document title').fill('Filed here')
     await page.getByLabel('Document title').blur()
@@ -32,7 +32,7 @@ test('New document from a filtered list lands in that project; the picker makes 
 
     // Team-wide, explicitly, from the document page.
     await tab.getByRole('link', { name: 'Filed here' }).click()
-    await page.getByLabel('Project').selectOption({ label: 'No project (team-wide)' })
+    await page.getByLabel('Project', { exact: true }).selectOption({ label: 'No project (team-wide)' })
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
     await expect.poll(async () => (await account.api.GET('/api/v1/documents/{id}', { params: { path: { id } } })).data?.project_id).toBeNull()
 
@@ -54,16 +54,16 @@ test('Ctrl+K New document on a filtered /documents lands in that project, and su
     await signedInAs(context, account, baseURL!)
 
     await page.goto('/documents')
-    await page.getByLabel('Project').selectOption({ label: world.projectName })
+    await page.getByLabel('Project', { exact: true }).selectOption({ label: world.projectName })
     await page.reload()
-    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+    await expect(page.getByLabel('Project', { exact: true })).toHaveValue(world.projectId)
 
     await page.keyboard.press('Control+k')
     await page.keyboard.type('new doc')
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(UUID)
     const id = page.url().split('/').pop()!
-    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+    await expect(page.getByLabel('Project', { exact: true })).toHaveValue(world.projectId)
     await expect
         .poll(async () => (await account.api.GET('/api/v1/documents/{id}', { params: { path: { id } } })).data?.project_id)
         .toBe(world.projectId)

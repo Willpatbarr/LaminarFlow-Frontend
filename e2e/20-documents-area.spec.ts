@@ -23,14 +23,14 @@ test('browse, filter and open documents by URL', async ({ page, context, baseURL
     await expect(list.getByRole('link', { name: 'Filed in project' })).toBeVisible()
     await expect(list.getByRole('link', { name: 'Loose note' })).toBeVisible()
 
-    await page.getByLabel('Project').selectOption(world.projectId)
+    await page.getByLabel('Project', { exact: true }).selectOption(world.projectId)
     await expect(list.getByRole('link', { name: 'Filed in project' })).toBeVisible()
     await expect(list.getByRole('link', { name: 'Loose note' })).toHaveCount(0)
 
     // LAM-170: the filter is in the address, so a reload keeps it.
     await expect(page).toHaveURL(new RegExp(`/documents\\?project=${world.projectId}$`))
     await page.reload()
-    await expect(page.getByLabel('Project')).toHaveValue(world.projectId)
+    await expect(page.getByLabel('Project', { exact: true })).toHaveValue(world.projectId)
     await expect(list.getByRole('link', { name: 'Filed in project' })).toBeVisible()
     await expect(list.getByRole('link', { name: 'Loose note' })).toHaveCount(0)
 
