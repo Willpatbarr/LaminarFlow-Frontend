@@ -145,11 +145,19 @@ test('a card dragged onto the top half of the first card becomes the first card,
     await dragToTop('Beta')
     await expect.poll(() => cardsIn(page, todoName)).toEqual(['Beta', 'Gamma', 'Alpha'])
     await expect.poll(async () => (await serverTicket(alice, beta.id))?.position).toBeLessThan((await serverTicket(alice, gamma.id))!.position)
-    expect((await serverTicket(alice, beta.id))!.position).toBeGreaterThanOrEqual(0)
 
-    // It held on the server.
+    // Many more, so the room above the first card runs out and the server has to renumber.
+    let order = ['Beta', 'Gamma', 'Alpha']
+    for (let i = 0; i < 12; i++) {
+        const last = order[order.length - 1]
+        await dragToTop(last)
+        order = [last, ...order.slice(0, -1)]
+        await expect.poll(() => cardsIn(page, todoName)).toEqual(order)
+    }
+
+    // It held on the server, in the same order (the server picks positions for a neighbour, below 0 included).
     await page.reload()
-    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Beta', 'Gamma', 'Alpha'])
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(order)
 })
 
 test('the column menu renames, hides and shows a column, and the board survives a reload', async ({ page, context, baseURL }) => {

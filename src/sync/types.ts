@@ -48,7 +48,15 @@ export type Ticket = {
 export type TicketFields = Pick<
     Ticket,
     'title' | 'description' | 'status_id' | 'assignee_id' | 'epic_id' | 'milestone_id' | 'label_ids' | 'sprint_ids'
-> & { position?: number }
+> & {
+    position?: number
+    /** With `position`: the card the move lands just above, in the target
+     *  column. A move is then sent with this instead of the position, so the
+     *  server can renumber the column when there is no room between cards
+     *  (the local `position` stays as the guess shown meanwhile). Null or
+     *  absent: send the position. Never kept on the row. */
+    before_id?: string | null
+}
 
 /** A new ticket has no position of its own: the server puts it at the end.
  *  The hierarchy and labels are optional: leave them out for none. */
