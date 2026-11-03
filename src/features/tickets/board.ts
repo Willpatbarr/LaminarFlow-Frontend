@@ -7,6 +7,7 @@ import type { Board, BoardColumn, Status, Ticket } from '@/sync'
 │      POSITION_STEP, byPosition
 │      cardsOf(column, tickets)             a column's cards in order
 │      statusFor(column, ticket)            the status a card takes in a column
+│      dropIndex(boxes, y)                  the slot a pointer at `y` is over: top half before a card, bottom half after
 │      positionAt(others, index)            the position for a card dropped at `index`
 │      moveColumn · setVisible · renameColumn · withStatusIn   a board's columns, edited
 │      columnOfStatus, lookStatus, inOrder
@@ -47,15 +48,28 @@ export function statusFor(column: BoardColumn, ticket: Pick<Ticket, 'status_id'>
     return column.status_ids[0] ?? null
 }
 
+/** The slot a pointer at `y` is over, among the column's other cards (the one
+ *  being dragged left out), given their boxes top to bottom: the number of
+ *  cards whose middle the pointer is past. The top half of a card is before it
+ *  (so the first card's top half is slot 0), the bottom half after it. */
+export function dropIndex(boxes: { top: number; height: number }[], y: number): number {
+    return boxes.filter((box) => y > box.top + box.height / 2).length
+}
+
 /** The position for a card dropped at `index` among `others` (the column's
  *  cards without the one being moved, in order). The server's own rule: the
  *  midpoint between neighbours, a step beyond an end. When there is no whole
  *  number between two neighbours this lands on one of them, and the server
- *  renumbers the column when it gets the move. */
+ *  renumbers the column when it gets the move. The server refuses a position
+ *  below 0, so the top slot is a step above the first card only when that
+ *  stays at 0 or more, and otherwise half way to 0. */
 export function positionAt(others: Pick<Ticket, 'position'>[], index: number): number {
     const at = Math.max(0, Math.min(index, others.length))
     if (others.length === 0) return POSITION_STEP
-    if (at === 0) return others[0].position - POSITION_STEP
+    if (at === 0) {
+        const first = others[0].position
+        return first > POSITION_STEP ? first - POSITION_STEP : Math.max(0, Math.floor(first / 2))
+    }
     if (at === others.length) return others[at - 1].position + POSITION_STEP
     const low = others[at - 1].position
     return low + Math.floor((others[at].position - low) / 2)

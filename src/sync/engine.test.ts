@@ -2308,6 +2308,59 @@ describe('move', () => {
         expect((await local(db)).tickets.find((t) => t.id === 't-1')).toMatchObject({ version: 4, position: 3072 })
     })
 
+    it('sends the neighbour instead of the position when the drop named one, and keeps the position as the local guess', async () => {
+        const sent: unknown[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3, position: 1024 }), ticket({ id: 't-2', position: 0 })]),
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                sent.push(await bodyOf(request))
+                return ok(ticket({ version: 4, status_id: 's-doing', position: 0 }))
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.updateTicket('t-1', { status_id: 's-doing', position: 0, before_id: 't-2' })
+        // The row shows the guess and does not keep the hint.
+        expect((await local(db)).tickets.find((t) => t.id === 't-1')).toMatchObject({ position: 0 })
+        expect((await local(db)).tickets.find((t) => t.id === 't-1')).not.toHaveProperty('before_id')
+        await engine.idle()
+        expect(sent).toEqual([{ status_id: 's-doing', before_id: 't-2' }])
+    })
+
+    it('sends the position for an entry that has no neighbour', async () => {
+        const sent: unknown[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                sent.push(await bodyOf(request))
+                return ok(ticket({ version: 4, status_id: 's-doing', position: 3072 }))
+            },
+        })
+        const { engine } = await startEngine()
+        await engine.updateTicket('t-1', { status_id: 's-doing', position: 3072, before_id: null })
+        await engine.idle()
+        expect(sent).toEqual([{ status_id: 's-doing', position: 3072 }])
+    })
+
+    it('sends the card to the end of the column when the neighbour is gone, rather than parking it', async () => {
+        const sent: unknown[] = []
+        stubFetch({
+            ...listRoutes([ticket({ version: 3 })]),
+            'POST /api/v1/tickets/t-1/move': async (request) => {
+                const body = await bodyOf(request)
+                sent.push(body)
+                return (body as { before_id?: string }).before_id
+                    ? problem(422, 'neighbour_not_found')
+                    : ok(ticket({ version: 4, status_id: 's-doing', position: 9000 }))
+            },
+        })
+        const { engine, db } = await startEngine()
+        await engine.updateTicket('t-1', { status_id: 's-doing', position: 0, before_id: 't-gone' })
+        await engine.idle()
+        expect(sent).toEqual([{ status_id: 's-doing', before_id: 't-gone' }, { status_id: 's-doing' }])
+        expect((await local(db)).outbox).toEqual([])
+        expect((await local(db)).tickets.find((t) => t.id === 't-1')).toMatchObject({ version: 4, position: 9000 })
+    })
+
     it('folds several drops of one card before it is sent into one move', async () => {
         const moves: unknown[] = []
         stubFetch({

@@ -118,6 +118,48 @@ test('a card moves with the keyboard, within and between columns', async ({ page
     await expect(page.getByRole('listitem', { name: 'Alpha' })).toBeFocused()
 })
 
+// LAM-203: the top half of the first card is the top slot, however often a card goes there.
+test('a card dragged onto the top half of the first card becomes the first card, twice over', async ({ page, context, baseURL }) => {
+    const alice = await newAccount('drag-top')
+    const world = await projectOf(alice)
+    const [todo] = world.statusIds
+    const [todoName] = world.statusNames
+    await serverCreate(alice, world.projectId, fields('Alpha', { status_id: todo }))
+    const beta = await serverCreate(alice, world.projectId, fields('Beta', { status_id: todo }))
+    const gamma = await serverCreate(alice, world.projectId, fields('Gamma', { status_id: todo }))
+    const board = await boardOf(alice, world)
+
+    await signedInAs(context, alice, baseURL!)
+    await page.goto(`/boards/${board.id}`)
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Alpha', 'Beta', 'Gamma'])
+
+    const dragToTop = async (name: string) => {
+        const first = column(page, todoName).getByRole('listitem').first()
+        const box = (await first.boundingBox())!
+        await page.getByRole('listitem', { name }).dragTo(first, { targetPosition: { x: box.width / 2, y: 2 } })
+    }
+    await dragToTop('Gamma')
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Gamma', 'Alpha', 'Beta'])
+    await expect.poll(async () => (await serverTicket(alice, gamma.id))?.position).toBeLessThan((await serverTicket(alice, beta.id))!.position)
+
+    await dragToTop('Beta')
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(['Beta', 'Gamma', 'Alpha'])
+    await expect.poll(async () => (await serverTicket(alice, beta.id))?.position).toBeLessThan((await serverTicket(alice, gamma.id))!.position)
+
+    // Many more, so the room above the first card runs out and the server has to renumber.
+    let order = ['Beta', 'Gamma', 'Alpha']
+    for (let i = 0; i < 12; i++) {
+        const last = order[order.length - 1]
+        await dragToTop(last)
+        order = [last, ...order.slice(0, -1)]
+        await expect.poll(() => cardsIn(page, todoName)).toEqual(order)
+    }
+
+    // It held on the server, in the same order (the server picks positions for a neighbour, below 0 included).
+    await page.reload()
+    await expect.poll(() => cardsIn(page, todoName)).toEqual(order)
+})
+
 test('the column menu renames, hides and shows a column, and the board survives a reload', async ({ page, context, baseURL }) => {
     const alice = await newAccount('menu')
     const world = await projectOf(alice)

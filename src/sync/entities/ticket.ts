@@ -126,11 +126,11 @@ export function parseTicketEvent(frame: unknown) {
 }
 
 // The body of a create or a PUT: the fields the endpoint takes (and the
-// project, on a create). `position` is not one of them, and neither is
+// project, on a create). `position` and `before_id` are not part of it, and neither is
 // `sprint_ids`: sprint membership is its own pair of calls (`syncSprints`).
 function editable<F extends Partial<TicketFields>>(fields: F) {
-    const { position: _position, sprint_ids: _sprints, ...rest } = fields
-    return rest as Omit<F, 'position' | 'sprint_ids'>
+    const { position: _position, before_id: _before, sprint_ids: _sprints, ...rest } = fields
+    return rest as Omit<F, 'position' | 'before_id' | 'sprint_ids'>
 }
 
 type Raw = { data?: unknown; error?: unknown; response: Response }
@@ -177,17 +177,27 @@ type UpdateEntry = Extract<EntryOf<'ticket'>, { kind: 'update' }>
 // server's copy - the edit on top of it, at the version the move returned.
 async function sendMove(api: SyncApi, entry: UpdateEntry, server: Ticket | undefined): Promise<Outcome<Ticket, TicketConflict>> {
     const wants = entry.payload
-    const moved = await answer(
-        entry,
-        () =>
-            api.POST('/api/v1/tickets/{id}/move', {
-                params: { path: { id: entry.entity_id }, header: ifMatch(entry.base_version) },
-                // A ticket with no status has no column to be moved in; the
-                // server's own status is then what it stays in.
-                body: { status_id: wants.status_id ?? server?.status_id ?? '', position: wants.position! },
-            }),
-        codec,
-    )
+    // A ticket with no status has no column to be moved in; the server's own
+    // status is then what it stays in.
+    const status_id = wants.status_id ?? server?.status_id ?? ''
+    const move = (place: { position: number } | { before_id: string } | Record<string, never>) =>
+        answer(
+            entry,
+            () =>
+                api.POST('/api/v1/tickets/{id}/move', {
+                    params: { path: { id: entry.entity_id }, header: ifMatch(entry.base_version) },
+                    body: { status_id, ...place },
+                }),
+            codec,
+        )
+    // The neighbour when the drop named one (it lets the server make room), else
+    // the position; an entry queued before the hint existed has only the position.
+    let moved = wants.before_id ? await move({ before_id: wants.before_id }) : await move({ position: wants.position! })
+    // The neighbour was archived, moved or deleted since the drop: the card goes
+    // to the end of the column rather than parking as failed.
+    if (wants.before_id && moved.type === 'http' && moved.error.code === 'neighbour_not_found') {
+        moved = await move({})
+    }
     // With no server copy to compare with, the edit is sent: a PUT that
     // changes nothing is harmless, and a missed one would lose the user's words.
     const rest =
@@ -226,7 +236,11 @@ export const ticketEntity: Entity<'ticket'> = {
             updated_at: at,
             updated_by: accountId,
         }),
-        edit: (base, fields, { at, accountId }) => ({ ...base, ...fields, updated_at: at, updated_by: accountId }),
+        edit: (base, fields, { at, accountId }) => {
+            // `before_id` is only an instruction for the send; the row keeps the position.
+            const { before_id: _before, ...rest } = fields
+            return { ...base, ...rest, updated_at: at, updated_by: accountId }
+        },
         restore: (archived, { at, accountId }) => ({ ...archived, updated_at: at, updated_by: accountId }),
         copyOf: (row) => {
             const { position: _position, ...fields } = fieldsOf(row)

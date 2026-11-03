@@ -31,6 +31,7 @@ import {
     inOrder,
     lookStatus,
     moveColumn,
+    dropIndex,
     positionAt,
     renameColumn,
     setVisible,
@@ -182,7 +183,11 @@ export function Board(props: BoardProps) {
     // the card menu. `index` is the place among the column's other cards.
     function moveCard(ticket: Ticket, column: BoardColumn, statusId: string, index: number) {
         const rest = cards(column).filter((card) => card.id !== ticket.id)
-        const moved = updateTicket(ticket.id, { status_id: statusId, position: positionAt(rest, index) })
+        // The card below the drop, when it is in the status the card takes: the server
+        // places the card above it and makes room if it has to. `position` is the local guess.
+        const below = rest[index]
+        const before_id = below && below.status_id === statusId ? below.id : null
+        const moved = updateTicket(ticket.id, { status_id: statusId, position: positionAt(rest, index), before_id })
         say(`Dropped in ${column.name}, position ${index + 1} of ${rest.length + 1}.`)
         return moved
     }
@@ -212,10 +217,7 @@ export function Board(props: BoardProps) {
         const cardEls = [...(list?.querySelectorAll<HTMLElement>('[data-card-id]') ?? [])].filter(
             (el) => el.dataset.cardId !== now.ticketId,
         )
-        const index = cardEls.filter((el) => {
-            const box = el.getBoundingClientRect()
-            return event.clientY > box.top + box.height / 2
-        }).length
+        const index = dropIndex(cardEls.map((el) => el.getBoundingClientRect()), event.clientY)
         steer({ columnId: column.id, index })
     }
 
