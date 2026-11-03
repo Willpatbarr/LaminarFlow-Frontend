@@ -34,6 +34,7 @@ import { CommentThread } from '@/features/comments/CommentThread'
 import { LinkedTickets } from '@/features/links/LinkedTickets'
 import { decidedRequestsFor, openRequestsFor } from '@/features/review/feed'
 import { OpenRequestsCount, ReviewPanel } from '@/features/review/ReviewPanel'
+import { offerTicketLink } from '@/features/links/mentionOffer'
 import { notifyMadeAspect } from './MadeAspectToast'
 import { notifyReviewRequested } from '@/features/review/ReviewRequestedToast'
 import { ReviewableField, type ReviewContext } from '@/features/review/ReviewableField'
@@ -437,6 +438,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                         }}
                         onBlur={() => void content.flush()}
                         documentId={props.routeId}
+                        onMention={offerTicketLink(props.routeId)}
                         fieldId={null}
                         stored={() => storedText(null)}
                         canRequest={synced()}
@@ -564,6 +566,7 @@ function AspectFieldEditor(props: AspectFieldEditorProps) {
             }}
             onBlur={() => void value.flush()}
             fieldId={props.field.id}
+            onMention={offerTicketLink(props.review.documentId)}
             stored={props.saved}
             onSelection={props.onSelection}
         />

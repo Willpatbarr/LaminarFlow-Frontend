@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, onSettled, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
 import { sync, ticketById } from '@/sync'
@@ -6,6 +6,7 @@ import { sync, ticketById } from '@/sync'
 import { getDocumentTickets, linkDocument, unlinkDocument, type LinkedTicket } from './api'
 import { createLinkFeed } from './feed'
 import { LinkPicker, type PickOption } from './LinkPicker'
+import { registerDocumentLinks } from './mentionOffer'
 import { settledId } from './settled'
 import './links.css'
 
@@ -46,7 +47,7 @@ export function LinkedTickets(props: LinkedTicketsProps) {
 
     async function link(ticketId: string) {
         const ticket = ticketById(ticketId)
-        if (!ticket) return
+        if (!ticket) return false
         const shown: LinkedTicket = { id: ticket.id, title: ticket.title, archived_at: null }
         const ok = await feed.add(shown, async () => {
             const [theTicket, document] = await Promise.all([settledId(ticketId), settledId(props.documentId)])
@@ -56,7 +57,16 @@ export function LinkedTickets(props: LinkedTicketsProps) {
             return sent.ok ? { ok: true as const, data: theTicket.data } : sent
         })
         if (ok) setAnnouncement(`Linked “${titleOf(shown.title)}”.`)
+        return ok
     }
+
+    // Lends the link to the "Also link this ticket?" offer made when a ticket is mentioned (LAM-225).
+    onSettled(() =>
+        registerDocumentLinks(props.documentId, {
+            has: (ticketId) => feed.items().some((item) => item.id === ticketId),
+            link: async (ticketId) => ((await link(ticketId)) ? '' : (feed.problem() ?? 'Could not link the ticket.')),
+        }),
+    )
 
     async function unlink(item: LinkedTicket) {
         const ok = await feed.remove(item.id, async () => {
@@ -75,7 +85,16 @@ export function LinkedTickets(props: LinkedTicketsProps) {
             </h2>
             <Show
                 when={feed.items().length > 0}
-                fallback={<p class="t-body links__none">{feed.loaded() ? 'No tickets linked.' : feed.loadProblem() ? '' : 'Loading tickets…'}</p>}
+                fallback={
+                    <>
+                        <p class="t-body links__none">{feed.loaded() ? 'No tickets linked.' : feed.loadProblem() ? '' : 'Loading tickets…'}</p>
+                        <Show when={feed.loaded()}>
+                            <p class="t-meta links__none">
+                                Mentions don't link on their own. Use Link a ticket, or accept the offer when you mention one.
+                            </p>
+                        </Show>
+                    </>
+                }
             >
                 <ul class="links__list">
                     <For each={feed.items()} keyed={(item) => item.id}>

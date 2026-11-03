@@ -3,6 +3,7 @@ import { createSignal, For, onCleanup, Show } from 'solid-js'
 
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import type { ImageUpload } from '@/components/editor/images'
+import type { LinkRef } from '@/components/editor/internalLinks'
 import { Button } from '@/components/ui/Button'
 import { memberName } from '@/features/members/members'
 import type { Comment } from '@/sync'
@@ -57,6 +58,8 @@ type Props = ReviewContext & {
      *  button of its own: it hands over `begin` while text is selected in it, and `null`
      *  when that stops. `begin` returns why it cannot start, or '' once the dialog is open. */
     onSelection?: (begin: (() => string) | null) => void
+    /** A link chip was inserted from the `@` list (LAM-225). */
+    onMention?: (target: LinkRef) => void
 }
 
 export function ReviewableField(props: Props) {
@@ -127,6 +130,7 @@ export function ReviewableField(props: Props) {
                 onChange={props.onChange}
                 onBlur={props.onBlur}
                 images={props.images}
+                onMention={props.onMention}
                 ref={capture}
             />
             <Show when={!props.onSelection}>

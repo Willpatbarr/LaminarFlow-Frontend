@@ -8,7 +8,7 @@ import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled,
 import { FieldFoot } from '../ui/CharacterCount'
 import { describedBy, isOver, type Count } from '../ui/count'
 import { AttachmentImage, ImageFiles, type ImageUpload } from './images'
-import { editorLinks } from './internalLinks'
+import { editorLinks, type LinkRef } from './internalLinks'
 import { InternalLink, LinkOrChip } from './internalLinkNode'
 import { keyAction, LinkSuggest, matchTargets, type Session } from './linkSuggest'
 import { LinkSuggestList, optionId } from './LinkSuggestList'
@@ -72,6 +72,9 @@ type MarkdownEditorProps = {
      *  new line. While the link list has options it owns the keys, so the
      *  chord does nothing then: one key press is never a pick and a post. */
     onSubmit?: () => void
+    /** A link chip was just inserted from the `@` / `[[` list (LAM-225). Not for
+     *  chips that were typed as Markdown, pasted or already in the text. */
+    onMention?: (target: LinkRef) => void
     /** Receives the editor, for the caller to focus it or read its state. */
     ref?: (editor: Editor) => void
 }
@@ -180,7 +183,11 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
                 TaskList,
                 TaskItem.configure({ nested: true }),
                 InternalLink,
-                LinkSuggest.configure({ onSession: setSession, onKey: onLinkKey }),
+                LinkSuggest.configure({
+                    onSession: setSession,
+                    onKey: onLinkKey,
+                    onInsert: (target) => untrack(() => props.onMention?.({ kind: target.kind, id: target.id })),
+                }),
                 MarkdownPaste,
                 AttachmentImage,
                 ImageFiles.configure({ onFiles: (files, at) => void takeFiles(files, at) }),

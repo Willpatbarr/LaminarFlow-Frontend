@@ -60,6 +60,8 @@
 }
 
 .toast__action {
+  display: flex;
+  gap: var(--s-4);
   justify-self: start;
   margin-top: var(--s-4);
 }
