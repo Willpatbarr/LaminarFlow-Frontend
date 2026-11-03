@@ -431,6 +431,16 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     // id (LAM-169): the row is then found under its real one, not lost.
     const swapped = new Map<string, string>()
     const live = (id: string) => swapped.get(id) ?? id
+    function unalias<T extends object>(patch: T): T {
+        const filed = patch as Filed
+        if (!filed.epic_id && !filed.milestone_id && !filed.label_ids && !filed.sprint_ids) return patch
+        const out = { ...filed }
+        if (out.epic_id) out.epic_id = live(out.epic_id)
+        if (out.milestone_id) out.milestone_id = live(out.milestone_id)
+        if (out.label_ids) out.label_ids = out.label_ids.map(live)
+        if (out.sprint_ids) out.sprint_ids = out.sprint_ids.map(live)
+        return out as T
+    }
 
     // The version a new edit is made on top of. `began` is the version the user
     // saw when they started typing; `now` is what the row is at this moment, which
@@ -471,9 +481,15 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         const rules = rulesFor(entity)
         const id = newId(rules.tempPrefix)
         const row = await db.write(async (tx) => {
+            // A ticket made under an epic, sprint, milestone or label that was
+            // answered while this write waited its turn: see `update`. The read
+            // resolves only after the writes ahead of this one, so `swapped` is
+            // current after it.
+            await tx.outbox.forEntity(id)
+            const given = unalias(input as object) as typeof input
             // Through the row and back, so the entry carries what the entity
             // keeps of the input and nothing the caller happened to pass along.
-            const payload = rules.copyOf(rules.fromCreate(id, input, { at: stamp(), accountId }))
+            const payload = rules.copyOf(rules.fromCreate(id, given, { at: stamp(), accountId }))
             await tx.outbox.add({
                 kind: 'create',
                 entity,
@@ -503,6 +519,13 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             const { rows, server: copies } = tables(tx, entity)
             const local = await rows.get(id)
             if (!local) return null
+            // An epic, sprint, milestone or label named by a temporary id may have
+            // been answered while this write waited its turn. Its answer renamed the
+            // id everywhere in the queue, but this entry was not in the queue yet, so
+            // a temporary id queued now would never be swapped and the entry would
+            // wait for ever. The read above resolves only after every write ahead of
+            // this one has finished, so `swapped` is current here, not at the top.
+            patch = unalias(patch)
             const before = rules.fieldsOf(local) as Record<string, unknown>
             const next = { ...before, ...patch }
             // Each patched field as it was when this edit began: what the autosave

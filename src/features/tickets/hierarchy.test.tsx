@@ -131,9 +131,12 @@ describe('making an epic, sprint, milestone or label from a picker', () => {
     async function createFrom(user: ReturnType<typeof userEvent.setup>, property: string, kind: string, name: string) {
         await user.click(await screen.findByRole('button', { name: new RegExp(`^${property}:`) }))
         await user.click(await screen.findByRole('button', { name: `Create new ${kind}…` }))
-        const dialog = await screen.findByRole('dialog')
+        const dialog = await screen.findByRole('dialog', {}, { timeout: 10_000 })
         await user.type(within(dialog).getByLabelText('Name'), name)
         await user.click(within(dialog).getByRole('button', { name: `Create ${kind}` }))
+        // The dialog closes once the new row is handed to the page; a second create
+        // must not start while it is still up.
+        await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 10_000 })
     }
 
     it('files the ticket under a new epic and a new milestone, and the pickers read them', async () => {
@@ -146,12 +149,15 @@ describe('making an epic, sprint, milestone or label from a picker', () => {
         const user = userEvent.setup()
         await createFrom(user, 'Epic', 'epic', 'Onboarding')
         await createFrom(user, 'Milestone', 'milestone', 'Beta')
-        await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ epic_id: 'e-new', milestone_id: 'm-new' }))
+        // Both assignments are saved in turn (the second names an id that only
+        // exists once its create is answered), so wait for the last one to reach
+        // the server rather than for a moment in time.
+        await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ epic_id: 'e-new', milestone_id: 'm-new' }), { timeout: 10_000 })
         await expectProperty('Epic', 'Onboarding')
         await expectProperty('Milestone', 'Beta')
         // Focus comes back to the property that was being set.
         await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Milestone: Beta' })).toHaveFocus())
-    })
+    }, 20_000)
 
     it('adds the ticket to a new sprint, replacing the one it was in', async () => {
         const { all, members } = routes()
