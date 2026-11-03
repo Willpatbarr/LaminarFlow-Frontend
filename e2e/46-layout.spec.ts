@@ -1,4 +1,4 @@
-import { expect, newAccount, projectOf, signedInAs, test, type Account, type World } from './support/app'
+import { expect, fields, newAccount, projectOf, serverCreate, signedInAs, test, type Account, type World } from './support/app'
 import type { Page } from '@playwright/test'
 
 // LAM-201: one page layout. The body is centred in the area beside the sidebar, the
@@ -181,4 +181,33 @@ test('list items in a document: the bullet is beside its text, a task item has i
     const box = (await editor.getByRole('checkbox').first().boundingBox())!
     const text = (await editor.getByText('Task', { exact: true }).boundingBox())!
     expect(Math.abs(box.y + box.height / 2 - (text.y + text.height / 2))).toBeLessThan(12)
+})
+
+// LAM-226: on a phone one board column fills the screen (about 85vw) and the next peeks
+// in; only the board's own row scrolls sideways, never the page.
+test('at 375px a board column is about 85vw wide, a short title is one line, and the page does not scroll sideways', async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const account = await newAccount('layout-phone-board')
+    const world = await projectOf(account)
+    const boardId = await boardIdOf(account, world)
+    await serverCreate(account, world.projectId, fields('Fix login', { status_id: world.statusIds[0] }))
+    await signedInAs(context, account, baseURL!)
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.goto(`/boards/${boardId}`)
+    const card = page.getByRole('link', { name: 'Fix login' })
+    await expect(card).toBeVisible()
+
+    const column = await box(page, '.board__column')
+    expect(Math.abs(column.width - 375 * 0.85)).toBeLessThan(2)
+    const lineHeight = await card.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || 20)
+    expect((await card.boundingBox())!.height).toBeLessThan(lineHeight * 2)
+    const scroller = await page.locator('.board__columns').evaluate((el) => ({
+        snap: getComputedStyle(el).scrollSnapType,
+        scrolls: el.scrollWidth > el.clientWidth,
+    }))
+    expect(scroller.snap).toContain('x mandatory')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })
