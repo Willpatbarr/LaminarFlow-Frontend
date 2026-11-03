@@ -356,7 +356,7 @@ export function Board(props: BoardProps) {
                 </p>
             </Show>
 
-            <div class="board__columns">
+            <div class="board__columns" data-dragging={lift()?.by === 'mouse' ? 'true' : undefined}>
                 <For each={shown()} keyed={(column) => column.id}>
                     {(column, index) => (
                         <section

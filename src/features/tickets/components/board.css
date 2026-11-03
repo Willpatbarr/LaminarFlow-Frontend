@@ -311,3 +311,29 @@
 .board__shows {
   margin: 0;
 }
+
+/* Phone (LAM-226): one column fills the screen and the next peeks in. Only this
+ * scroller scrolls sideways. Snapping is off while a card is dragged (the browser
+ * auto-scrolls the row near its edges, and a snap would pull it back); on touch the
+ * card menu's "Move to" is the way to move a card. */
+@media (max-width: 767px) {
+  .board__columns {
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+  }
+
+  .board__columns[data-dragging='true'] {
+    scroll-snap-type: none;
+  }
+
+  .board__column {
+    flex: 0 0 85vw;
+    min-width: 0;
+    max-width: none;
+    scroll-snap-align: start;
+  }
+
+  .board__card-title {
+    padding-inline-end: 32px;
+  }
+}
