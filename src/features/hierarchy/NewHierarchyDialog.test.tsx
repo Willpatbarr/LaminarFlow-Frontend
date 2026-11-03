@@ -48,25 +48,25 @@ describe('NewHierarchyDialog sprint dates (LAM-222)', () => {
         }
     }
 
-    it('starts today and ends 14 days later, written as 3 Nov 2026', async () => {
+    it('starts today and ends on day 14 (inclusive), written as 3 Nov 2026', async () => {
         const { dialog, start, end } = await open()
         expect(start.value).toBe('2026-11-03')
-        await vi.waitFor(() => expect(end.value).toBe('2026-11-17'))
+        await vi.waitFor(() => expect(end.value).toBe('2026-11-16'))
         expect(within(dialog).getByText('3 Nov 2026')).toBeInTheDocument()
-        expect(within(dialog).getByText('17 Nov 2026')).toBeInTheDocument()
+        expect(within(dialog).getByText('16 Nov 2026')).toBeInTheDocument()
     })
 
     it('uses the team sprint.length_days', async () => {
         length.sprintLengthDays.mockResolvedValueOnce(7)
         const { end } = await open()
-        await vi.waitFor(() => expect(end.value).toBe('2026-11-10'))
+        await vi.waitFor(() => expect(end.value).toBe('2026-11-09'))
     })
 
     it('starts the day after the latest sprint ends, when that is later than today', async () => {
         sync.sprintsForProject.mockReturnValueOnce([{ end_date: '2026-11-10' }, { end_date: '2026-11-20' }, { end_date: null }] as never)
         const { start, end } = await open()
         expect(start.value).toBe('2026-11-21')
-        await vi.waitFor(() => expect(end.value).toBe('2026-12-05'))
+        await vi.waitFor(() => expect(end.value).toBe('2026-12-04'))
     })
 
     it('starts today when every sprint has already ended', async () => {
@@ -78,7 +78,7 @@ describe('NewHierarchyDialog sprint dates (LAM-222)', () => {
     it('moves the end with the start until the end is set by hand', async () => {
         const { start, end } = await open()
         fireEvent.input(start, { target: { value: '2026-12-01' } })
-        await vi.waitFor(() => expect(end.value).toBe('2026-12-15'))
+        await vi.waitFor(() => expect(end.value).toBe('2026-12-14'))
         fireEvent.input(end, { target: { value: '2026-12-10' } })
         fireEvent.input(start, { target: { value: '2026-12-05' } })
         await vi.waitFor(() => expect(start.value).toBe('2026-12-05'))

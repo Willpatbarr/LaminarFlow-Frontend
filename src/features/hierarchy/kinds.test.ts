@@ -92,7 +92,13 @@ describe('default sprint dates (LAM-222)', () => {
     })
 
     it('ends start + length days later, 14 by default', () => {
-        expect(defaultSprintEnd('2026-11-03')).toBe('2026-11-17')
-        expect(defaultSprintEnd('2026-11-03', 7)).toBe('2026-11-10')
+        expect(defaultSprintEnd('2026-11-03')).toBe('2026-11-16')
+        expect(defaultSprintEnd('2026-11-03', 7)).toBe('2026-11-09')
+        expect(defaultSprintEnd('2026-11-03', 1)).toBe('2026-11-03')
+    })
+
+    it('chains back to back: the next start is the day after the previous end', () => {
+        const end = defaultSprintEnd('2026-11-03')
+        expect(defaultSprintStart([{ end_date: end }], '2026-11-03')).toBe('2026-11-17')
     })
 })

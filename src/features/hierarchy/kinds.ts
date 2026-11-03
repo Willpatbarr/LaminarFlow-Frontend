@@ -103,10 +103,11 @@ export function defaultSprintStart(sprints: readonly { end_date?: string | null 
     return after > today ? after : today
 }
 
-/** The end a new sprint is offered: the start plus `lengthDays` (the team's
- *  `sprint.length_days`, 14 when unset). */
+/** The end a new sprint is offered. The start day counts, so `lengthDays` days
+ *  from 3 Nov end on the 16th: start + length - 1. The next sprint then starts the
+ *  day after this end (`defaultSprintStart`), with no overlap and no gap. */
 export function defaultSprintEnd(start: string, lengthDays: number = DEFAULT_SPRINT_DAYS): string {
-    return addDays(start, lengthDays)
+    return addDays(start, lengthDays - 1)
 }
 
 export type SprintGroups<T> = { current: T[]; upcoming: T[]; past: T[]; undated: T[] }
