@@ -1,4 +1,5 @@
 import { memoryHistory } from '@solidjs/router'
+import { ICON_PATHS } from '@/components/ui/icons/Icon'
 import { render, screen, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -85,10 +86,10 @@ describe('the sidebar', () => {
     it('lists the team\'s saved views, marking the private ones', async () => {
         await open('/', [MINE, TEAMS])
 
-        const mine = await screen.findByRole('link', { name: /My todo/ })
+        const mine = await screen.findByRole('link', { name: 'My todo, private view' })
         expect(mine).toHaveAttribute('href', '/views/sv-mine')
-        expect(within(mine).getByText('Private')).toBeInTheDocument()
-        const shared = screen.getByRole('link', { name: 'Team todo' })
+        expect(mine.querySelector('.side-nav__scope')).not.toBeNull()
+        const shared = screen.getByRole('link', { name: 'Team todo, team view' })
         expect(shared).toHaveAttribute('href', '/views/sv-team')
     })
 
@@ -210,7 +211,7 @@ describe('saving a view', () => {
             }),
         )
         expect(new URLSearchParams(history.get().split('?')[1]).get('view')).toBeTruthy()
-        expect(await screen.findByRole('link', { name: 'Fresh' })).toBeInTheDocument()
+        expect(await screen.findByRole('link', { name: 'Fresh, team view' })).toBeInTheDocument()
         expect(screen.queryByText(/has changed/)).not.toBeInTheDocument()
     })
 
@@ -279,11 +280,12 @@ describe('the Views page (LAM-165)', () => {
 
         const list = await screen.findByRole('list', { name: 'All views' })
         const mine = within(within(list).getByRole('link', { name: 'My todo' }).closest('li')!)
-        expect(mine.getByText('Private')).toBeInTheDocument()
+        expect(mine.getByText('Private').closest('.chip')!.querySelector('svg path')).toHaveAttribute('d', ICON_PATHS.key)
         expect(mine.getByText('You')).toBeInTheDocument()
         expect(mine.getByRole('time')).toBeInTheDocument()
         const own = within(within(list).getByRole('link', { name: 'Team own' }).closest('li')!)
         expect(own.getAllByText('Team')).toHaveLength(2)
+        expect(own.getAllByText('Team')[0]!.closest('.chip')!.querySelector('svg')).toBeNull()
     })
 
     it('says what saved views are and how to make one when there are none', async () => {

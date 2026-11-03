@@ -164,6 +164,28 @@
   color: var(--text-2);
 }
 
+.side-nav__scope {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-2);
+}
+
+/* Collapsed: the lock is a badge on the corner of the initials box. */
+.side-nav--collapsed .side-nav__link:has(.side-nav__scope) {
+  position: relative;
+}
+
+.side-nav--collapsed .side-nav__scope {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  margin: 0;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--text-1);
+}
+
 .side-nav__empty {
   padding: 0 var(--s-8);
   color: var(--text-2);

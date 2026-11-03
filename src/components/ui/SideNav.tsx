@@ -46,6 +46,9 @@ export type SideNavLink = {
     icon?: IconName
     /** A word after the label, such as "Private". Quiet, and read out with it. */
     note?: string
+    /** A saved view's reach (LAM-227): "private" shows a lock; either one is
+     *  part of the accessible name and the rail tooltip ("Mine, private view"). */
+    scope?: 'private' | 'team'
     /** Two letters that stand in for the icon while the rail is collapsed, for
      *  rows whose icon is the same on every row (projects, saved views). */
     initials?: string
@@ -568,14 +571,20 @@ function CreateButton(props: { item: CreateItem; collapsed: boolean; describedBy
 const teamName = (teams: SideNavTeams) => teams.options.find((o) => o.value === teams.value)?.label ?? ''
 
 function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
+    // The name a screen reader and the rail tooltip give: "Mine, private view".
+    const name = () => {
+        const { label, scope, note } = props.link
+        if (scope) return `${label}, ${scope} view`
+        return note ? `${label} ${note}` : label
+    }
     return (
         <li>
             <a
                 class="side-nav__link t-body"
                 href={props.link.href}
                 aria-keyshortcuts={props.link.hint?.replace(' then ', ' ')}
-                aria-label={props.link.note ? `${props.link.label} ${props.link.note}` : props.link.label}
-                data-tip={props.collapsed ? props.link.label : undefined}
+                aria-label={name()}
+                data-tip={props.collapsed ? name() : undefined}
             >
                 <Show
                     when={props.collapsed && props.link.initials}
@@ -588,6 +597,10 @@ function NavLink(props: { link: SideNavLink; collapsed: boolean }) {
                     )}
                 </Show>
                 <span class="side-nav__label">{props.link.label}</span>
+                <Show when={props.link.scope === 'private'}>
+                    {/* Expanded: after the label. Collapsed: a badge on the initials. */}
+                    <Icon class="side-nav__scope" name="key" size={14} />
+                </Show>
                 <Show when={props.link.hint}>
                     {(hint) => (
                         <kbd class="shortcut-hint side-nav__hint t-meta" aria-hidden="true">

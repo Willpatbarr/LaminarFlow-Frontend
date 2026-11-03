@@ -2,6 +2,7 @@ import { useNavigate, useParams } from '@solidjs/router'
 import { createEffect, createSignal, For, onSettled, Show } from 'solid-js'
 
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons/Icon'
 import { ListBar, ListBars, MetaChip } from '@/components/ui/ListBar'
 import { Modal } from '@/components/ui/Modal'
 import { PageLayout } from '@/components/ui/PageLayout'
@@ -77,6 +78,9 @@ export function ViewsPage() {
                                         <>
                                             <MetaChip>
                                                 <span class="visually-hidden">Visibility: </span>
+                                                <Show when={!view().is_shared}>
+                                                    <Icon name="key" size={12} />
+                                                </Show>
                                                 {view().is_shared ? 'Team' : 'Private'}
                                             </MetaChip>
                                             <MetaChip>

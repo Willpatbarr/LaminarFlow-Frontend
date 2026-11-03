@@ -168,22 +168,41 @@ describe('SideNav', () => {
         })
     })
 
-    it('lists the saved views under their own heading, notes a private one, and says when there are none', () => {
+    it('lists the saved views under their own heading, names each one by scope, and says when there are none', () => {
         const views = [
-            { label: 'Bugs', href: '/views/v1' },
-            { label: 'Mine', href: '/views/v2', note: 'Private' },
+            { label: 'Bugs', href: '/views/v1', scope: 'team' as const },
+            { label: 'Mine', href: '/views/v2', scope: 'private' as const },
         ]
         const { unmount } = render(() => (
             <SideNav links={[{ label: 'Tickets', href: '/' }]} views={views} userName="Ada" onLogout={() => {}} />
         ))
 
         expect(screen.getByRole('heading', { name: 'Saved views' })).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: 'Bugs' })).toHaveAttribute('href', '/views/v1')
-        expect(screen.getByRole('link', { name: 'Mine Private' })).toHaveAttribute('href', '/views/v2')
+        expect(screen.getByRole('link', { name: 'Bugs, team view' })).toHaveAttribute('href', '/views/v1')
+        expect(screen.getByRole('link', { name: 'Mine, private view' })).toHaveAttribute('href', '/views/v2')
         unmount()
 
         render(() => <SideNav links={[]} views={[]} userName="Ada" onLogout={() => {}} />)
         expect(screen.getByText('No saved views yet')).toBeInTheDocument()
+    })
+
+    it('puts a lock on private saved views only, and the scope in the name and the rail tooltip', async () => {
+        const views = [
+            { label: 'By assignee', href: '/views/v1', scope: 'team' as const },
+            { label: 'My bugs', href: '/views/v2', scope: 'private' as const },
+        ]
+        const { container } = render(() => <SideNav links={[]} views={views} userName="Ada" onLogout={() => {}} />)
+        const team = screen.getByRole('link', { name: 'By assignee, team view' })
+        const mine = screen.getByRole('link', { name: 'My bugs, private view' })
+        expect(team.querySelector('.side-nav__scope')).toBeNull()
+        expect(mine.querySelector('.side-nav__scope path')).toHaveAttribute('d', ICON_PATHS.key)
+        expect(mine).not.toHaveAttribute('data-tip')
+
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+        expect(container.querySelector('.side-nav--collapsed')).not.toBeNull()
+        expect(team).toHaveAttribute('data-tip', 'By assignee, team view')
+        expect(mine).toHaveAttribute('data-tip', 'My bugs, private view')
+        expect(mine.querySelector('.side-nav__scope')).not.toBeNull()
     })
 
     it('has no saved views section when the caller gives none', () => {
@@ -357,7 +376,7 @@ describe('SideNav accessible names (LAM-218)', () => {
             projects={[{ label: 'Alpha', href: '/projects/p1' }]}
             views={[
                 { label: 'Bugs', href: '/views/v1' },
-                { label: 'Mine', href: '/views/v2', note: 'Private' },
+                { label: 'Mine', href: '/views/v2', scope: 'private' as const },
             ]}
             create={[
                 { label: 'New epic', icon: 'epic', onClick: () => {} },
@@ -376,7 +395,7 @@ describe('SideNav accessible names (LAM-218)', () => {
         ['link', 'Epics'],
         ['link', 'Alpha'],
         ['link', 'Bugs'],
-        ['link', 'Mine Private'],
+        ['link', 'Mine, private view'],
         ['link', 'Settings'],
         ['button', 'New epic'],
         ['button', 'New team'],

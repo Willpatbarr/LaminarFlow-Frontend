@@ -206,13 +206,14 @@ export function AppLayout(props: RouteSectionProps) {
             .toSorted((a, b) => a.name.localeCompare(b.name))
             .map((project) => ({ label: project.name, href: `/projects/${project.id}` }))
 
-    // The team's saved views, one link each. A private one is marked: the server
-    // sends a person only their own, so the mark is a reminder, not a filter.
+    // The team's saved views, one link each. A private one gets a lock (LAM-227); both
+    // say their scope in their name. The server sends a person only their own private
+    // views, so the mark is a reminder, not a filter.
     const viewLinks = () =>
         savedViewsForTeam(activeTeamId() ?? '').map((view) => ({
             label: view.name,
             href: `/views/${view.id}`,
-            note: view.is_shared ? undefined : 'Private',
+            scope: view.is_shared ? ('team' as const) : ('private' as const),
         }))
 
     // The sidebar's create actions: an epic, sprint or milestone in the home project, and
