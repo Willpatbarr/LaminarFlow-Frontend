@@ -61,6 +61,15 @@ export function reorderedIds(ids: string[], id: string, to: number): string[] {
     return rest
 }
 
+/**
+ * The status the deleted one's tickets move to by default (LAM-219): the first
+ * of `choices` (in position order) in the same category, else the first one,
+ * else ''. `choices` must already leave out the deleted status.
+ */
+export function defaultMoveTarget(deleted: Pick<Status, 'category'>, choices: Pick<Status, 'id' | 'category'>[]): string {
+    return (choices.find((choice) => choice.category === deleted.category) ?? choices[0])?.id ?? ''
+}
+
 type StatusEditorProps = {
     teamId: string
 }
@@ -139,7 +148,6 @@ export function StatusEditor(props: StatusEditorProps) {
                         choices={statuses().filter((other) => other.id !== status.id && !isTempId(other.id))}
                         count={using(status.id)}
                         teamId={props.teamId}
-                        fallback={neighbour(status.id)}
                         onClose={() => setDeleting(null)}
                     />
                 )}
@@ -171,6 +179,7 @@ function StatusRow(props: StatusRowProps) {
     // The hue of the row; an older hex shows as the hue it is drawn in.
     const colour = () => hueFor(props.status.color)
     const recolourDenied = () => denial('team:write', 'recolour statuses')
+    const recategoriseDenied = () => denial('team:write', 'change status categories')
     const tooLong = () => overMessage('Name', nameCount(name()))
 
     function commit() {
@@ -250,6 +259,25 @@ function StatusRow(props: StatusRowProps) {
                             )}
                         </For>
                         <hr class="row-menu__rule" />
+                        <p class="t-overline row-menu__head" aria-hidden="true">
+                            Category
+                        </p>
+                        <For each={CATEGORIES}>
+                            {(option) => (
+                                <RowMenuItem
+                                    checked={props.status.category === option.value}
+                                    label={`Category ${option.label}`}
+                                    disabledReason={recategoriseDenied()}
+                                    onSelect={() => void updateStatus(props.status.id, { category: option.value })}
+                                >
+                                    {option.label}
+                                    <Show when={props.status.category === option.value}>
+                                        <Icon name="check" size={16} class="row-menu__check" />
+                                    </Show>
+                                </RowMenuItem>
+                            )}
+                        </For>
+                        <hr class="row-menu__rule" />
                         <RowMenuItem onSelect={() => props.onMoveTo(0)} disabledReason={moveDenied() ?? (props.first ? 'Already first' : undefined)}>
                             Move to top
                         </RowMenuItem>
@@ -269,6 +297,16 @@ function StatusRow(props: StatusRowProps) {
                     </RowMenu>
                 }
             >
+                <span class="status-editor__colour" title={recategoriseDenied()}>
+                    <Select
+                        label={`Category of ${props.status.name}`}
+                        hideLabel
+                        value={props.status.category}
+                        options={CATEGORIES}
+                        onChange={(value) => void updateStatus(props.status.id, { category: value })}
+                        disabled={recategoriseDenied() !== undefined}
+                    />
+                </span>
                 <span class="status-editor__colour" title={recolourDenied()}>
                     <Select
                         label={`Colour of ${props.status.name}`}
@@ -343,7 +381,6 @@ type DeleteDialogProps = {
     choices: Status[]
     count: number
     teamId: string
-    fallback: string | null
     onClose: () => void
 }
 
@@ -364,7 +401,7 @@ function landings(statusId: string, targetId: string, teamId: string): string[] 
 }
 
 function DeleteDialog(props: DeleteDialogProps) {
-    const [target, setTarget] = createSignal(untrack(() => props.fallback) ?? '')
+    const [target, setTarget] = createSignal(untrack(() => defaultMoveTarget(props.status, props.choices)))
     const none = () => props.choices.length === 0
     return (
         <Modal

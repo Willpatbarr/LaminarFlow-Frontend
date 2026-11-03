@@ -3,12 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { connectSyncToSession, wipeLocalData } from '@/sync'
-import { BOARD, listRoutes, TEAM, ticket } from '@/sync/testing/harness'
+import { BOARD, listRoutes, page, TEAM, ticket } from '@/sync/testing/harness'
 import { openApp, ME_BODY } from '@/testing/app'
 import { bodyOf, ok } from '@/testing/fetch'
 import { ALL_PERMISSIONS } from '@/testing/permissions'
 
-import { reorderedIds } from './StatusEditor'
+import { defaultMoveTarget, reorderedIds } from './StatusEditor'
 
 // The editor on its team-settings page, against the real store and engine with
 // only fetch stubbed.
@@ -35,6 +35,28 @@ describe('reorderedIds', () => {
         expect(reorderedIds(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b'])
         expect(reorderedIds(['a', 'b', 'c'], 'a', 2)).toEqual(['b', 'c', 'a'])
         expect(reorderedIds(['a', 'b', 'c'], 'b', 9)).toEqual(['a', 'c', 'b'])
+    })
+})
+
+describe('defaultMoveTarget', () => {
+    const statuses = [
+        { id: 'a', category: 'not_started' },
+        { id: 'b', category: 'in_progress' },
+        { id: 'c', category: 'in_progress' },
+        { id: 'd', category: 'done' },
+    ] as const
+
+    it('picks the first status of the same category', () => {
+        expect(defaultMoveTarget({ category: 'in_progress' }, [statuses[0], statuses[2], statuses[3]])).toBe('c')
+        expect(defaultMoveTarget({ category: 'in_progress' }, [statuses[0], statuses[1], statuses[2]])).toBe('b')
+    })
+
+    it('falls back to the first status when no other has the category', () => {
+        expect(defaultMoveTarget({ category: 'done' }, [statuses[0], statuses[1]])).toBe('a')
+    })
+
+    it('is empty when there is nothing to move to', () => {
+        expect(defaultMoveTarget({ category: 'done' }, [])).toBe('')
     })
 })
 
@@ -134,6 +156,37 @@ describe('colour', () => {
     })
 })
 
+// LAM-219: each status shows its category, and it can be changed.
+describe('category', () => {
+    it('shows each status\'s category and sends the chosen one', async () => {
+        const user = userEvent.setup()
+        let body: unknown
+        await openApp(SETTINGS, {
+            ...listRoutes(),
+            [`PUT ${BASE}/s-todo`]: async (request) => {
+                body = await bodyOf(request)
+                return ok({ ...TEAM.statuses[0], category: 'in_progress' })
+            },
+        })
+        const select = (await screen.findByLabelText('Category of To Do')) as HTMLSelectElement
+        expect(select.value).toBe('not_started')
+        expect((screen.getByLabelText('Category of In Progress') as HTMLSelectElement).value).toBe('in_progress')
+        expect((screen.getByLabelText('Category of Done') as HTMLSelectElement).value).toBe('done')
+
+        await user.selectOptions(select, 'In progress')
+
+        await waitFor(() => expect(body).toMatchObject({ category: 'in_progress' }))
+        await waitFor(() => expect((screen.getByLabelText('Category of To Do') as HTMLSelectElement).value).toBe('in_progress'))
+    })
+
+    it('is disabled with a tooltip without team:write', async () => {
+        await openApp(SETTINGS, listRoutes(), { ...ME_BODY, permissions: ALL_PERMISSIONS.filter((p) => p !== 'team:write') })
+        const select = await screen.findByLabelText('Category of To Do')
+        expect(select).toBeDisabled()
+        expect(select.closest('.status-editor__colour')).toHaveAttribute('title', "You don't have permission to change status categories.")
+    })
+})
+
 describe('delete', () => {
     it('asks where the tickets go when some use the status, and sends move_to', async () => {
         const user = userEvent.setup()
@@ -165,6 +218,26 @@ describe('delete', () => {
         await user.click(screen.getByRole('button', { name: 'Delete In Progress' }))
         const dialog = await screen.findByRole('dialog', { name: /Delete .In Progress./ })
         await user.selectOptions(within(dialog).getByLabelText('Move tickets to'), 'Done')
+        expect(dialog).toHaveTextContent('the “Done” column')
+    })
+
+    it('preselects a status of the same category, and the landing line follows the selection (LAM-219)', async () => {
+        const user = userEvent.setup()
+        const review = { id: 's-review', name: 'In Review', color: '#a855f7', position: 4, category: 'in_progress' }
+        const base = listRoutes([ticket({ id: 't-1', status_id: 's-doing' })], [], [BOARD])
+        await openApp(SETTINGS, {
+            ...base,
+            'POST /api/v1/teams/list': () => page([{ ...TEAM, statuses: [...TEAM.statuses, review] }]),
+        })
+        await screen.findByLabelText('Name of In Review')
+
+        await user.click(screen.getByRole('button', { name: 'Delete In Progress' }))
+        const dialog = await screen.findByRole('dialog', { name: /Delete .In Progress./ })
+        const select = within(dialog).getByLabelText('Move tickets to') as HTMLSelectElement
+        expect(select.value).toBe('s-review')
+        expect(dialog).toHaveTextContent('no column holds that status')
+
+        await user.selectOptions(select, 'Done')
         expect(dialog).toHaveTextContent('the “Done” column')
     })
 
@@ -241,11 +314,31 @@ describe('on a phone', () => {
 
         await user.click(screen.getByRole('button', { name: 'Actions for To Do' }))
         const menu = await screen.findByRole('menu')
-        expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(8)
+        expect(within(menu).getAllByRole('menuitemradio', { name: /^Colour / })).toHaveLength(8)
         expect(within(menu).getByRole('menuitemradio', { name: 'Colour Slate' })).toHaveAttribute('aria-checked', 'true')
         await user.click(within(menu).getByRole('menuitemradio', { name: 'Colour Teal' }))
 
         await waitFor(() => expect(body).toMatchObject({ color: 'teal' }))
+    })
+
+    it('puts a Category section in the row menu, and choosing one sends it (LAM-219)', async () => {
+        phone()
+        const user = userEvent.setup()
+        let body: unknown
+        await openApp(SETTINGS, {
+            ...listRoutes(),
+            [`PUT ${BASE}/s-todo`]: async (request) => {
+                body = await bodyOf(request)
+                return ok({ ...TEAM.statuses[0], category: 'done' })
+            },
+        })
+        await screen.findByLabelText('Name of To Do')
+        await user.click(screen.getByRole('button', { name: 'Actions for To Do' }))
+        const menu = await screen.findByRole('menu')
+        expect(within(menu).getByRole('menuitemradio', { name: 'Category Not started' })).toHaveAttribute('aria-checked', 'true')
+        await user.click(within(menu).getByRole('menuitemradio', { name: 'Category Done' }))
+
+        await waitFor(() => expect(body).toMatchObject({ category: 'done' }))
     })
 
     it('starts the Labels section folded, with its count', async () => {

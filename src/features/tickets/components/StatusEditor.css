@@ -13,7 +13,7 @@
 
 .status-editor__row {
   display: grid;
-  grid-template-columns: auto 150px minmax(0, 1fr) 150px auto;
+  grid-template-columns: auto 150px minmax(0, 1fr) 140px 150px auto;
   align-items: center;
   gap: var(--s-12);
   padding: var(--s-8) var(--s-12);
