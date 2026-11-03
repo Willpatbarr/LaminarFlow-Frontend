@@ -35,3 +35,10 @@
 .auth__switch {
   color: var(--text-2);
 }
+
+/* Text wordmark above the card. Tracking matches the screen title's. */
+.auth__brand {
+  margin: 0;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+}
