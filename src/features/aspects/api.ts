@@ -10,6 +10,7 @@ import type { components } from '@/api/schema'
 │      listAspectTypes · getAspectType · createAspectType · renameAspectType
 │      exportAspectType · importAspectType
 │      addField · renameField · removeField · fieldUsage · reorderFields
+│      typeUsage · deleteAspectType (LAM-206)
 */
 // Aspect types are not a sync entity: the server publishes no change for them,
 // so there is nothing to keep a local copy current. An edit is a request, and
@@ -78,6 +79,28 @@ export const fieldUsage = (id: string, fieldId: string) =>
 
 export const reorderFields = (id: string, fieldIds: string[]) =>
     settle(() => api.POST('/api/v1/aspect-types/{id}/reorder', { params: { path: { id } }, body: { field_ids: fieldIds } }))
+
+export const typeUsage = (id: string) =>
+    settle(() => api.GET('/api/v1/aspect-types/{id}/usage', { params: { path: { id } } }))
+
+/** How many documents use a type, and how many of those are archived (and so not in the documents list). */
+export type TypeUsage = { documents: number; archived: number }
+
+/** Deletes a type. While documents use it the server answers 409 `aspect_type_in_use`
+ *  with the counts, so the refusal carries them: `usage` is set only for that code. */
+export async function deleteAspectType(id: string): Promise<Result<null> | { ok: false; code: string; message: string; usage?: TypeUsage }> {
+    try {
+        const { response, error } = await api.DELETE('/api/v1/aspect-types/{id}', { params: { path: { id } } })
+        if (response.ok) return { ok: true, data: null }
+        const refused = failed(error)
+        const counts = error as { document_count?: number; archived_count?: number } | undefined
+        return refused.code === 'aspect_type_in_use'
+            ? { ...refused, usage: { documents: counts?.document_count ?? 0, archived: counts?.archived_count ?? 0 } }
+            : refused
+    } catch {
+        return offline
+    }
+}
 
 export type PortableType = components['schemas']['PortableBody']
 

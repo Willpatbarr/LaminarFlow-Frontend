@@ -18,6 +18,9 @@ import {
     fieldUsage,
     getAspectType,
     removeField,
+    deleteAspectType,
+    typeUsage,
+    type TypeUsage,
     renameAspectType,
     renameField,
     reorderFields,
@@ -46,7 +49,13 @@ import { downloadJson, exportFileName } from '../portable'
 
 type Removal = { field: AspectField; documents: number }
 
-export function AspectTypeEditor(props: { typeId: string }) {
+/** The words for how many documents use a type, archived ones named because the documents list does not show them. */
+export function usageSentence({ documents, archived }: TypeUsage) {
+    const noun = documents === 1 ? 'document' : 'documents'
+    return `Used by ${documents} ${noun}${archived > 0 ? ` (${archived} archived)` : ''}.`
+}
+
+export function AspectTypeEditor(props: { typeId: string; onDeleted?: () => void }) {
     const [type, setType] = createSignal<AspectType | null>(null)
     const [loading, setLoading] = createSignal(true)
     const [problem, setProblem] = createSignal<string | null>(null)
@@ -54,6 +63,7 @@ export function AspectTypeEditor(props: { typeId: string }) {
     const [name, setName] = createSignal<string | null>(null)
     const [newLabel, setNewLabel] = createSignal('')
     const [removal, setRemoval] = createSignal<Removal | null>(null)
+    const [deletion, setDeletion] = createSignal<TypeUsage | null>(null)
     const [dragging, setDragging] = createSignal<string | null>(null)
     const [busy, setBusy] = createSignal(false)
 
@@ -172,6 +182,28 @@ export function AspectTypeEditor(props: { typeId: string }) {
         )
     }
 
+    async function askToDelete() {
+        const usage = await attempt(() => typeUsage(props.typeId))
+        if (usage) setDeletion({ documents: usage.document_count, archived: usage.archived_count })
+    }
+
+    async function confirmDelete() {
+        setProblem(null)
+        const result = await deleteAspectType(props.typeId)
+        if (result.ok) {
+            setDeletion(null)
+            props.onDeleted?.()
+            return
+        }
+        // A document was made after the count was read: show the fresh numbers, delete nothing.
+        if ('usage' in result && result.usage) {
+            setDeletion(result.usage)
+            return
+        }
+        setDeletion(null)
+        setProblem(result.message)
+    }
+
     const nameError = () => overMessage('Name', nameCount(name() ?? ''))
 
     return (
@@ -271,9 +303,50 @@ export function AspectTypeEditor(props: { typeId: string }) {
                                     Add field
                                 </Button>
                             </div>
+
+                            <h2 class="t-section">Delete this type</h2>
+                            <p class="t-meta">
+                                Deleting a type removes its fields. It can’t be deleted while documents use it, archived ones included.
+                            </p>
+                            <div>
+                                <Button
+                                    variant="secondary"
+                                    disabledReason={denial('aspect:write', 'delete aspect types')}
+                                    onClick={() => void askToDelete()}
+                                >
+                                    Delete type
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </Show>
+            </Show>
+
+            <Show when={deletion()} keyed>
+                {(usage) => (
+                    <Show
+                        when={usage.documents > 0}
+                        fallback={
+                            <Modal
+                                title={`Delete “${type()?.name ?? 'this type'}”`}
+                                consequence="No document uses this type. The type and its fields are deleted."
+                                confirm="Delete type"
+                                destructive
+                                onConfirm={() => void confirmDelete()}
+                                onCancel={() => setDeletion(null)}
+                            />
+                        }
+                    >
+                        <Modal
+                            title={`“${type()?.name ?? 'This type'}” can’t be deleted yet`}
+                            consequence={`${usageSentence(usage)} Remove the type from them, or delete them, before deleting the type.${usage.archived > 0 ? ' Archived documents still count; they return with their type if unarchived.' : ''}`}
+                            confirm="Close"
+                            informational
+                            onConfirm={() => setDeletion(null)}
+                            onCancel={() => setDeletion(null)}
+                        />
+                    </Show>
+                )}
             </Show>
 
             <Show when={removal()} keyed>

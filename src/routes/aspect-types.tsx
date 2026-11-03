@@ -66,6 +66,7 @@ export function AspectTypesPage() {
 
 export function AspectTypePage() {
     const { params, team, busy } = useTeam()
+    const navigate = useNavigate()
     return (
         <PageLayout>
         <section aria-busy={busy() ? 'true' : undefined}>
@@ -80,7 +81,7 @@ export function AspectTypePage() {
                                 </a>
                             </p>
                             <h1 class="t-screen-title">Edit aspect type</h1>
-                            <AspectTypeEditor typeId={params.id!} />
+                            <AspectTypeEditor typeId={params.id!} onDeleted={() => navigate(`/teams/${found().id}/aspect-types`)} />
                         </>
                     )}
                 </Show>

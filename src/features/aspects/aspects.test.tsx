@@ -96,6 +96,69 @@ describe('the aspect type editor', () => {
         expect(removed).toBe(true)
     })
 
+    it('deletes an unused type after a confirm and returns to the list', async () => {
+        let deleted = false
+        await openApp(`/teams/${TEAM.id}/aspect-types/a-1`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types/a-1': () => ok(aType()),
+            'GET /api/v1/aspect-types': () => ok({ items: deleted ? [] : [aType()] }),
+            'GET /api/v1/aspect-types/a-1/usage': () => ok({ document_count: 0, archived_count: 0 }),
+            'DELETE /api/v1/aspect-types/a-1': () => {
+                deleted = true
+                return new Response(null, { status: 204 })
+            },
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Fields' })
+        await user.click(screen.getByRole('button', { name: 'Delete type' }))
+        const dialog = await screen.findByRole('dialog')
+        expect(dialog).toHaveTextContent('No document uses this type')
+        expect(deleted).toBe(false)
+        await user.click(within(dialog).getByRole('button', { name: 'Delete type' }))
+        await screen.findByRole('heading', { name: 'Aspect types' })
+        expect(deleted).toBe(true)
+    })
+
+    it('explains with the counts, and offers no delete, when documents use the type', async () => {
+        let deleteCalls = 0
+        await openApp(`/teams/${TEAM.id}/aspect-types/a-1`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types/a-1': () => ok(aType()),
+            'GET /api/v1/aspect-types/a-1/usage': () => ok({ document_count: 3, archived_count: 2 }),
+            'DELETE /api/v1/aspect-types/a-1': () => {
+                deleteCalls++
+                return new Response(null, { status: 204 })
+            },
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Fields' })
+        await user.click(screen.getByRole('button', { name: 'Delete type' }))
+        const dialog = await screen.findByRole('dialog')
+        expect(dialog).toHaveTextContent('Used by 3 documents (2 archived).')
+        expect(dialog).toHaveTextContent('before deleting the type')
+        expect(within(dialog).queryByRole('button', { name: 'Delete type' })).not.toBeInTheDocument()
+        await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+        expect(deleteCalls).toBe(0)
+    })
+
+    it('shows the fresh counts when a document appeared before the delete landed', async () => {
+        await openApp(`/teams/${TEAM.id}/aspect-types/a-1`, {
+            ...listRoutes(),
+            'GET /api/v1/aspect-types/a-1': () => ok(aType()),
+            'GET /api/v1/aspect-types/a-1/usage': () => ok({ document_count: 0, archived_count: 0 }),
+            'DELETE /api/v1/aspect-types/a-1': () =>
+                new Response(
+                    JSON.stringify({ title: 'Conflict', status: 409, code: 'aspect_type_in_use', document_count: 1, archived_count: 1 }),
+                    { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+                ),
+        })
+        const user = userEvent.setup()
+        await screen.findByRole('list', { name: 'Fields' })
+        await user.click(screen.getByRole('button', { name: 'Delete type' }))
+        await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete type' }))
+        await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('Used by 1 document (1 archived).'))
+    })
+
     it('adds a field and renames one', async () => {
         const puts: unknown[] = []
         await openApp(`/teams/${TEAM.id}/aspect-types/a-1`, {
