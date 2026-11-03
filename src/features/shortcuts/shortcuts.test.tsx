@@ -108,12 +108,12 @@ describe('the list', () => {
 })
 
 describe('a ticket', () => {
-    it('S puts focus on the status, E in the title', async () => {
+    it('S opens the status list with focus in its search, E puts the cursor in the title', async () => {
         await openApp('/tickets/t-1', listRoutes([ticket({ id: 't-1', title: 'One' })]))
         const user = userEvent.setup()
         await screen.findByDisplayValue('One')
         await user.keyboard('s')
-        expect(screen.getByLabelText('Status')).toHaveFocus()
+        await vi.waitFor(() => expect(screen.getByRole('searchbox', { name: 'Search status' })).toHaveFocus())
         await user.keyboard('{Escape}')
         ;(document.activeElement as HTMLElement).blur()
         await user.keyboard('e')

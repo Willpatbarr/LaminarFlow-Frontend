@@ -7,6 +7,7 @@ import { connectSyncToSession, sync, updateTicket, wipeLocalData } from '@/sync'
 import { listRoutes, ME, page, TEAM, ticket } from '@/sync/testing/harness'
 import { bodyOf, ok, problem } from '@/testing/fetch'
 import { openApp, startAnonymous } from '@/testing/app'
+import { pickProperty, property } from '@/testing/properties'
 
 // The server's length limits (LAM-75), caught at the field before anything is
 // queued - and the server's own refusal, which stays the authority.
@@ -375,10 +376,11 @@ describe("the server's refusal, when the client check never ran", () => {
 
         const message = 'That status no longer exists. Pick another.'
         expect(await screen.findByText(message)).toBeInTheDocument()
-        expect(screen.getByLabelText('Status')).toHaveAttribute('aria-invalid', 'true')
-        expect(screen.getByLabelText('Status')).toHaveAccessibleDescription(message)
+        const status = await property('Status')
+        expect(status).toHaveAttribute('aria-invalid', 'true')
+        expect(status).toHaveAccessibleDescription(message)
 
-        await userEvent.selectOptions(screen.getByLabelText('Status'), 'In Progress')
+        await pickProperty(userEvent.setup(), 'Status', 'In Progress')
         await waitFor(() => expect(puts).toEqual(['s-gone', 's-doing']))
         await waitFor(() => expect(sync.outbox).toEqual([]))
         expect(screen.queryByText(message)).not.toBeInTheDocument()
@@ -397,7 +399,7 @@ describe("the server's refusal, when the client check never ran", () => {
         await updateTicket('t-1', { assignee_id: 'acc-gone' })
 
         const message = 'That assignee is no longer available. Pick another.'
-        const select = await screen.findByLabelText('Assignee')
+        const select = await property('Assignee')
         expect(await screen.findByText(message)).toBeInTheDocument()
         expect(select).toHaveAttribute('aria-invalid', 'true')
     })

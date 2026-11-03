@@ -47,6 +47,8 @@ export const ICON_PATHS = {
     'chevron-right-duo': 'M13 8L17 12L13 16M7 8L11 12L7 16',
     // Interface/Search_Magnifying_Glass
     'search': 'M15 15L21 21M10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10C17 13.866 13.866 17 10 17Z',
+    // Edit/Add_Plus
+    'plus': 'M6 12H12M12 12H18M12 12V18M12 12V6',
     // Menu/Close_SM
     'close': 'M16 16L12 12M12 12L8 8M12 12L16 8M12 12L8 16',
     // Menu/More_Horizontal

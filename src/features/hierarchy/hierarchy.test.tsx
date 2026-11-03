@@ -9,6 +9,7 @@ import { connectSyncToSession, wipeLocalData } from '@/sync'
 import { listRoutes, ME, page, ticket } from '@/sync/testing/harness'
 import { bodyOf, ok, stubFetch } from '@/testing/fetch'
 import { ALL_PERMISSIONS } from '@/testing/permissions'
+import { expectProperty, openProperty } from '@/testing/properties'
 
 // The epic, sprint and milestone pages (LAM-105), through the real route tree,
 // store and engine; only `fetch` is stubbed.
@@ -286,10 +287,7 @@ describe('sprints', () => {
 describe('tickets with no parent', () => {
     it('open cleanly: nothing to complain about, and every parent picker says None', async () => {
         await open('/tickets/t-4', everything())
-        const epic = (await screen.findByLabelText('Epic')) as HTMLSelectElement
-        expect(epic.selectedOptions[0]).toHaveTextContent('None')
-        expect((screen.getByLabelText('Sprint') as HTMLSelectElement).selectedOptions[0]).toHaveTextContent('None')
-        expect((screen.getByLabelText('Milestone') as HTMLSelectElement).selectedOptions[0]).toHaveTextContent('None')
+        for (const name of ['Epic', 'Sprint', 'Milestone']) await expectProperty(name, 'None')
         expect(screen.queryByRole('alert')).toBeNull()
     })
 
@@ -310,12 +308,13 @@ describe('tickets with no parent', () => {
             }),
         )
         const user = userEvent.setup()
-        await user.click(await pageButton('New epic for this ticket'))
+        await openProperty(user, 'Epic')
+        await user.click(screen.getByRole('button', { name: 'Create new epic…' }))
         const dialog = await screen.findByRole('dialog')
         await user.type(within(dialog).getByLabelText('Name'), 'Onboarding')
         await user.click(within(dialog).getByRole('button', { name: 'Create epic' }))
         await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ epic_id: 'e-new' }))
-        await vi.waitFor(() => expect((screen.getByLabelText('Epic') as HTMLSelectElement).selectedOptions[0]).toHaveTextContent('Onboarding'))
+        await vi.waitFor(() => expect(screen.getByRole('button', { name: /^Epic:/ })).toHaveAccessibleName('Epic: Onboarding'))
     })
 })
 

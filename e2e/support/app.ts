@@ -1,4 +1,4 @@
-import { expect, test as base, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test as base, type BrowserContext, type Locator, type Page } from '@playwright/test'
 
 import {
     fields,
@@ -90,6 +90,29 @@ export async function openProject(page: Page, world: World) {
 export async function openTicket(page: Page, id: string, title: string) {
     await page.goto(`/tickets/${id}`)
     await expect(page.getByLabel('Title')).toHaveValue(title)
+}
+
+/** One property button of the ticket page (LAM-211): named "Status: In Progress". */
+export function property(scope: Page | Locator, name: string) {
+    return scope.getByRole('button', { name: new RegExp(`^${name}:`) })
+}
+
+/** Opens a property's list and chooses an option by its exact name. */
+export async function pickProperty(page: Page, name: string, option: string) {
+    await property(page, name).click()
+    await page.getByRole('listbox', { name, exact: true }).getByRole('option', { name: option, exact: true }).click()
+    await expect(page.getByRole('listbox', { name, exact: true })).toHaveCount(0)
+}
+
+/** The property reads `value`. */
+export async function expectProperty(page: Page | Locator, name: string, value: string) {
+    await expect(property(page, name)).toHaveAccessibleName(`${name}: ${value}`)
+}
+
+/** Opens the labels list ("+"), which stays open while labels are ticked. */
+export async function openLabels(page: Page) {
+    await page.getByRole('button', { name: 'Add label' }).click()
+    return page.getByRole('listbox', { name: 'Labels' })
 }
 
 /** The side nav's connection indicator reads `state`: its live region holds the

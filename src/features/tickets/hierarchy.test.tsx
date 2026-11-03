@@ -9,6 +9,7 @@ import { connectSyncToSession, wipeLocalData } from '@/sync'
 import { listRoutes, ME, page, ticket } from '@/sync/testing/harness'
 import { bodyOf, ok, stubFetch } from '@/testing/fetch'
 import { ALL_PERMISSIONS } from '@/testing/permissions'
+import { expectProperty, pickProperty } from '@/testing/properties'
 
 // The pickers on the ticket page and the side panel on the list (LAM-103),
 // through the real route tree, store and engine; only `fetch` is stubbed.
@@ -83,11 +84,10 @@ function routes() {
 describe('the ticket page pickers', () => {
     it('reads "None" for every parent a ticket does not have', async () => {
         await open('/tickets/t-1', routes().all)
-        for (const name of ['Epic', 'Sprint', 'Milestone']) {
-            expect(await screen.findByLabelText(name)).toHaveDisplayValue('None')
-        }
-        expect(screen.getByRole('checkbox', { name: 'bug' })).not.toBeChecked()
-        expect(screen.getByRole('checkbox', { name: 'ui' })).not.toBeChecked()
+        for (const name of ['Epic', 'Sprint', 'Milestone']) await expectProperty(name, 'None')
+        // No label is applied, and none is listed twice: the chips are the labels.
+        expect(screen.queryByRole('list', { name: 'Labels' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     })
 
     it('sets the epic, milestone and labels through the outbox and the sprint with its own call', async () => {
@@ -95,21 +95,25 @@ describe('the ticket page pickers', () => {
         await open('/tickets/t-1', all)
         const user = userEvent.setup()
 
-        await user.selectOptions(await screen.findByLabelText('Epic'), 'Checkout')
-        await user.selectOptions(screen.getByLabelText('Milestone'), 'v1.0')
-        await user.click(screen.getByRole('checkbox', { name: 'bug' }))
-        await user.click(screen.getByRole('checkbox', { name: 'ui' }))
-        await user.selectOptions(screen.getByLabelText('Sprint'), 'Sprint 1')
+        await pickProperty(user, 'Epic', 'Checkout')
+        await pickProperty(user, 'Milestone', 'v1.0')
+        await user.click(await screen.findByRole('button', { name: 'Add label' }))
+        const labels = await screen.findByRole('listbox', { name: 'Labels' })
+        await user.click(within(labels).getByRole('option', { name: 'bug' }))
+        await user.click(within(labels).getByRole('option', { name: 'ui' }))
+        // The list stays open for the second pick; Escape closes it.
+        await user.keyboard('{Escape}')
+        await pickProperty(user, 'Sprint', 'Sprint 1')
 
         // On screen at once, whatever the server has heard.
-        expect(screen.getByLabelText('Epic')).toHaveDisplayValue('Checkout')
-        expect(screen.getByRole('checkbox', { name: 'bug' })).toBeChecked()
+        await expectProperty('Epic', 'Checkout')
+        expect(within(screen.getByRole('list', { name: 'Labels' })).getByText('bug')).toBeInTheDocument()
 
         await vi.waitFor(() => expect(members).toEqual(['t-1']))
         await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ epic_id: 'e-1', milestone_id: 'm-1', label_ids: ['l-1', 'l-2'] }))
-        expect(screen.getByLabelText('Sprint')).toHaveDisplayValue('Sprint 1')
+        await expectProperty('Sprint', 'Sprint 1')
 
-        await user.selectOptions(screen.getByLabelText('Epic'), 'None')
+        await pickProperty(user, 'Epic', 'None')
         await vi.waitFor(() => expect(puts.at(-1)).toMatchObject({ epic_id: null }))
     })
 
@@ -118,7 +122,7 @@ describe('the ticket page pickers', () => {
             ...routes().all,
             'POST /api/v1/tickets/list': () => page([{ ...ticket({ version: 3 }), epic_id: 'e-gone' }]),
         })
-        expect(await screen.findByLabelText('Epic')).toHaveDisplayValue('Unknown epic')
+        await expectProperty('Epic', 'Unknown epic')
     })
 })
 
@@ -130,7 +134,7 @@ describe('the side panel', () => {
         await user.click(await screen.findByRole('link', { name: /Write the outbox/ }))
         const panel = await screen.findByRole('complementary', { name: 'Ticket' })
         expect(history.get()).toBe('/?ticket=t-1')
-        expect(await within(panel).findByLabelText('Epic')).toBeInTheDocument()
+        expect(await within(panel).findByRole('button', { name: /^Epic:/ })).toBeInTheDocument()
         expect(within(panel).getByRole('link', { name: 'Open as a page' })).toHaveAttribute('href', '/tickets/t-1')
         // The list is still there behind it.
         expect(screen.getByRole('link', { name: /Write the outbox/ })).toBeInTheDocument()

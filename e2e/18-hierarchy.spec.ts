@@ -1,4 +1,4 @@
-import { connectionIs, expect, fields, newAccount, openProject, projectOf, serverCreate, signedInAs, test } from './support/app'
+import { connectionIs, expect, expectProperty, fields, newAccount, openProject, projectOf, serverCreate, signedInAs, test } from './support/app'
 
 // LAM-105: a sprint holding tickets from two epics, built from the UI, and a
 // ticket with no epic, sprint or milestone that shows up as a normal ticket.
@@ -84,7 +84,7 @@ test('a sprint made in the UI holds tickets from two epics, and a ticket with no
     await page.goto(`/tickets/${loose.id}`)
     await expect(page.getByLabel('Title')).toHaveValue('Loose end')
     for (const picker of ['Epic', 'Sprint', 'Milestone']) {
-        await expect(page.getByLabel(picker, { exact: true })).toHaveValue('')
+        await expectProperty(page, picker, 'None')
     }
     await expect(page.getByRole('alert')).toHaveCount(0)
 

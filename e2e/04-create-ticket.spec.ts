@@ -1,4 +1,4 @@
-import { expect, newAccount, openProject, projectOf, serverTickets, signedInAs, test } from './support/app'
+import { expect, expectProperty, newAccount, openProject, projectOf, serverTickets, signedInAs, test } from './support/app'
 
 test('a new ticket appears under its status, gets its real id, and survives a reload', async ({
     page,
@@ -22,7 +22,7 @@ test('a new ticket appears under its status, gets its real id, and survives a re
     await expect(page).toHaveURL(/\/tickets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     const id = page.url().split('/').pop()!
 
-    await expect(page.getByLabel('Status')).toHaveValue(world.statusIds[0])
+    await expectProperty(page, 'Status', world.statusNames[0])
     // Nothing waiting: neither the page's marker nor the rail's pending line.
     await expect(page.getByRole('button', { name: /waiting|needs? attention|needs? a decision/ })).toHaveCount(0)
 

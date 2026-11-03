@@ -150,12 +150,6 @@
   min-height: 17px;
 }
 
-.ticket__row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--s-16);
-}
-
 .ticket__hint {
   color: var(--text-3);
 }
@@ -207,37 +201,10 @@
   gap: var(--s-12);
 }
 
-.ticket__labels {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-8) var(--s-16);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
 
-.ticket__labels > .input__label {
-  flex-basis: 100%;
-  padding: 0;
-}
 
-.ticket__label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-8);
-}
 
-.ticket__label-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
 
-.ticket__none {
-  color: var(--text-3);
-}
 
 /* The ticket as a side panel beside the list (?ticket=<id>). */
 .ticket-panel {
@@ -654,5 +621,107 @@
   #comments-title,
   #activity-title {
     scroll-margin-top: calc(var(--topbar-h, 0px) + var(--ticket-sections-h, 0px) + var(--s-8));
+  }
+}
+
+/* The ticket as an issue view (LAM-211): a large title you type into, the text
+ * at full width, and the properties in a panel at the right, or, when the
+ * ticket is narrower than that (a phone, the side panel), a row of chips
+ * between the title and the text. */
+.ticket {
+  container: ticket / inline-size;
+}
+
+.ticket__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-16);
+  min-width: 0;
+}
+
+.ticket__head,
+.ticket__body {
+  display: grid;
+  gap: var(--s-16);
+  align-content: start;
+  min-width: 0;
+}
+
+.ticket__title {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--s-4) 0;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: 600 30px/38px var(--sans);
+  letter-spacing: -0.02em;
+}
+
+.ticket__title::placeholder {
+  color: var(--text-3);
+}
+
+.ticket__title:focus-visible {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+.ticket__title[aria-invalid='true'] {
+  border-bottom-color: var(--rust);
+}
+
+.ticket__title[readonly] {
+  background: transparent;
+}
+
+/* The text is the page: no box around it until it has focus. */
+.ticket__body .md-editor__box {
+  border-color: transparent;
+  background: transparent;
+}
+
+.ticket__body .md-editor__box:focus-within {
+  border-color: var(--border);
+}
+
+.ticket__body .md-editor__content {
+  min-height: 10em;
+}
+
+@container ticket (min-width: 44rem) {
+  .ticket__layout {
+    grid-template-columns: minmax(0, 1fr) var(--rail-w);
+    grid-template-rows: auto 1fr;
+    column-gap: var(--s-22);
+  }
+
+  .ticket__head {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .ticket__body {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .ticket__props {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: var(--s-16);
+    align-self: start;
+  }
+}
+
+/* The phone's own rule keeps inputs at 16px (no zoom on focus); the title is
+ * larger than that, so it says so with more weight than that rule has. */
+@media (max-width: 767px) {
+  .ticket input.ticket__title {
+    font-size: 24px;
+    line-height: 32px;
   }
 }

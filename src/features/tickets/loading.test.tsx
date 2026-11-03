@@ -131,14 +131,13 @@ describe('TicketDetail', () => {
         expect(screen.getByRole('status')).toHaveTextContent('Loading ticket…')
         expect(screen.getAllByRole('status')).toHaveLength(1)
 
-        // The placeholder form: seven labelled boxes where the fields go.
+        // The placeholder form: a title bar, the properties, and the body (LAM-211).
         const form = section.querySelector('.ticket__form') as HTMLElement
         expect(form.tagName).toBe('DIV')
         expect(form).toHaveAttribute('aria-hidden', 'true')
-        // Six fields (the description is the editor, which is not an `.input`),
-        // and the two of the inline new-label form (LAM-104).
-        expect(form.querySelectorAll('.input')).toHaveLength(8)
-        expect(form.querySelector('.ticket__row')).not.toBeNull()
+        expect(form.querySelector('.ticket__layout > .ticket__head .skeleton')).not.toBeNull()
+        expect(form.querySelectorAll('.ticket__props .skeleton').length).toBeGreaterThan(0)
+        expect(form.querySelector('.ticket__layout > .ticket__body .skeleton')).not.toBeNull()
         expect(form.querySelector('.ticket__danger .skeleton')).not.toBeNull()
 
         // Nothing real, and not the miss either. The way back is not a ticket.

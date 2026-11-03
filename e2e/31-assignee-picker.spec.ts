@@ -1,4 +1,4 @@
-import { connectionIs, expect, fields, newAccount, openProject, openTicket, projectOf, serverCreate, serverTicket, signedInAs, test } from './support/app'
+import { connectionIs, expect, expectProperty, fields, newAccount, openProject, openTicket, pickProperty, projectOf, serverCreate, serverTicket, signedInAs, test } from './support/app'
 
 // LAM-128: a ticket is assigned to any workspace member from its page; the pick
 // survives a reload, is named on the list, and the assignee finds it under
@@ -20,14 +20,13 @@ test('assign a ticket to a second user, reload, and the assignee finds it in the
     await openTicket(page, ticket.id, 'Hand me over')
     await connectionIs(page, 'Connected')
 
-    const picker = page.getByLabel('Assignee')
-    await expect(picker).toHaveValue('')
-    await picker.selectOption({ label: bob.displayName })
+    await expectProperty(page, 'Assignee', 'Unassigned')
+    await pickProperty(page, 'Assignee', bob.displayName)
 
     await expect.poll(async () => (await serverTicket(alice, ticket.id))?.assignee_id).toBe(bob.accountId)
     await page.reload()
     await expect(page.getByLabel('Title')).toHaveValue('Hand me over')
-    await expect(page.getByLabel('Assignee')).toHaveValue(bob.accountId)
+    await expectProperty(page, 'Assignee', bob.displayName)
 
     // The list names the assignee.
     await openProject(page, world)
@@ -50,6 +49,6 @@ test('assign a ticket to a second user, reload, and the assignee finds it in the
 
     // Unassigning sticks too.
     await openTicket(page, ticket.id, 'Hand me over')
-    await page.getByLabel('Assignee').selectOption({ label: 'Unassigned' })
+    await pickProperty(page, 'Assignee', 'Unassigned')
     await expect.poll(async () => (await serverTicket(alice, ticket.id))?.assignee_id).toBeNull()
 })
