@@ -1,0 +1,50 @@
+.aspect-summary {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  background: var(--bg-raised);
+  table-layout: fixed;
+}
+
+.aspect-summary th,
+.aspect-summary td {
+  padding: var(--s-8) var(--s-12);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.aspect-summary tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+.aspect-summary thead th {
+  color: var(--text-3);
+}
+
+.aspect-summary thead th:first-child,
+.aspect-summary__label {
+  width: 34%;
+  border-right: 1px solid var(--border);
+}
+
+.aspect-summary__label {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.aspect-summary__value {
+  color: var(--text-1);
+}
+
+.aspect-summary__line {
+  display: block;
+}
+
+.aspect-summary__empty {
+  color: var(--text-3);
+}
