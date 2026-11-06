@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/Select'
 import { SkeletonBox } from '@/components/ui/Skeleton'
 import { useNarrowScreen } from '@/components/ui/useNarrowScreen'
 import { getAspectType, listAspectTypes, type AspectField, type AspectType } from '@/features/aspects/api'
+import { AspectSummary } from '@/features/aspects/components/AspectSummary'
 import { bodyForConversion, createAspectTypeFeed, orderedFields } from '@/features/aspects/fields'
 import {
     discard,
@@ -403,6 +404,7 @@ function DocumentEditor(props: DocumentEditorProps) {
                     <Show when={feed.problem()}>
                         {(message) => <Banner hue="rust">{message()}</Banner>}
                     </Show>
+                    <AspectSummary fields={fields()} body={props.doc.body} />
                     <For each={fields()} keyed={(field) => field.id}>
                         {(field) => (
                             <AspectFieldEditor

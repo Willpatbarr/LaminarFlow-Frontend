@@ -8,6 +8,7 @@ import { getAspectType, type AspectField, type AspectType } from './api'
 ├─ out ───────────────────────────────────────────
 │      orderedFields(type)              the type's fields by (position, label), as the server orders them
 │      bodyForConversion(body, type)    the body a normal document has once it is an aspect
+│      summaryLines(markdown)           a field's value as plain lines, for the summary table
 │      createAspectTypeFeed(id, again)  { type, missing, problem }, refetched when `again` changes,
 │                                       when the tab is shown again, and every POLL ms
 */
@@ -32,6 +33,28 @@ export function orderedFields(type: Pick<AspectType, 'fields'> | null | undefine
 export function bodyForConversion(content: string, type: Pick<AspectType, 'fields'>): Record<string, string> | null {
     const first = orderedFields(type)[0]
     return first ? { [first.id]: content } : null
+}
+
+/** A field's stored markdown as the lines the summary table shows: one per
+ *  non-blank line, with the markup that only means "this is a list item" or
+ *  "this is bold" taken off, so `- bosses` reads as `bosses`. */
+export function summaryLines(markdown: string): string[] {
+    return markdown
+        .split(/\r?\n/)
+        .map((line) =>
+            line
+                .replace(/\\$/, '') // a hard break
+                .replace(/^\s*(?:>\s*)+/, '') // blockquote
+                .replace(/^\s*#{1,6}\s+/, '') // heading
+                .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, '') // list item, task box
+                .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // image -> alt
+                .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // link -> its text
+                .replace(/(\*\*|__|~~|`)(.+?)\1/g, '$2')
+                .replace(/(^|[^\w*])[*_](\S(?:.*?\S)?)[*_](?=$|[^\w*])/g, '$1$2')
+                .replace(/&nbsp;/g, ' ')
+                .trim(),
+        )
+        .filter((line) => line !== '')
 }
 
 /** One aspect type, fetched and kept fresh. `again` is anything that should

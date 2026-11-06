@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { bodyForConversion, orderedFields } from './fields'
+import { bodyForConversion, orderedFields, summaryLines } from './fields'
 
 const f = (id: string, label: string, position: number) => ({ id, label, position })
 
@@ -31,5 +31,30 @@ describe('bodyForConversion', () => {
     it('is null when the type has no fields', () => {
         expect(bodyForConversion('hello', { fields: [] })).toBeNull()
         expect(bodyForConversion('hello', { fields: null })).toBeNull()
+    })
+})
+
+describe('summaryLines', () => {
+    it('puts each non-blank line on its own line', () => {
+        expect(summaryLines('bosses\n\nteammates\n\nenvironment')).toEqual(['bosses', 'teammates', 'environment'])
+    })
+
+    it('takes off list, heading and emphasis markup', () => {
+        expect(summaryLines('# Who\n- **bosses**\n* teammates\n1. [env](https://x.y)\n- [ ] _later_')).toEqual([
+            'Who',
+            'bosses',
+            'teammates',
+            'env',
+            'later',
+        ])
+    })
+
+    it('has nothing for an empty value', () => {
+        expect(summaryLines('')).toEqual([])
+        expect(summaryLines('\n  \n')).toEqual([])
+    })
+
+    it('drops a hard-break backslash and keeps snake_case words', () => {
+        expect(summaryLines('first\\\nsnake_case_name')).toEqual(['first', 'snake_case_name'])
     })
 })
