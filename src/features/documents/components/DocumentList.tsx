@@ -197,6 +197,23 @@ export function DocumentList(props: DocumentListProps) {
             </div>
             <PageActions>
                 <div class="doclist__actions">
+                    {/* New document is the page's main action, so it keeps the right edge
+                        (LAM-201); New folder sits before it. */}
+                    <Button
+                        variant="secondary"
+                        disabled={busy()}
+                        disabledReason={
+                            denial('ticket:write', 'create folders') ??
+                            (treeProject() ? undefined : 'Pick a project first: folders belong to a project')
+                        }
+                        onClick={() => {
+                            const id = treeProject()
+                            if (id) setDialog({ kind: 'new', projectId: id, parentId: null })
+                        }}
+                    >
+                        <Icon name="folder-add" size={16} />
+                        New folder
+                    </Button>
                     {/* A split button: New document, and beside it a menu of aspect
                         types to start one from. The menu is shown whenever there is
                         a type to pick, so nothing is hidden, only folded in. */}
@@ -240,21 +257,6 @@ export function DocumentList(props: DocumentListProps) {
                             </Popover>
                         </Show>
                     </div>
-                    <Button
-                        variant="secondary"
-                        disabled={busy()}
-                        disabledReason={
-                            denial('ticket:write', 'create folders') ??
-                            (treeProject() ? undefined : 'Pick a project first: folders belong to a project')
-                        }
-                        onClick={() => {
-                            const id = treeProject()
-                            if (id) setDialog({ kind: 'new', projectId: id, parentId: null })
-                        }}
-                    >
-                        <Icon name="folder-add" size={16} />
-                        New folder
-                    </Button>
                 </div>
             </PageActions>
             <FolderDialogs dialog={dialog()} onClose={() => setDialog(null)} />

@@ -138,6 +138,9 @@ describe('folders elsewhere', () => {
         await screen.findByRole('link', { name: 'Auth spec' })
         expect(screen.getByText('Specs / API')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'New folder' })).toBeDisabled()
+        // New document keeps the right edge of the header (LAM-201): New folder comes before it.
+        const actions = screen.getByRole('button', { name: 'New folder' }).closest('.doclist__actions')!
+        expect(actions.lastElementChild).toHaveClass('doclist__split')
     })
 
     it('the document page has a Folder picker, and a project change takes it out of its folder', async () => {
