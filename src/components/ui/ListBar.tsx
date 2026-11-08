@@ -33,11 +33,13 @@ type ListBarProps = {
     actions?: JSX.Element
     /** A full-width row under everything (a progress bar). */
     below?: JSX.Element
+    /** Attributes and handlers for the bar itself: a list that lets its bars be dragged. */
+    rowProps?: JSX.HTMLAttributes<HTMLLIElement>
 }
 
 export function ListBar(props: ListBarProps) {
     return (
-        <li class="list-bar">
+        <li class="list-bar" {...props.rowProps}>
             <div class="list-bar__text">
                 <Show when={props.href} fallback={<span class="list-bar__title t-body">{props.title}</span>}>
                     {(href) => (

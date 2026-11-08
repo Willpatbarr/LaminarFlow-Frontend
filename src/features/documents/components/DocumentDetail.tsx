@@ -24,6 +24,7 @@ import {
     retry,
     sync,
     updateDocument,
+    foldersForProject,
     type Doc,
 } from '@/sync'
 import type { EntryError } from '@/sync'
@@ -43,7 +44,9 @@ import { ReviewableField, type ReviewContext } from '@/features/review/Reviewabl
 import { createAutosave } from '../autosave'
 import { CONTENT_KEY, TITLE_MAX } from '../content'
 import { createReviewTarget } from '../reviewTarget'
+import { destinations, TOP_LEVEL } from '../folderTree'
 import { DocumentConflictPanel } from './DocumentConflictPanel'
+import { moveDocument } from './FolderTree'
 import { PageLayout, PageRail } from '@/components/ui/PageLayout'
 import { Icon } from '@/components/ui/icons/Icon'
 import './documents.css'
@@ -330,7 +333,12 @@ function DocumentEditor(props: DocumentEditorProps) {
                         onChange={(value) => {
                             const next = value === '' ? null : value
                             if (next !== props.doc.project_id) {
-                                void updateDocument(id(), { project_id: next }, { base: props.doc.version, was: { project_id: props.doc.project_id } })
+                                // Its folder is one of the project it leaves, so it comes out of it.
+                                void updateDocument(
+                                    id(),
+                                    { project_id: next, folder_id: null },
+                                    { base: props.doc.version, was: { project_id: props.doc.project_id, folder_id: props.doc.folder_id ?? null } },
+                                )
                             }
                         }}
                         options={[
@@ -340,6 +348,17 @@ function DocumentEditor(props: DocumentEditorProps) {
                                 .map((project) => ({ value: project.id, label: project.name })),
                         ]}
                     />
+                    <Show when={props.doc.project_id}>
+                        {(projectId) => (
+                            <Select
+                                label="Folder"
+                                value={props.doc.folder_id ?? TOP_LEVEL}
+                                disabled={locked()}
+                                onChange={(value) => moveDocument(props.doc, value === TOP_LEVEL ? null : value)}
+                                options={destinations(foldersForProject(projectId()))}
+                            />
+                        )}
+                    </Show>
                     <Show when={isAspect()}>
                         <span class="document__aspect-name t-meta">Aspect: {feed.type()?.name ?? 'loading its fields…'}</span>
                     </Show>

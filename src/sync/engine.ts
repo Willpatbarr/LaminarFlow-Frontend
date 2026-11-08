@@ -291,6 +291,23 @@ const RELEASES: Record<'epic' | 'milestone' | 'label' | 'sprint', Release> = {
         ticket.sprint_ids?.includes(gone) ? { ...ticket, sprint_ids: ticket.sprint_ids.filter((id) => id !== gone) } : ticket,
 }
 
+// What names a document folder: a document by `folder_id`, a folder by `parent_id`
+// (the folder it is inside). A deleted folder leaves both one level up, in its own
+// parent; a folder made here leaves both naming its temporary id until it is answered.
+type InFolder = { folder_id?: string | null; parent_id?: string | null }
+const FOLDER_REFS = [
+    ['document', 'folder_id'],
+    ['document_folder', 'parent_id'],
+] as const
+
+/** The temporary folder id a queued write names, if any: it waits for that create. */
+function waitsForFolder(entry: OutboxEntry): boolean {
+    if (entry.kind !== 'create' && entry.kind !== 'update') return false
+    const payload = entry.payload as InFolder
+    const ref = entry.entity === 'document' ? payload.folder_id : entry.entity === 'document_folder' ? payload.parent_id : null
+    return !!ref && isTempId(ref)
+}
+
 export function createSyncEngine(deps: EngineDeps): SyncEngine {
     const { db, accountId } = deps
     const remote = createRemote(deps.api)
@@ -432,13 +449,24 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     const swapped = new Map<string, string>()
     const live = (id: string) => swapped.get(id) ?? id
     function unalias<T extends object>(patch: T): T {
-        const filed = patch as Filed
-        if (!filed.epic_id && !filed.milestone_id && !filed.label_ids && !filed.sprint_ids) return patch
+        const filed = patch as Filed & InFolder
+        if (
+            !filed.epic_id &&
+            !filed.milestone_id &&
+            !filed.label_ids &&
+            !filed.sprint_ids &&
+            !filed.folder_id &&
+            !filed.parent_id
+        ) {
+            return patch
+        }
         const out = { ...filed }
         if (out.epic_id) out.epic_id = live(out.epic_id)
         if (out.milestone_id) out.milestone_id = live(out.milestone_id)
         if (out.label_ids) out.label_ids = out.label_ids.map(live)
         if (out.sprint_ids) out.sprint_ids = out.sprint_ids.map(live)
+        if (out.folder_id) out.folder_id = live(out.folder_id)
+        if (out.parent_id) out.parent_id = live(out.parent_id)
         return out as T
     }
 
@@ -594,9 +622,13 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         const found = await db.write(async (tx) => {
             id = live(id)
             const { rows, server: copies } = tables(tx, entity)
-            if (!(await rows.get(id))) return false
+            const held = await rows.get(id)
+            if (!held) return false
             const entries = await tx.outbox.forEntity(id)
             if (entries.at(-1)?.kind === 'archive') return false
+            // What a deleted folder held moves up into its parent now, as the server will
+            // make it: the tree on screen is right before the delete is even sent.
+            if (entity === 'document_folder') await refileFolder(tx, id, (held as InFolder).parent_id ?? null)
             const only = entries.length === 1 ? entries[0] : undefined
             if (only && only.kind === 'create' && only.attempts === 0 && only.id !== inFlight) {
                 // The server has never heard of this one, so there is
@@ -701,6 +733,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         }
         await copies.put(server)
         if (entry.entity in RELEASES && from !== server.id) await renameFiled(tx, entry.entity as keyof typeof RELEASES, from, server.id)
+        if (entry.entity === 'document_folder' && from !== server.id) await refileFolder(tx, from, server.id)
         await rebuild(tx, entry.entity, server.id)
         return from === server.id ? {} : { swap: { from, to: server.id } }
     }
@@ -842,6 +875,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                     // The id leaves the tickets that had it, as the feed's
                     // `<name>.deleted` would make it.
                     if (entry.entity in RELEASES) await release(tx, entry.entity as keyof typeof RELEASES, entry.entity_id)
+                    if (entry.entity === 'document_folder') await refileFolder(tx, entry.entity_id, await folderParent(tx, entry.entity_id))
                     await archived(tx, entry, entry.base_version === null ? null : entry.base_version + 1)
                     return {}
 
@@ -1046,6 +1080,33 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         )
     }
 
+    // Every document and folder that names folder `from` - both copies, and what is
+    // queued for them - names `to` instead: the folder's parent when it is deleted
+    // (null is the project's top level), its real id when its create is answered. No
+    // version moves: for a delete the server's own announcements follow, and for an
+    // id swap nothing changed on the server at all.
+    async function refileFolder(tx: SyncTx, from: string, to: string | null) {
+        for (const [entity, key] of FOLDER_REFS) {
+            const { rows, server: copies } = tables(tx, entity)
+            for (const table of [copies, rows]) {
+                for (const row of (await table.all()) as Record<string, unknown>[]) {
+                    if (row[key] === from) await table.put({ ...row, [key]: to })
+                }
+            }
+            for (const entry of await tx.outbox.all()) {
+                if (entry.entity !== entity || entry.kind === 'archive') continue
+                const payload = entry.payload as Record<string, unknown>
+                if (payload[key] === from) await tx.outbox.put({ ...entry, payload: { ...payload, [key]: to } } as OutboxEntry)
+            }
+        }
+    }
+
+    async function folderParent(tx: SyncTx, id: string): Promise<string | null> {
+        const { rows, server: copies } = tables(tx, 'document_folder')
+        const held = (await copies.get(id)) ?? (await rows.get(id))
+        return held?.parent_id ?? null
+    }
+
     async function rewriteFiled(tx: SyncTx, clear: Release, gone: string) {
         for (const table of [tx.serverTickets, tx.tickets]) {
             for (const ticket of await table.all()) {
@@ -1077,7 +1138,8 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
             // Whether or not this device held the resource, it may hold tickets
             // that name it.
             if (entity in RELEASES) await release(tx, entity as keyof typeof RELEASES, id)
-            if (!server && !(await rows.get(id))) return entity in RELEASES
+            if (entity === 'document_folder') await refileFolder(tx, id, (row as InFolder).parent_id ?? null)
+            if (!server && !(await rows.get(id))) return entity in RELEASES || entity === 'document_folder'
             await copies.delete(id)
             // With unsent changes the row stays, and sending them is what
             // reports the archive (409).
@@ -1251,6 +1313,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
                 // A ticket that names a label, epic, sprint or milestone the
                 // server has not heard of yet waits for that create, which was
                 // queued before it.
+                // A document filed in a folder made here, or a folder made inside one, waits
+                // for that folder's create the same way.
+                if (waitsForFolder(head)) continue
                 if (head.entity === 'ticket' && head.kind !== 'archive' && head.kind !== 'unarchive') {
                     const { payload } = head
                     if (
@@ -1434,6 +1499,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         // A create that will never be sent: nothing can keep its temporary id.
         if (entry.kind === 'create' && entry.entity in RELEASES) {
             await release(tx, entry.entity as keyof typeof RELEASES, entry.entity_id)
+        }
+        if (entry.kind === 'create' && entry.entity === 'document_folder') {
+            await refileFolder(tx, entry.entity_id, (entry.payload as InFolder).parent_id ?? null)
         }
     }
 

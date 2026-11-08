@@ -1,0 +1,93 @@
+/* Document folders: the list's bars, nested. Tokens only. */
+.folder-tree {
+  display: grid;
+  gap: var(--s-8);
+}
+
+/* A folder is a bar like a document's, its name a button that opens it. */
+.folder-row__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-6);
+  padding: 0;
+  border: none;
+  background: none;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.folder-row__toggle > svg {
+  flex: none;
+  color: var(--text-2);
+}
+
+.folder-row:hover {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+}
+
+/* What a folder holds sits under it, indented, with a rule down the side so the
+ * eye can follow which folder it belongs to. */
+.folder-children {
+  list-style: none;
+  margin: 0;
+  padding-inline-start: var(--s-16);
+  margin-inline-start: var(--s-12);
+  border-inline-start: 1px solid var(--border);
+}
+
+.folder-children__empty {
+  padding: var(--s-8) var(--s-12);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-card);
+  color: var(--text-2);
+}
+
+/* A drop target under the pointer. */
+.folder-row[data-over='true'],
+.folder-tree__top[data-over='true'] {
+  border-color: var(--accent);
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+}
+
+.folder-tree__top {
+  padding: var(--s-12);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-card);
+  color: var(--text-2);
+  text-align: center;
+}
+
+.list-bar[draggable='true'] {
+  cursor: grab;
+}
+
+@media (max-width: 767px) {
+  /* A folder's row is short: its count and menu stay on the name's line. */
+  .folder-row {
+    flex-wrap: nowrap;
+  }
+
+  .folder-row > .list-bar__text {
+    flex: 1 1 0;
+  }
+
+  .folder-row > .list-bar__meta {
+    flex: none;
+  }
+
+  /* A document's ⋯ sits beside its title, its chips on the line below, rather
+   * than the menu taking a line of its own. */
+  .doclist .list-bar:not(.folder-row) > .list-bar__actions {
+    order: 1;
+  }
+
+  .doclist .list-bar:not(.folder-row) > .list-bar__meta {
+    order: 2;
+  }
+
+  .folder-children {
+    padding-inline-start: var(--s-8);
+    margin-inline-start: var(--s-6);
+  }
+}

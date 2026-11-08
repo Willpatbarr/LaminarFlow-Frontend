@@ -2,6 +2,7 @@ import type { EntityName } from '../types'
 import { boardEntity } from './board'
 import { commentEntity } from './comment'
 import { documentEntity } from './document'
+import { folderEntity } from './folder'
 import { epicEntity, milestoneEntity, sprintEntity } from './hierarchy'
 import { labelEntity } from './label'
 import type { Entity, LooseRules } from './entity'
@@ -19,6 +20,7 @@ import { ticketEntity } from './ticket'
 export const ENTITIES: readonly Entity[] = [
     ticketEntity,
     documentEntity,
+    folderEntity,
     statusEntity,
     boardEntity,
     epicEntity,

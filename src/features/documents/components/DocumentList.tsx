@@ -11,11 +11,14 @@ import { Popover } from '@/components/ui/Popover'
 import { RowMenuItem } from '@/components/ui/RowMenu'
 import { Select } from '@/components/ui/Select'
 import { RelativeTime } from '@/features/tickets/components/RelativeTime'
-import { isLoading, sync, type Doc } from '@/sync'
+import { foldersForProject, isLoading, sync, type Doc } from '@/sync'
 
+import { pathLabel } from '../folderTree'
 import { makeDocument } from '../newDocument'
 import { filteredProjectId, NO_PROJECT, projectFilterOf, withProjectFilter } from '../projectFilter'
+import { DocumentMenu, FolderDialogs, FolderTree, type FolderDialog } from './FolderTree'
 import './documents.css'
+import './folders.css'
 
 type DocumentListProps = {
     /** Fixes the list to one project (the project page's Documents tab): no project filter. */
@@ -44,6 +47,7 @@ export function DocumentList(props: DocumentListProps) {
     const [type, setType] = createSignal(ALL)
     const [aspect, setAspect] = createSignal(ALL)
     const [creating, setCreating] = createSignal(false)
+    const [dialog, setDialog] = createSignal<FolderDialog | null>(null)
     const [aspectNames, setAspectNames] = createSignal<Record<string, string>>({})
     const busy = () => props.loading || isLoading()
 
@@ -68,6 +72,12 @@ export function DocumentList(props: DocumentListProps) {
     )
 
     const projectId = () => props.projectId ?? (project() === ALL ? null : project())
+    // One project's documents are shown in their folders; every project's, as one list.
+    const treeProject = () => props.projectId ?? filteredProjectId(location.search)
+    const projectFolders = createMemo(() => {
+        const id = treeProject()
+        return id ? foldersForProject(id) : []
+    })
     const projectName = (id: string | null) => sync.projects.find((candidate) => candidate.id === id)?.name
 
     const shown = createMemo(() =>
@@ -107,11 +117,34 @@ export function DocumentList(props: DocumentListProps) {
         setAspect(ALL)
     }
 
-    async function create(aspectTypeId: string | null = null) {
+    // The facts beside a document: where it is filed, what kind it is, when it changed.
+    // In a project's tree the folder is where the row sits, so it is not said again.
+    const meta = (document: Doc) => (
+        <>
+            <Show when={props.projectId === undefined && !treeProject()}>
+                <MetaChip>{projectName(document.project_id) ?? 'Team-wide'}</MetaChip>
+            </Show>
+            <Show when={!treeProject() && document.folder_id && pathLabel(document.folder_id, sync.folders)}>
+                {(path) => (
+                    <MetaChip>
+                        <Icon name="folder" size={12} /> {path()}
+                    </MetaChip>
+                )}
+            </Show>
+            <MetaChip>
+                {document.type === 'aspect' ? (aspectNames()[document.aspect_type_id ?? ''] ?? 'Aspect') : 'Document'}
+            </MetaChip>
+            <MetaChip>
+                Updated <RelativeTime at={document.updated_at} />
+            </MetaChip>
+        </>
+    )
+
+    async function create(aspectTypeId: string | null = null, folderId: string | null = null) {
         setCreating(true)
         try {
             const target = props.projectId ?? filteredProjectId(location.search)
-            await makeDocument(navigate, { aspectTypeId, projectId: target })
+            await makeDocument(navigate, { aspectTypeId, projectId: target, folderId })
         } finally {
             setCreating(false)
         }
@@ -207,8 +240,24 @@ export function DocumentList(props: DocumentListProps) {
                             </Popover>
                         </Show>
                     </div>
+                    <Button
+                        variant="secondary"
+                        disabled={busy()}
+                        disabledReason={
+                            denial('ticket:write', 'create folders') ??
+                            (treeProject() ? undefined : 'Pick a project first: folders belong to a project')
+                        }
+                        onClick={() => {
+                            const id = treeProject()
+                            if (id) setDialog({ kind: 'new', projectId: id, parentId: null })
+                        }}
+                    >
+                        <Icon name="folder-add" size={16} />
+                        New folder
+                    </Button>
                 </div>
             </PageActions>
+            <FolderDialogs dialog={dialog()} onClose={() => setDialog(null)} />
             <Show when={busy()}>
                 <p class="visually-hidden" role="status">
                     Loading documents…
@@ -216,7 +265,7 @@ export function DocumentList(props: DocumentListProps) {
             </Show>
             <Show when={!busy()}>
                 <Show
-                    when={shown().length > 0}
+                    when={shown().length > 0 || (projectFolders().length > 0 && type() === ALL && aspect() === ALL)}
                     fallback={
                         <div class="doclist__empty">
                             <Show
@@ -237,31 +286,41 @@ export function DocumentList(props: DocumentListProps) {
                         </div>
                     }
                 >
-                    <ListBars label="Documents">
-                        <For each={shown()} keyed={(document) => document.id}>
-                            {(document) => (
-                                <ListBar
-                                    href={`/documents/${document().id}`}
-                                    title={docTitle(document())}
-                                    meta={
-                                        <>
-                                            <Show when={props.projectId === undefined}>
-                                                <MetaChip>{projectName(document().project_id) ?? 'Team-wide'}</MetaChip>
-                                            </Show>
-                                            <MetaChip>
-                                                {document().type === 'aspect'
-                                                    ? (aspectNames()[document().aspect_type_id ?? ''] ?? 'Aspect')
-                                                    : 'Document'}
-                                            </MetaChip>
-                                            <MetaChip>
-                                                Updated <RelativeTime at={document().updated_at} />
-                                            </MetaChip>
-                                        </>
-                                    }
-                                />
-                            )}
-                        </For>
-                    </ListBars>
+                    <Show
+                        when={treeProject()}
+                        fallback={
+                            <ListBars label="Documents">
+                                <For each={shown()} keyed={(document) => document.id}>
+                                    {(document) => (
+                                        <ListBar
+                                            href={`/documents/${document().id}`}
+                                            title={docTitle(document())}
+                                            meta={meta(document())}
+                                            actions={
+                                                <DocumentMenu
+                                                    document={document()}
+                                                    title={docTitle(document())}
+                                                    onDialog={setDialog}
+                                                />
+                                            }
+                                        />
+                                    )}
+                                </For>
+                            </ListBars>
+                        }
+                    >
+                        {(id) => (
+                            <FolderTree
+                                projectId={id()}
+                                documents={shown()}
+                                filtering={type() !== ALL || aspect() !== ALL}
+                                title={docTitle}
+                                meta={meta}
+                                onDialog={setDialog}
+                                onNewDocument={(folderId) => void create(null, folderId)}
+                            />
+                        )}
+                    </Show>
                 </Show>
             </Show>
         </div>

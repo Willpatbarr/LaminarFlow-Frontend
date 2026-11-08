@@ -67,6 +67,10 @@ import type {
     Ticket,
     TicketEntry,
     DocEntry,
+    DocFolder,
+    DocFolderEntry,
+    DocFolderFields,
+    NewDocFolder,
     TicketFields,
     TicketSyncState,
 } from './types'
@@ -89,6 +93,7 @@ import type {
 ║      boardById, boardsForProject, boardHead, updateBoard   boards and their columns (LAM-107)
 ║      documentById, documentSyncState, documentHead, createDocument, updateDocument,
 ║      archiveDocument, unarchiveDocument           the same, for documents (LAM-125)
+║      foldersForProject, folderById, folderHead, createFolder, updateFolder, deleteFolder   document folders
 ║      retry, discard, keepAsNew, resume, rehydrate   for the error and conflict screens
 ║      resumeFor, retryNow                         after a re-login (same account only); skip the backoff
 ║      ticketHead, archiveOnHold, unsyncedCount    a ticket's queue head; whether its archive is parked; how many changes are unsent
@@ -134,6 +139,8 @@ export type SyncState = {
     tickets: Ticket[]
     /** Every document, as the user should see it: unsent edits included. */
     documents: Doc[]
+    /** Every folder of every project's documents, unsent ones included. */
+    folders: DocFolder[]
     /** Oldest first. Empty means everything has reached the server. */
     outbox: OutboxEntry[]
     /** The project the user last picked, if it still exists. */
@@ -164,6 +171,7 @@ function empty(): SyncState {
         comments: [],
         tickets: [],
         documents: [],
+        folders: [],
         outbox: [],
         projectId: null,
         aliases: {},
@@ -216,6 +224,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
                 draft.sprints.find((sprint) => sprint.id === from) ??
                 draft.milestones.find((milestone) => milestone.id === from) ??
                 draft.savedViews.find((view) => view.id === from) ??
+                draft.folders.find((folder) => folder.id === from) ??
                 draft.labels.find((label) => label.id === from)
             if (row) row.id = to
         }
@@ -241,6 +250,7 @@ function refresh(running: Running, change: SyncChange): Promise<void> {
             reconcile(snapshot.comments, 'id')(draft.comments)
             reconcile(snapshot.tickets, 'id')(draft.tickets)
             reconcile(snapshot.documents, 'id')(draft.documents)
+            reconcile(snapshot.folders ?? [], 'id')(draft.folders)
             reconcile(snapshot.outbox, 'id')(draft.outbox)
         })
         flush()
@@ -905,6 +915,46 @@ export async function createDocument(document: NewDoc): Promise<Doc> {
 
 export async function updateDocument(id: string, patch: Partial<DocFields>, options?: UpdateOptions): Promise<boolean> {
     const found = await running().engine.updateDocument(resolveId(id), patch, options)
+    await caughtUp()
+    return found
+}
+
+/** A project's document folders, by name. */
+export function foldersForProject(projectId: string): DocFolder[] {
+    return state.folders
+        .filter((folder) => folder.project_id === projectId)
+        .toSorted((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id))
+}
+
+export function folderById(id: string): DocFolder | undefined {
+    const resolved = resolveId(id)
+    return state.folders.find((folder) => folder.id === resolved)
+}
+
+/** The entry at the head of this folder's queue, or undefined when it is in sync. */
+export function folderHead(id: string): DocFolderEntry | undefined {
+    const head = queueHeads().get(resolveId(id))
+    return head?.entity === 'document_folder' ? head : undefined
+}
+
+/** Makes a folder. Resolves with the row under its temporary id, which a document
+ *  can be filed in at once: the engine sends the folder first and swaps the id. */
+export async function createFolder(folder: NewDocFolder): Promise<DocFolder> {
+    const created = await running().engine.create('document_folder', plain(folder))
+    await caughtUp()
+    return created
+}
+
+/** Renames a folder, or moves it (`parent_id`; null is the project's top level). */
+export async function updateFolder(id: string, patch: Partial<DocFolderFields>): Promise<boolean> {
+    const found = await running().engine.update('document_folder', resolveId(id), plain(patch))
+    await caughtUp()
+    return found
+}
+
+/** Deletes a folder. Nothing in it is deleted: its documents and folders move up into its parent. */
+export async function deleteFolder(id: string): Promise<boolean> {
+    const found = await running().engine.archive('document_folder', resolveId(id))
     await caughtUp()
     return found
 }

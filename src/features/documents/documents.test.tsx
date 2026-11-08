@@ -166,6 +166,7 @@ describe('a document\'s project (LAM-138)', () => {
         await user.tab()
         await waitFor(() => expect(puts).toHaveLength(1))
         expect('project_id' in puts[0].body).toBe(false)
+        expect('folder_id' in puts[0].body).toBe(false)
     })
 
     it('New document from "All projects" is filed team-wide, under the team', async () => {

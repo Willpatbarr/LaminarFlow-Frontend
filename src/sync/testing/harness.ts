@@ -132,6 +132,7 @@ export function doc(overrides: Partial<Doc> = {}): Doc {
         aspect_type_id: null,
         team_id: null,
         project_id: 'p-1',
+        folder_id: null,
         body: { content: 'Hello' },
         version: 1,
         created_at: '2025-12-30T00:00:00Z',
@@ -176,12 +177,20 @@ export function page(items: unknown[], next_cursor: string | null = null) {
     return ok({ items, next_cursor, has_more: next_cursor !== null })
 }
 
-/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`, and the epics, sprints, milestones, labels and saved views in `hierarchy` (none by default). */
+/** The list routes, answering with one team, one project, `tickets`, `documents` and (none by default) `boards`, and the epics, sprints, milestones, labels, saved views, comments and document folders in `hierarchy` (none by default). */
 export function listRoutes(
     tickets: Ticket[] = [],
     documents: Doc[] = [],
     boards: unknown[] = [],
-    hierarchy: { epics?: unknown[]; sprints?: unknown[]; milestones?: unknown[]; labels?: unknown[]; savedViews?: unknown[]; comments?: unknown[] } = {},
+    hierarchy: {
+        epics?: unknown[]
+        sprints?: unknown[]
+        milestones?: unknown[]
+        labels?: unknown[]
+        savedViews?: unknown[]
+        comments?: unknown[]
+        folders?: unknown[]
+    } = {},
 ) {
     return {
         'POST /api/v1/epics/list': () => page(hierarchy.epics ?? []),
@@ -190,6 +199,7 @@ export function listRoutes(
         'POST /api/v1/labels/list': () => page(hierarchy.labels ?? []),
         'POST /api/v1/saved-views/list': () => page(hierarchy.savedViews ?? []),
         'POST /api/v1/comments/list': () => page(hierarchy.comments ?? []),
+        'POST /api/v1/document-folders/list': () => page(hierarchy.folders ?? []),
         'POST /api/v1/boards/list': () => page(boards),
         'POST /api/v1/teams/list': () => page([TEAM]),
         'POST /api/v1/projects/list': () => page([PROJECT]),
