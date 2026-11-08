@@ -27,6 +27,8 @@ export type Names = {
   label(id: string): string | undefined;
   milestone(id: string): string | undefined;
   aspectType(id: string): string | undefined;
+  /** A document folder's name. Optional: a caller with no folders says "a folder". */
+  folder?(id: string): string | undefined;
 };
 
 export function actorName(entry: ActivityEntry, names: Names): string {
@@ -103,6 +105,10 @@ export function describe(entry: ActivityEntry, names: Names): string {
             : `${who} set the milestone to ${lookup(names.milestone, after, "one that was removed")}`;
         case "fields":
           return `${who} changed some of this document's fields`;
+        case "folder":
+          return after === null
+            ? `${who} moved this out of its folder`
+            : `${who} moved this into the folder ${lookup((id) => names.folder?.(id), after, "one that was removed")}`;
         default:
           return `${who} changed this ${thing}`;
       }

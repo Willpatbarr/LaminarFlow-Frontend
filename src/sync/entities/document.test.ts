@@ -67,7 +67,8 @@ describe('create', () => {
         expect((await snapshot(db)).outbox).toEqual([])
         expect(swaps).toEqual([{ from: 'tmp_1', to: 'd-9' }])
         // What the server was sent: the create, as the endpoint takes it.
-        expect(await bodyOf(sent!)).toEqual(NEW)
+        // A new document goes at its project's top level unless a folder is given.
+        expect(await bodyOf(sent!)).toEqual({ ...NEW, folder_id: null })
     })
 
     it('uses the entity\'s own temporary id prefix when none is injected', async () => {
@@ -125,7 +126,7 @@ describe('create', () => {
         net.goOnline()
         await engine.idle()
 
-        expect(sent).toEqual([{ ...NEW, body: { content: 'Edited offline' } }])
+        expect(sent).toEqual([{ ...NEW, folder_id: null, body: { content: 'Edited offline' } }])
         expect(await snapshot(db)).toMatchObject({ documents: [{ id: 'd-9', version: 1 }], outbox: [] })
     })
 })

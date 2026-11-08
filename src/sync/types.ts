@@ -5,6 +5,7 @@ import type { components } from '@/api/schema'
 │  the rows the local database holds, and the outbox entry
 ├─ out ───────────────────────────────────────────
 │      Ticket, TicketFields, Epic, Sprint, Milestone, Label, Doc, DocFields, Team, Project, Status, StatusFields, NewStatus
+│      DocFolder, DocFolderFields, NewDocFolder
 │      Board, BoardColumn, BoardFields, NewBoard, BoardConflict
 │      SavedView, SavedViewConfig, SavedViewFields, NewSavedView
 │      EntityName, EntityRows, EntryOf, OutboxEntry, EntryState, TicketConflict, DocConflict, TicketSyncState
@@ -75,6 +76,10 @@ export type Doc = {
     /** Where it is filed. Fixed at creation; at most one is set. */
     team_id: string | null
     project_id: string | null
+    /** The folder of its project it is filed in; null at the project's top level, and
+     *  always for a document with no project. A row stored before folders existed has
+     *  none until the next hydration: read it with `?? null`. */
+    folder_id: string | null
     /** Field id -> Markdown. A normal document keeps its text under `content`. */
     body: Record<string, string>
     /** 0 for a document the server has not seen yet; the server starts at 1. */
@@ -84,10 +89,23 @@ export type Doc = {
 }
 
 /** What `PUT /documents/{id}` replaces, so an outbox payload carries all four, and the project
- *  (LAM-138). The project goes to the server only when the edit changed it (see `documentEntity.send`). */
-export type DocFields = Pick<Doc, 'title' | 'type' | 'aspect_type_id' | 'body' | 'project_id'>
+ *  (LAM-138) and folder. Those two go to the server only when the edit changed them (see
+ *  `documentEntity.send`). */
+export type DocFields = Pick<Doc, 'title' | 'type' | 'aspect_type_id' | 'body' | 'project_id' | 'folder_id'>
 
-export type NewDoc = DocFields & Pick<Doc, 'team_id'>
+/** A new document; with no `folder_id` it goes at its project's top level. */
+export type NewDoc = Omit<DocFields, 'folder_id'> & Partial<Pick<DocFields, 'folder_id'>> & Pick<Doc, 'team_id'>
+
+/** A folder of a project's documents. Folders nest: `parent_id` is the folder it is
+ *  inside, of the same project, or null at the project's top level. The server keeps
+ *  no version for one (no `If-Match`, none on a change feed frame), so `version` is
+ *  always 1, as for a label. */
+export type DocFolder = { id: string; project_id: string; parent_id: string | null; name: string; version: number }
+
+/** What a user edits: its name, and where it sits. A folder never changes project. */
+export type DocFolderFields = Pick<DocFolder, 'name' | 'parent_id'>
+
+export type NewDocFolder = DocFolderFields & Pick<DocFolder, 'project_id'>
 
 export type Team = { id: string; workspace_id: string; name: string }
 
@@ -281,7 +299,18 @@ export type EntryKind = 'create' | 'update' | 'archive' | 'unarchive'
 
 /** Every kind of thing the sync engine carries. Adding one means adding it to
  *  the four maps below and registering it (`entities/index.ts`). */
-export type EntityName = 'ticket' | 'document' | 'status' | 'board' | 'epic' | 'sprint' | 'milestone' | 'label' | 'saved_view' | 'comment'
+export type EntityName =
+    | 'ticket'
+    | 'document'
+    | 'status'
+    | 'board'
+    | 'epic'
+    | 'sprint'
+    | 'milestone'
+    | 'label'
+    | 'saved_view'
+    | 'comment'
+    | 'document_folder'
 
 /** The row each entity keeps locally. */
 export type EntityRows = {
@@ -295,6 +324,7 @@ export type EntityRows = {
     label: Label
     saved_view: SavedView
     comment: Comment
+    document_folder: DocFolder
 }
 /** What a user edits; `PUT` replaces all of it. */
 export type EntityFields = {
@@ -308,6 +338,7 @@ export type EntityFields = {
     label: LabelFields
     saved_view: SavedViewFields
     comment: CommentFields
+    document_folder: DocFolderFields
 }
 /** What a create carries. */
 export type EntityCreates = {
@@ -321,6 +352,7 @@ export type EntityCreates = {
     label: LabelFields & Pick<Label, 'team_id'>
     saved_view: NewSavedView
     comment: NewComment
+    document_folder: NewDocFolder
 }
 /** What an archive carries. A ticket or document archive needs nothing; deleting
  *  a status says where its tickets go (`move_to`, a status of the same team). */
@@ -335,6 +367,7 @@ export type EntityArchives = {
     label: null
     saved_view: null
     comment: null
+    document_folder: null
 }
 /** The body of a 409, kept on the entry so LAM-71 can show both sides. */
 export type EntityConflicts = {
@@ -348,6 +381,7 @@ export type EntityConflicts = {
     label: ReadOnlyConflict<Label>
     saved_view: ReadOnlyConflict<SavedView>
     comment: ReadOnlyConflict<Comment>
+    document_folder: ReadOnlyConflict<DocFolder>
 }
 
 type EntryBase<N extends EntityName> = {
@@ -413,6 +447,7 @@ export type SprintEntry = EntryOf<'sprint'>
 export type MilestoneEntry = EntryOf<'milestone'>
 export type SavedViewEntry = EntryOf<'saved_view'>
 export type CommentEntry = EntryOf<'comment'>
+export type DocFolderEntry = EntryOf<'document_folder'>
 
 /** An entry before IndexedDB has numbered it. */
 export type NewOutboxEntry = OutboxEntry extends infer E ? (E extends unknown ? Omit<E, 'id'> : never) : never

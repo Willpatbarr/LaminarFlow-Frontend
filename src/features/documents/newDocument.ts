@@ -6,7 +6,7 @@ import { CONTENT_KEY } from './content'
 ┌─ documents ─────────────────────────────────────
 │  makeDocument: the one way a new document is made and opened (LAM-97, LAM-115)
 ├─ out ───────────────────────────────────────────
-│      makeDocument(navigate, { aspectTypeId?, projectId?, teamId? })   creates locally, then opens it
+│      makeDocument(navigate, { aspectTypeId?, projectId?, teamId?, folderId? })   creates locally, then opens it
 │      defaultTeamId()   the team a team-wide document is filed under when none is given
 */
 // The team a team-wide document goes under when the caller names none: the picked
@@ -20,7 +20,7 @@ export function defaultTeamId(): string | null {
 // so this works offline.
 export async function makeDocument(
     navigate: (path: string) => void,
-    options: { aspectTypeId?: string | null; projectId?: string | null; teamId?: string | null } = {},
+    options: { aspectTypeId?: string | null; projectId?: string | null; teamId?: string | null; folderId?: string | null } = {},
 ) {
     const aspectTypeId = options.aspectTypeId ?? null
     // In a project, or team-wide: under a team, so that "team-wide" is true (LAM-138).
@@ -32,6 +32,8 @@ export async function makeDocument(
         aspect_type_id: aspectTypeId,
         team_id: teamId,
         project_id: projectId,
+        // A folder is one of a project's, so only a project's document is filed in one.
+        folder_id: projectId ? (options.folderId ?? null) : null,
         body: aspectTypeId ? {} : { [CONTENT_KEY]: '' },
     })
     navigate(`/documents/${document.id}`)

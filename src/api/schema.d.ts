@@ -680,6 +680,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/document-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a folder in a project's documents
+         * @description A folder belongs to one project and may sit inside another folder of it. Announced as `document_folder.created`.
+         */
+        post: operations["create-document-folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-folders/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List document folders (a read - POST for the body)
+         * @description By project, then name. Always one page: `next_cursor` is null and `has_more` false.
+         */
+        post: operations["list-document-folders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one document folder */
+        get: operations["get-document-folder"];
+        /**
+         * Rename or move a document folder
+         * @description Each member is optional and an omitted one is left alone. A folder moves with everything in it, and only within its project. Announced as `document_folder.updated`.
+         */
+        put: operations["update-document-folder"];
+        post?: never;
+        /**
+         * Delete a folder; what it held moves up a level
+         * @description Deletes no documents. The folder's documents and sub-folders move into its parent (the project's top level for a top-level folder). Each document moved is a write: its `version` rises and it is announced as `document.updated`; each sub-folder moved is announced as `document_folder.updated`; then the folder itself as `document_folder.deleted`.
+         */
+        delete: operations["delete-document-folder"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents": {
         parameters: {
             query?: never;
@@ -733,7 +798,7 @@ export interface paths {
         get: operations["get-document"];
         /**
          * Replace a document's title, type and body
-         * @description PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. A document's team is fixed at creation; its project can be changed with `project_id` (a uuid, or null for a team-wide document with no project), and is left alone when `project_id` is omitted. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.
+         * @description PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. A document's team is fixed at creation; its project can be changed with `project_id` (a uuid, or null for a team-wide document with no project), and is left alone when `project_id` is omitted. Its folder is changed the same way with `folder_id`; moving it to another project without one takes it out of its folder. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.
          */
         put: operations["update-document"];
         post?: never;
@@ -2156,6 +2221,11 @@ export interface components {
             };
             /**
              * Format: uuid
+             * @description File the document in a folder of its project. Needs project_id; without one it is a 422 folder_needs_project at body.folder_id. A folder that is not one of the project's: 422 folder_not_found at body.folder_id.
+             */
+            folder_id?: string | null;
+            /**
+             * Format: uuid
              * @description File the document under a project. Not the caller's: 422 project_not_found at body.project_id.
              */
             project_id?: string | null;
@@ -2184,6 +2254,26 @@ export interface components {
             /** @description 1 to 100 characters (not bytes), and not only whitespace. */
             name: string;
             /** Format: uuid */
+            project_id: string;
+        };
+        CreateFolderInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateFolderInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description 1 to 100 characters (not bytes), and not only whitespace. Need not be unique. */
+            name: string;
+            /**
+             * Format: uuid
+             * @description Make the folder inside this folder of the same project. Omit or null for the project's top level. Not one of the project's: 422 folder_not_found at body.parent_id.
+             */
+            parent_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Not the caller's: 422 project_not_found at body.project_id.
+             */
             project_id: string;
         };
         CreateLabelInputBody: {
@@ -2473,6 +2563,8 @@ export interface components {
             };
             /** Format: date-time */
             created_at: string;
+            /** @description The folder of its project the document is filed in. Null at the project's top level, and always for a document with no project. */
+            folder_id: string | null;
             id: string;
             /** @description The project the document is filed under. Null for a team's or a workspace-level document. */
             project_id: string | null;
@@ -2564,6 +2656,8 @@ export interface components {
             };
             /** Format: date-time */
             created_at: string;
+            /** @description The folder of its project the document is filed in. Null at the project's top level, and always for a document with no project. */
+            folder_id: string | null;
             id: string;
             /** @description The project the document is filed under. Null for a team's or a workspace-level document. */
             project_id: string | null;
@@ -2682,6 +2776,23 @@ export interface components {
              * @description Documents of this type that hold a value under the field's id, archived ones included. Zero means removing the field loses nothing.
              */
             document_count: number;
+        };
+        FolderBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/FolderBody.json
+             */
+            readonly $schema?: string;
+            /** Format: date-time */
+            created_at: string;
+            id: string;
+            name: string;
+            /** @description The folder this one is inside, of the same project. Null at the project's top level. */
+            parent_id: string | null;
+            project_id: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         Group: {
             conditions?: components["schemas"]["Condition"][] | null;
@@ -2883,6 +2994,18 @@ export interface components {
             /** @description Pass back as cursor for the next page. Null when there is none. */
             next_cursor: string | null;
         };
+        ListEnvelopeFolderBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListEnvelopeFolderBody.json
+             */
+            readonly $schema?: string;
+            has_more: boolean;
+            items: components["schemas"]["FolderBody"][] | null;
+            /** @description Pass back as cursor for the next page. Null when there is none. */
+            next_cursor: string | null;
+        };
         ListEnvelopeLabelBody: {
             /**
              * Format: uri
@@ -3000,6 +3123,19 @@ export interface components {
             readonly $schema?: string;
             /** Format: uuid */
             project_id: string;
+        };
+        ListFoldersInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListFoldersInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: uuid
+             * @description Only this project's folders. Omit for every folder the caller can see.
+             */
+            project_id?: string | null;
         };
         ListLabelsInputBody: {
             /**
@@ -3861,6 +3997,11 @@ export interface components {
             };
             /**
              * Format: uuid
+             * @description File the document in this folder of its project, or send null for the project's top level. Omit to leave it where it is; a move to another project without folder_id takes it out of its folder. The folder must be one of the project the document ends up in: 422 folder_not_found at body.folder_id; a document with no project: 422 folder_needs_project.
+             */
+            folder_id?: string | null;
+            /**
+             * Format: uuid
              * @description Move the document to this project, or send null to make it team-wide (no project). Omit to leave it where it is. Filing under a project clears a team_id; null files it under the team of the project it leaves. Not the caller's: 422 project_not_found at body.project_id.
              */
             project_id?: string | null;
@@ -3881,6 +4022,20 @@ export interface components {
             readonly $schema?: string;
             description?: string;
             name?: string;
+        };
+        UpdateFolderInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/UpdateFolderInputBody.json
+             */
+            readonly $schema?: string;
+            name?: string;
+            /**
+             * Format: uuid
+             * @description Move the folder inside this folder of the same project, or send null for the project's top level. Omit to leave it where it is. Not one of the project's: 422 folder_not_found; the folder itself or one of its sub-folders: 422 folder_cycle. Both at body.parent_id.
+             */
+            parent_id?: string | null;
         };
         UpdateLabelInputBody: {
             /**
@@ -5310,6 +5465,171 @@ export interface operations {
         };
     };
     "delete-comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-document-folder": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFolderInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Idempotent-Replayed"?: "true" | "false";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-document-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListFoldersInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelopeFolderBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-document-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-document-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFolderInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-document-folder": {
         parameters: {
             query?: never;
             header?: never;

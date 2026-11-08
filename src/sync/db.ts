@@ -16,6 +16,7 @@ import {
     type Milestone,
     type Sprint,
     type Doc,
+    type DocFolder,
     type EntityName,
     type EntityRows,
     type NewOutboxEntry,
@@ -69,6 +70,8 @@ interface Schema extends DBSchema {
     server_saved_views: { key: string; value: SavedView }
     comments: { key: string; value: Comment }
     server_comments: { key: string; value: Comment }
+    document_folders: { key: string; value: DocFolder }
+    server_document_folders: { key: string; value: DocFolder }
     outbox: { key: number; value: OutboxEntry; indexes: { entity_id: string } }
 }
 
@@ -84,6 +87,7 @@ const ENTITY_STORES = {
     label: { rows: 'labels', server: 'server_labels' },
     saved_view: { rows: 'saved_views', server: 'server_saved_views' },
     comment: { rows: 'comments', server: 'server_comments' },
+    document_folder: { rows: 'document_folders', server: 'server_document_folders' },
 } as const satisfies Record<EntityName, { rows: keyof Schema; server: keyof Schema }>
 
 const STORES = [
@@ -110,6 +114,8 @@ const STORES = [
     'server_saved_views',
     'comments',
     'server_comments',
+    'document_folders',
+    'server_document_folders',
     'outbox',
 ] as const satisfies StoreNames<Schema>[]
 
@@ -138,6 +144,8 @@ type RowStore =
     | 'server_saved_views'
     | 'comments'
     | 'server_comments'
+    | 'document_folders'
+    | 'server_document_folders'
 
 export type Table<Row> = {
     get(id: string): Promise<Row | undefined>
@@ -199,6 +207,7 @@ export type Snapshot = {
     labels: Label[]
     savedViews: SavedView[]
     comments: Comment[]
+    folders: DocFolder[]
     outbox: OutboxEntry[]
 }
 
@@ -236,7 +245,10 @@ export const DB_NAME = 'laminarflow'
 //    every reader treats a missing one as "none".
 // 7  saved views are an entity too (LAM-118): `saved_views` / `server_saved_views`.
 // 8  comments are an entity too (LAM-112): `comments` / `server_comments`.
-export const DB_VERSION = 8
+// 9  document folders are an entity too: `document_folders` / `server_document_folders`.
+//    A document gains `folder_id`; the ones on disk have none until the next
+//    hydration, and every reader treats a missing one as "no folder".
+export const DB_VERSION = 9
 
 export type OpenOptions = {
     /** Makes the key for a create entry found without one. */
@@ -364,6 +376,10 @@ export async function openSyncDb(
                 upgrading.createObjectStore('comments', { keyPath: 'id' })
                 upgrading.createObjectStore('server_comments', { keyPath: 'id' })
             }
+            if (oldVersion < 9) {
+                upgrading.createObjectStore('document_folders', { keyPath: 'id' })
+                upgrading.createObjectStore('server_document_folders', { keyPath: 'id' })
+            }
             // One chain, one step after another: each step is a cursor over the
             // same store and they must not interleave.
             const steps: ((store: OldStore) => Promise<void>)[] = []
@@ -404,9 +420,10 @@ export async function openSyncDb(
                 'labels',
                 'saved_views',
                 'comments',
+                'document_folders',
                 'outbox',
             ])
-            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, comments, outbox] = await Promise.all([
+            const [teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, comments, folders, outbox] = await Promise.all([
                 tx.objectStore('teams').getAll(),
                 tx.objectStore('projects').getAll(),
                 tx.objectStore('statuses').getAll(),
@@ -419,10 +436,11 @@ export async function openSyncDb(
                 tx.objectStore('labels').getAll(),
                 tx.objectStore('saved_views').getAll(),
                 tx.objectStore('comments').getAll(),
+                tx.objectStore('document_folders').getAll(),
                 tx.objectStore('outbox').getAll(),
             ])
             await tx.done
-            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, comments, outbox }
+            return { teams, projects, statuses, tickets, documents, boards, epics, sprints, milestones, labels, savedViews, comments, folders, outbox }
         },
 
         async write(fn) {

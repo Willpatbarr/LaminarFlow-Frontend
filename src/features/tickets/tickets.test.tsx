@@ -497,6 +497,7 @@ describe('first-run setup', () => {
             'POST /api/v1/milestones/list': none,
             'POST /api/v1/labels/list': none,
             'POST /api/v1/saved-views/list': none,
+            'POST /api/v1/document-folders/list': none,
             'POST /api/v1/teams': async (request) => {
                 calls.push({ path: 'teams', body: await bodyOf(request) })
                 return ok(TEAM)
@@ -542,6 +543,7 @@ describe('first-run setup', () => {
             'POST /api/v1/milestones/list': none,
             'POST /api/v1/labels/list': none,
             'POST /api/v1/saved-views/list': none,
+            'POST /api/v1/document-folders/list': none,
             'POST /api/v1/teams': () => {
                 teamPosts += 1
                 teamCreated = true

@@ -885,6 +885,14 @@
             "description": "Field id to Markdown string. For an aspect document every key must be a field id of its type, or the answer is a 422 document_field_unknown at body.\u003ckey\u003e. A normal document keeps its text under content.",
             "type": "object"
           },
+          "folder_id": {
+            "description": "File the document in a folder of its project. Needs project_id; without one it is a 422 folder_needs_project at body.folder_id. A folder that is not one of the project's: 422 folder_not_found at body.folder_id.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "project_id": {
             "description": "File the document under a project. Not the caller's: 422 project_not_found at body.project_id.",
             "format": "uuid",
@@ -941,6 +949,44 @@
             "type": "string"
           },
           "project_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateFolderInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/CreateFolderInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 100 characters (not bytes), and not only whitespace. Need not be unique.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "parent_id": {
+            "description": "Make the folder inside this folder of the same project. Omit or null for the project's top level. Not one of the project's: 422 folder_not_found at body.parent_id.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_id": {
+            "description": "Not the caller's: 422 project_not_found at body.project_id.",
             "format": "uuid",
             "type": "string"
           }
@@ -1538,6 +1584,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "folder_id": {
+            "description": "The folder of its project the document is filed in. Null at the project's top level, and always for a document with no project.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -1584,6 +1637,7 @@
           "aspect_type_id",
           "team_id",
           "project_id",
+          "folder_id",
           "body",
           "version",
           "created_at",
@@ -1716,6 +1770,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "folder_id": {
+            "description": "The folder of its project the document is filed in. Null at the project's top level, and always for a document with no project.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -1773,6 +1834,7 @@
           "aspect_type_id",
           "team_id",
           "project_id",
+          "folder_id",
           "body",
           "version",
           "created_at",
@@ -1968,6 +2030,53 @@
         },
         "required": [
           "document_count"
+        ],
+        "type": "object"
+      },
+      "FolderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/FolderBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parent_id": {
+            "description": "The folder this one is inside, of the same project. Null at the project's top level.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "parent_id",
+          "name",
+          "created_at",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -2502,6 +2611,45 @@
         ],
         "type": "object"
       },
+      "ListEnvelopeFolderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListEnvelopeFolderBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FolderBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass back as cursor for the next page. Null when there is none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "type": "object"
+      },
       "ListEnvelopeLabelBody": {
         "additionalProperties": false,
         "properties": {
@@ -2873,6 +3021,29 @@
         "required": [
           "project_id"
         ],
+        "type": "object"
+      },
+      "ListFoldersInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/ListFoldersInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "project_id": {
+            "description": "Only this project's folders. Omit for every folder the caller can see.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "type": "object"
       },
       "ListLabelsInputBody": {
@@ -4871,6 +5042,14 @@
             "description": "The complete body: it replaces the stored one. When a normal document becomes an aspect one, its text (content, from here if sent, else the stored body) moves into the type's first field - by position, then label - unless this body fills that field itself; a type with no fields is a 422 aspect_type_has_no_fields at body.aspect_type_id.",
             "type": "object"
           },
+          "folder_id": {
+            "description": "File the document in this folder of its project, or send null for the project's top level. Omit to leave it where it is; a move to another project without folder_id takes it out of its folder. The folder must be one of the project the document ends up in: 422 folder_not_found at body.folder_id; a document with no project: 422 folder_needs_project.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "project_id": {
             "description": "Move the document to this project, or send null to make it team-wide (no project). Omit to leave it where it is. Filing under a project clears a team_id; null files it under the team of the project it leaves. Not the caller's: 422 project_not_found at body.project_id.",
             "format": "uuid",
@@ -4918,6 +5097,34 @@
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateFolderInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v1/schemas/UpdateFolderInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "parent_id": {
+            "description": "Move the folder inside this folder of the same project, or send null for the project's top level. Omit to leave it where it is. Not one of the project's: 422 folder_not_found; the folder itself or one of its sub-folders: 422 folder_cycle. Both at body.parent_id.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -7038,6 +7245,230 @@
         "summary": "Edit a comment's body (author only)"
       }
     },
+    "/api/v1/document-folders": {
+      "post": {
+        "description": "A folder belongs to one project and may sit inside another folder of it. Announced as `document_folder.created`.",
+        "operationId": "create-document-folder",
+        "parameters": [
+          {
+            "description": "Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "Makes the create safe to retry. The same key from the same account, on this operation, returns the resource the first call created instead of creating another - its current state, with Idempotent-Replayed: true, and no second change-feed event. 1 to 128 printable ASCII characters; a UUID is ideal. Keys are per account and operation. A replay ignores the body it carries: send a new key for a different resource. If the resource has since been deleted, the key is free and the request creates anew. Omit it for a plain create.",
+              "examples": [
+                "2b0a7c9e-5d1f-4c8e-9a53-0f2f8d6b1e47"
+              ],
+              "maxLength": 128,
+              "pattern": "^[ -~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFolderInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Idempotent-Replayed": {
+                "schema": {
+                  "description": "Only when Idempotency-Key was sent. true: that key had been used, nothing was created, and the body is the original resource as it is now. false: this request created it.",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a folder in a project's documents"
+      }
+    },
+    "/api/v1/document-folders/list": {
+      "post": {
+        "description": "By project, then name. Always one page: `next_cursor` is null and `has_more` false.",
+        "operationId": "list-document-folders",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListFoldersInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelopeFolderBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List document folders (a read - POST for the body)"
+      }
+    },
+    "/api/v1/document-folders/{id}": {
+      "delete": {
+        "description": "Deletes no documents. The folder's documents and sub-folders move into its parent (the project's top level for a top-level folder). Each document moved is a write: its `version` rises and it is announced as `document.updated`; each sub-folder moved is announced as `document_folder.updated`; then the folder itself as `document_folder.deleted`.",
+        "operationId": "delete-document-folder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a folder; what it held moves up a level"
+      },
+      "get": {
+        "operationId": "get-document-folder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch one document folder"
+      },
+      "put": {
+        "description": "Each member is optional and an omitted one is left alone. A folder moves with everything in it, and only within its project. Announced as `document_folder.updated`.",
+        "operationId": "update-document-folder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFolderInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename or move a document folder"
+      }
+    },
     "/api/v1/documents": {
       "post": {
         "description": "A normal document keeps its text under `content`; an aspect document's body is keyed by the field ids of its aspect type. The body is indexed for search in the same transaction. Send `Idempotency-Key` to make the create safe to retry after a lost response. The first request with a key creates the document and answers `Idempotent-Replayed: false`; any later request with the same key from the same account creates nothing and answers `Idempotent-Replayed: true` with the original document as it is now - same status, 200, as a fresh create. A replay publishes nothing on the change feed. If the original has been archived the answer is a 409 `document_conflict` carrying it. The body of a replay is ignored.",
@@ -7269,7 +7700,7 @@
         "summary": "Fetch one document"
       },
       "put": {
-        "description": "PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. A document's team is fixed at creation; its project can be changed with `project_id` (a uuid, or null for a team-wide document with no project), and is left alone when `project_id` is omitted. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.",
+        "description": "PUT replaces wholesale, so send the complete body. Last write wins unless `If-Match` is sent; with it the write happens only if the document is still at that version, otherwise it is a 409 `document_conflict` carrying the current copy. Without it, a write to an archived document is `document_not_found`. A document's team is fixed at creation; its project can be changed with `project_id` (a uuid, or null for a team-wide document with no project), and is left alone when `project_id` is omitted. Its folder is changed the same way with `folder_id`; moving it to another project without one takes it out of its folder. Sending `type: aspect` with an `aspect_type_id` on a normal document turns it into an aspect document: see `body`.",
         "operationId": "update-document",
         "parameters": [
           {

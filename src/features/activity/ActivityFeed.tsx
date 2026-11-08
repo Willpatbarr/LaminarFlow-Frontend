@@ -145,6 +145,7 @@ export function ActivityFeed(props: ActivityFeedProps) {
         epic: (id) => sync.epics.find((e) => e.id === id)?.name,
         label: (id) => sync.labels.find((l) => l.id === id)?.name,
         milestone: (id) => sync.milestones.find((m) => m.id === id)?.name,
+        folder: (id) => sync.folders.find((f) => f.id === id)?.name,
         aspectType: (id) => aspectNames()[id],
     })
 

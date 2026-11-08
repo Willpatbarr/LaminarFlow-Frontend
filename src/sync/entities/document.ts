@@ -30,7 +30,9 @@ import type { Entity } from './entity'
 //  - the list takes no sort.
 //  - the team is fixed at creation. The project can be changed (LAM-138, `null`
 //    is "team-wide"), but the server leaves it alone when a PUT omits it, so an
-//    update names it only when this edit changed it: `was` has the key.
+//    update names it only when this edit changed it: `was` has the key. The
+//    folder is the same. A move to another project takes the document out of its
+//    folder on the server; the screens send `folder_id: null` with such a move.
 
 type DocumentBody = components['schemas']['DocumentBody']
 
@@ -42,6 +44,7 @@ export function toDoc(body: DocumentBody): Doc {
         aspect_type_id: body.aspect_type_id,
         team_id: body.team_id,
         project_id: body.project_id,
+        folder_id: body.folder_id ?? null,
         body: Object.fromEntries(Object.entries(body.body).filter((pair): pair is [string, string] => isString(pair[1]))),
         version: body.version,
         created_at: body.created_at,
@@ -50,7 +53,14 @@ export function toDoc(body: DocumentBody): Doc {
 }
 
 export function docFieldsOf(doc: DocFields): DocFields {
-    return { title: doc.title, type: doc.type, aspect_type_id: doc.aspect_type_id, project_id: doc.project_id, body: doc.body }
+    return {
+        title: doc.title,
+        type: doc.type,
+        aspect_type_id: doc.aspect_type_id,
+        project_id: doc.project_id,
+        folder_id: doc.folder_id ?? null,
+        body: doc.body,
+    }
 }
 
 function sameBody(a: Record<string, string>, b: Record<string, string>): boolean {
@@ -64,6 +74,7 @@ function sameFields(a: DocFields, b: DocFields): boolean {
         a.type === b.type &&
         a.aspect_type_id === b.aspect_type_id &&
         a.project_id === b.project_id &&
+        (a.folder_id ?? null) === (b.folder_id ?? null) &&
         sameBody(a.body, b.body)
     )
 }
@@ -83,6 +94,7 @@ function clash(current: Doc, was: Record<string, unknown>): string[] {
     if ('type' in was && was.type !== current.type) found.push('type')
     if ('aspect_type_id' in was && was.aspect_type_id !== current.aspect_type_id) found.push('aspect_type_id')
     if ('project_id' in was && was.project_id !== current.project_id) found.push('project_id')
+    if ('folder_id' in was && was.folder_id !== current.folder_id) found.push('folder_id')
     const body = textsOf(was.body)
     for (const key of Object.keys(body)) {
         if ((current.body[key] ?? '') !== (body[key] ?? '')) found.push(`body.${key}`)
@@ -106,6 +118,7 @@ function merge(mine: DocFields, current: Doc, was: Record<string, unknown>): Doc
         type: 'type' in was ? mine.type : current.type,
         aspect_type_id: 'aspect_type_id' in was ? mine.aspect_type_id : current.aspect_type_id,
         project_id: 'project_id' in was ? mine.project_id : current.project_id,
+        folder_id: 'folder_id' in was ? mine.folder_id : current.folder_id,
         body,
     }
 }
@@ -150,6 +163,7 @@ function readDoc(row: Record<string, unknown>): Doc | null {
         !isNullableString(row.aspect_type_id) ||
         !isNullableString(row.team_id) ||
         !isNullableString(row.project_id) ||
+        !(row.folder_id === undefined || isNullableString(row.folder_id)) ||
         typeof body !== 'object' ||
         body === null ||
         Array.isArray(body) ||
@@ -174,6 +188,7 @@ export const documentEntity: Entity<'document'> = {
         fromCreate: (id, payload, { at }) => ({
             id,
             ...payload,
+            folder_id: payload.folder_id ?? null,
             version: 0,
             created_at: at,
             updated_at: at,
@@ -209,11 +224,20 @@ export const documentEntity: Entity<'document'> = {
                     }
                     const params = { path: { id: entry.entity_id }, header: ifMatch(entry.base_version) }
                     if (entry.kind === 'update') {
-                        // The project only when this edit changed it: an edit of the text must not
-                        // put back a project somebody else has since changed.
-                        const { project_id, ...rest } = entry.payload
+                        // The project and the folder only when this edit changed them: an edit of
+                        // the text must not put back a project or folder somebody else has since
+                        // changed.
+                        const { project_id, folder_id, ...rest } = entry.payload
                         const moved = entry.was !== undefined && 'project_id' in entry.was
-                        return api.PUT('/api/v1/documents/{id}', { params, body: moved ? { ...rest, project_id } : rest })
+                        const filed = entry.was !== undefined && 'folder_id' in entry.was
+                        return api.PUT('/api/v1/documents/{id}', {
+                            params,
+                            body: {
+                                ...rest,
+                                ...(moved ? { project_id } : {}),
+                                ...(filed ? { folder_id: folder_id ?? null } : {}),
+                            },
+                        })
                     }
                     if (entry.kind === 'unarchive') return api.POST('/api/v1/documents/{id}/unarchive', { params })
                     return api.DELETE('/api/v1/documents/{id}', { params })

@@ -119,6 +119,7 @@ describe('the sync database', () => {
             labels: [],
             savedViews: [],
             comments: [],
+            folders: [],
             outbox: [],
         })
         expect(await db.getMeta('account_id')).toBeUndefined()

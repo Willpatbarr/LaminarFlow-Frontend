@@ -191,3 +191,15 @@ suite("describe", () => {
     ).toBe("Ann removed this from sprint a deleted sprint");
   });
 });
+
+suite("a document's folder", () => {
+  const withFolders: Names = { ...names, folder: (id) => ({ f1: "Specs" })[id] };
+  const moved = (after: string | null) =>
+    entry({ entity_type: "document", kind: "field_changed", field: "folder", summary_after: after });
+
+  it("names the folder a document moved into, or says it left its folder", () => {
+    expect(describe(moved("f1"), withFolders)).toBe("Ann moved this into the folder Specs");
+    expect(describe(moved(null), withFolders)).toBe("Ann moved this out of its folder");
+    expect(describe(moved("f-gone"), withFolders)).toBe("Ann moved this into the folder one that was removed");
+  });
+});
